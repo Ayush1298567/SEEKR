@@ -1,0 +1,27 @@
+{
+  "asset": {
+    "assetId": "spatial-rubble-video-1",
+    "kind": "spatial-video",
+    "uri": "local://spatial/rubble-training/east-corridor-spatial-video.mp4",
+    "previewUri": "fixture://spatial/rubble-training/east-corridor-video.preview.json",
+    "assetFormat": "mp4",
+    "coordinateSystem": "mission-local",
+    "bounds": { "x": 24, "y": 10, "width": 8, "height": 7 },
+    "sampleCount": 120,
+    "renderHints": { "color": "#e2ad4d", "timeline": true },
+    "sourceAdapter": "fixture-spatial",
+    "frameId": "map",
+    "createdAt": 1800000000000,
+    "position": { "x": 28, "y": 13, "z": 2 },
+    "orientation": { "yawDeg": 72 },
+    "confidence": 0.77,
+    "transformConfidence": 0.73,
+    "linkedDetectionIds": [],
+    "evidenceAssetIds": [],
+    "timeRange": { "startMs": 1800000000000, "endMs": 1800000030000 },
+    "metadata": {
+      "technique": "spatial-video-timeline",
+      "transcriptSourceTheme": "holographic video"
+    }
+  }
+}

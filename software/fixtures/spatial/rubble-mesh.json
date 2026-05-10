@@ -1,0 +1,27 @@
+{
+  "asset": {
+    "assetId": "spatial-rubble-mesh-1",
+    "kind": "mesh",
+    "uri": "local://spatial/rubble-training/atrium-mesh.glb",
+    "previewUri": "fixture://spatial/rubble-training/atrium-mesh.preview.json",
+    "assetFormat": "glb",
+    "coordinateSystem": "mission-local",
+    "bounds": { "x": 12, "y": 7, "width": 8, "height": 7 },
+    "sampleCount": 96,
+    "renderHints": { "color": "#b6c2cf", "wireframe": true },
+    "sourceAdapter": "fixture-spatial",
+    "frameId": "map",
+    "createdAt": 1800000000000,
+    "position": { "x": 16, "y": 10, "z": 1 },
+    "orientation": { "yawDeg": 4 },
+    "confidence": 0.82,
+    "transformConfidence": 0.79,
+    "linkedDetectionIds": [],
+    "evidenceAssetIds": [],
+    "metadata": {
+      "technique": "photogrammetry-mesh",
+      "triangleCount": 9320,
+      "transcriptSourceTheme": "digital twin mesh"
+    }
+  }
+}

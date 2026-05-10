@@ -1,0 +1,3 @@
+{"type":"telemetry","vehicleId":"ardupilot-sitl-1","receivedAtMs":1800000000000,"armed":true,"mode":"LOITER","position":{"x":14,"y":15,"z":7},"home":{"x":8,"y":8,"z":0},"batteryPct":84,"linkQuality":86,"estimatorQuality":82,"preflightOk":true}
+{"type":"command","commandId":"ardupilot-process-hold","vehicleId":"ardupilot-sitl-1","kind":"hold","transport":"sitl","reason":"process IO hold trace","requestedAtMs":1800000001000}
+{"type":"command","commandId":"ardupilot-process-hardware-rth","vehicleId":"ardupilot-sitl-1","kind":"return-home","transport":"hardware","reason":"hardware command must stay locked","requestedAtMs":1800000002000}

@@ -1,0 +1,5 @@
+{
+  "type": "UNSUPPORTED_VENDOR_MESSAGE",
+  "sysid": "mav-drone-1",
+  "payload": "ignored by V1 read-only mapper"
+}

@@ -1,0 +1,34 @@
+{
+  "importId": "fixture-mission-events-replay-parity",
+  "events": [
+    {
+      "eventId": "evt-00000001",
+      "missionId": "seekr-local-v1",
+      "seq": 1,
+      "type": "telemetry.ingested",
+      "actor": "adapter",
+      "createdAt": 1800000000000,
+      "payload": {
+        "sample": {
+          "sampleId": "fixture-replay-telemetry-1",
+          "droneId": "drone-1",
+          "receivedAt": 1800000000000,
+          "heartbeat": true,
+          "batteryPct": 89,
+          "position": {
+            "x": 7,
+            "y": 8,
+            "z": 2
+          },
+          "mode": "AUTO",
+          "status": "exploring",
+          "estimatorQuality": 93,
+          "linkQuality": 88,
+          "sourceAdapter": "fixture-replay"
+        }
+      },
+      "prevHash": "GENESIS",
+      "hash": "38adc536cbddfed27fed6e08f8af5880702fe7e82e8b22480635f6a0a09dbc18"
+    }
+  ]
+}

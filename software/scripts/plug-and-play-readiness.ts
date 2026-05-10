@@ -1,0 +1,900 @@
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
+import { validateSourceControlHandoffManifest } from "./source-control-handoff";
+
+type PlugAndPlayCheckStatus = "pass" | "warn" | "fail" | "blocked";
+
+export interface PlugAndPlayCheck {
+  id: string;
+  requirement: string;
+  status: PlugAndPlayCheckStatus;
+  details: string;
+  evidence: string[];
+}
+
+export interface PlugAndPlayReadinessManifest {
+  schemaVersion: 1;
+  generatedAt: string;
+  status: "ready-local-plug-and-play-real-world-blocked" | "blocked-local-plug-and-play" | "complete";
+  localPlugAndPlayOk: boolean;
+  complete: boolean;
+  commandUploadEnabled: false;
+  ai: {
+    implemented: boolean;
+    provider?: string;
+    model?: string;
+    caseCount?: number;
+  };
+  summary: {
+    pass: number;
+    warn: number;
+    fail: number;
+    blocked: number;
+  };
+  checks: PlugAndPlayCheck[];
+  remainingRealWorldBlockers: string[];
+  remainingRealWorldBlockerCount: number;
+  safetyBoundary: {
+    realAircraftCommandUpload: false;
+    hardwareActuationEnabled: false;
+    runtimePolicyInstalled: false;
+  };
+  limitations: string[];
+}
+
+const DEFAULT_OUT_DIR = ".tmp/plug-and-play-readiness";
+const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
+
+const REQUIRED_COMMANDS = [
+  "setup:local",
+  "doctor",
+  "dev",
+  "rehearsal:start",
+  "server",
+  "client",
+  "build",
+  "preview",
+  "check",
+  "acceptance",
+  "test:ai:local",
+  "smoke:rehearsal:start",
+  "qa:gstack",
+  "audit:completion",
+  "demo:package",
+  "bench:evidence:packet",
+  "handoff:index",
+  "handoff:verify",
+  "audit:gstack",
+  "audit:source-control",
+  "audit:todo",
+  "audit:plug-and-play",
+  "handoff:bundle",
+  "handoff:bundle:verify",
+  "audit:goal"
+];
+
+const REQUIRED_ENV_EXAMPLE_SIGNALS = [
+  "PORT=8787",
+  "SEEKR_API_PORT=8787",
+  "SEEKR_CLIENT_PORT=5173",
+  "SEEKR_DATA_DIR=data",
+  "SEEKR_ENV_FILE=.env",
+  "SEEKR_LOAD_DOTENV=false",
+  "SEEKR_AI_PROVIDER=ollama",
+  "SEEKR_OLLAMA_URL=http://127.0.0.1:11434",
+  "SEEKR_OLLAMA_MODEL=llama3.2:latest",
+  "SEEKR_OLLAMA_TIMEOUT_MS=20000"
+];
+
+const REQUIRED_DOCTOR_CHECK_IDS = ["package-scripts", "runtime-dependencies", "repository-safety", "source-control-handoff", "operator-start", "operator-env", "local-ai", "local-ports", "data-dir", "safety-boundary"];
+const SOFT_DOCTOR_CHECK_IDS = new Set(["source-control-handoff", "local-ports", "data-dir"]);
+const REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE = [
+  "package.json engines.node",
+  "package.json engines.npm",
+  "package.json packageManager",
+  "package-lock.json",
+  "package-lock.json packages[\"\"].engines",
+  "node_modules/.bin/tsx",
+  "node_modules/.bin/concurrently",
+  "node_modules/.bin/vite"
+];
+
+export async function buildPlugAndPlayReadiness(options: {
+  root?: string;
+  generatedAt?: string;
+} = {}): Promise<PlugAndPlayReadinessManifest> {
+  const root = path.resolve(options.root ?? process.cwd());
+  const generatedAt = options.generatedAt ?? new Date().toISOString();
+  const checks = [
+    await commandSurfaceCheck(root),
+    await operatorSetupCheck(root),
+    await operatorDoctorCheck(root),
+    await sourceControlHandoffCheck(root),
+    await operatorStartCheck(root),
+    await operatorStartSmokeCheck(root),
+    await operatorQuickstartDocCheck(root),
+    await envExampleCheck(root),
+    await envLoaderCheck(root),
+    await buildOutputCheck(root),
+    await acceptanceAndAiCheck(root),
+    await apiProbeCheck(root),
+    await workflowQaCheck(root),
+    await reviewBundleCheck(root),
+    await completionBoundaryCheck(root)
+  ];
+  const summary = {
+    pass: checks.filter((check) => check.status === "pass").length,
+    warn: checks.filter((check) => check.status === "warn").length,
+    fail: checks.filter((check) => check.status === "fail").length,
+    blocked: checks.filter((check) => check.status === "blocked").length
+  };
+  const completion = await latestJson(root, ".tmp/completion-audit", (name) => name.startsWith("seekr-completion-audit-"));
+  const completionManifest = completion ? await readJson(completion.absolutePath) : undefined;
+  const remainingRealWorldBlockers = isRecord(completionManifest) && Array.isArray(completionManifest.realWorldBlockers)
+    ? completionManifest.realWorldBlockers.map(String)
+    : [];
+  const localPlugAndPlayOk = summary.fail === 0;
+  const complete = localPlugAndPlayOk && remainingRealWorldBlockers.length === 0;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
+
+  return {
+    schemaVersion: 1,
+    generatedAt,
+    status: complete ? "complete" : localPlugAndPlayOk ? "ready-local-plug-and-play-real-world-blocked" : "blocked-local-plug-and-play",
+    localPlugAndPlayOk,
+    complete,
+    commandUploadEnabled: false,
+    ai: {
+      implemented: Boolean(strictLocalAi?.ok),
+      provider: stringOrUndefined(strictLocalAi?.provider),
+      model: stringOrUndefined(strictLocalAi?.model),
+      caseCount: typeof strictLocalAi?.caseCount === "number" ? strictLocalAi.caseCount : undefined
+    },
+    summary,
+    checks,
+    remainingRealWorldBlockers,
+    remainingRealWorldBlockerCount: remainingRealWorldBlockers.length,
+    safetyBoundary: {
+      realAircraftCommandUpload: false,
+      hardwareActuationEnabled: false,
+      runtimePolicyInstalled: false
+    },
+    limitations: [
+      "This audit proves local plug-and-play readiness for the checked software, AI, QA, and handoff evidence surface.",
+      "It does not prove actual Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim to Jetson capture, or hardware-actuation policy approval.",
+      "Real command upload and hardware actuation remain disabled."
+    ]
+  };
+}
+
+export async function writePlugAndPlayReadiness(options: Parameters<typeof buildPlugAndPlayReadiness>[0] & {
+  outDir?: string;
+} = {}) {
+  const root = path.resolve(options.root ?? process.cwd());
+  const outDir = resolveArtifactOutDir(root, options.outDir ?? DEFAULT_OUT_DIR);
+  const manifest = await buildPlugAndPlayReadiness(options);
+  const safeTimestamp = safeIsoTimestampForFileName(manifest.generatedAt);
+  const baseName = `seekr-plug-and-play-readiness-${safeTimestamp}`;
+  const jsonPath = path.join(outDir, `${baseName}.json`);
+  const markdownPath = path.join(outDir, `${baseName}.md`);
+
+  await mkdir(outDir, { recursive: true });
+  await writeFile(jsonPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await writeFile(markdownPath, renderMarkdown(manifest), "utf8");
+
+  return { manifest, jsonPath, markdownPath };
+}
+
+async function commandSurfaceCheck(root: string): Promise<PlugAndPlayCheck> {
+  const packageJson = await readJson(path.join(root, "package.json"));
+  const scripts = isRecord(packageJson) && isRecord(packageJson.scripts) ? packageJson.scripts : {};
+  const missing = REQUIRED_COMMANDS.filter((command) => typeof scripts[command] !== "string");
+  return {
+    id: "command-surface",
+    requirement: "Plug-and-play operation exposes run, build, AI, QA, acceptance, and handoff commands.",
+    status: missing.length ? "fail" : "pass",
+    details: missing.length
+      ? `Missing package scripts: ${missing.join(", ")}.`
+      : "Run, build, AI, QA, acceptance, and handoff package scripts are present.",
+    evidence: ["package.json", ...REQUIRED_COMMANDS.map((command) => `package.json scripts.${command}`)]
+  };
+}
+
+async function operatorSetupCheck(root: string): Promise<PlugAndPlayCheck> {
+  const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
+  const manifest = setup ? await readJson(setup.absolutePath) : undefined;
+  const script = await readText(path.join(root, "scripts/local-setup.ts"));
+  const test = await readText(path.join(root, "src/server/__tests__/localSetup.test.ts"));
+  const problems: string[] = [];
+
+  if (!script) problems.push("scripts/local-setup.ts is missing");
+  for (const signal of ["writeLocalSetup", "envCreated", "envAlreadyExisted", "rehearsal-data-dir", "SEEKR_COMMAND_UPLOAD_ENABLED=true"]) {
+    if (script && !script.includes(signal)) problems.push(`scripts/local-setup.ts missing ${signal}`);
+  }
+  if (!test) problems.push("src/server/__tests__/localSetup.test.ts is missing");
+  for (const signal of ["does not overwrite an existing env file", "blocks env output paths outside the project root", "blocks setup when env example defaults are missing"]) {
+    if (test && !test.includes(signal)) problems.push(`localSetup.test.ts missing ${signal}`);
+  }
+  if (!plugAndPlaySetupOk(manifest)) problems.push("latest plug-and-play setup artifact must pass local env/data preparation with commandUploadEnabled false");
+
+  return {
+    id: "operator-setup",
+    requirement: "A local setup command prepares operator env/data files without overwriting edits or enabling command authority.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : "Latest plug-and-play setup artifact proves non-destructive .env preparation, project-local rehearsal data setup, and disabled command upload.",
+    evidence: [
+      "scripts/local-setup.ts",
+      "src/server/__tests__/localSetup.test.ts",
+      setup?.relativePath ?? ".tmp/plug-and-play-setup"
+    ].filter(isString)
+  };
+}
+
+async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
+  const doctor = await latestJson(root, ".tmp/plug-and-play-doctor", (name) => name.startsWith("seekr-plug-and-play-doctor-"));
+  const manifest = doctor ? await readJson(doctor.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const script = await readText(path.join(root, "scripts/plug-and-play-doctor.ts"));
+  const test = await readText(path.join(root, "src/server/__tests__/plugAndPlayDoctor.test.ts"));
+  const problems: string[] = [];
+
+  if (!script) problems.push("scripts/plug-and-play-doctor.ts is missing");
+  for (const signal of [
+    "buildPlugAndPlayDoctor",
+    "writePlugAndPlayDoctor",
+    "runtime-dependencies",
+    "repository-safety",
+    "source-control-handoff",
+    "packageManager",
+    "engines.node",
+    ".npmrc",
+    "node_modules/.bin/concurrently",
+    "node_modules/.bin/vite",
+    "local-ai",
+    "local-ports",
+    "SEEKR_COMMAND_UPLOAD_ENABLED"
+  ]) {
+    if (script && !script.includes(signal)) problems.push(`scripts/plug-and-play-doctor.ts missing ${signal}`);
+  }
+  if (!test) problems.push("src/server/__tests__/plugAndPlayDoctor.test.ts is missing");
+  for (const signal of ["local runtime dependencies have not been installed", "repository safety policy", "configured Ollama model is unavailable", "local start ports are already occupied", "unsafe local environment flags", "rehearsal start wrapper skips the doctor preflight"]) {
+    if (test && !test.includes(signal)) problems.push(`plugAndPlayDoctor.test.ts missing ${signal}`);
+  }
+  if (!isRecord(manifest)) problems.push("latest plug-and-play doctor artifact is missing or malformed");
+  if (isRecord(manifest) && manifest.ok !== true) problems.push("latest plug-and-play doctor must pass");
+  if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("latest plug-and-play doctor must keep commandUploadEnabled false");
+  if (isRecord(manifest) && manifest.status !== "ready-local-start") problems.push("latest plug-and-play doctor must report ready-local-start");
+  const checks = isRecord(manifest) && Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
+  const checkIds = new Set(checks.map((check) => String(check.id ?? "")));
+  const missingCheckIds = isRecord(manifest) ? REQUIRED_DOCTOR_CHECK_IDS.filter((id) => !checkIds.has(id)) : [];
+  if (missingCheckIds.length) problems.push(`latest plug-and-play doctor is missing required check(s): ${missingCheckIds.join(", ")}`);
+  const badCheckIds = isRecord(manifest) ? REQUIRED_DOCTOR_CHECK_IDS.filter((id) => !doctorCheckStatusOk(checks, id)) : [];
+  if (badCheckIds.length) problems.push(`latest plug-and-play doctor has non-passing critical check(s): ${badCheckIds.join(", ")}`);
+  if (isRecord(manifest) && !doctorRuntimeDependencyEvidenceOk(checks)) {
+    problems.push(`latest plug-and-play doctor runtime-dependencies check must preserve evidence for ${REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE.join(", ")}`);
+  }
+  const ai = isRecord(manifest) && isRecord(manifest.ai) ? manifest.ai : undefined;
+  if (ai && (ai.provider !== "ollama" || ai.status !== "pass")) problems.push("latest plug-and-play doctor must prove local Ollama is reachable");
+  const doctorGeneratedAt = isRecord(manifest) ? timeMs(manifest.generatedAt) : undefined;
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
+  if (acceptanceGeneratedAt !== undefined && doctorGeneratedAt === undefined) {
+    problems.push("latest plug-and-play doctor must record a parseable generatedAt timestamp");
+  } else if (acceptanceGeneratedAt !== undefined && doctorGeneratedAt !== undefined && doctorGeneratedAt < acceptanceGeneratedAt) {
+    problems.push("latest plug-and-play doctor must be newer than or equal to the latest acceptance record");
+  }
+
+  return {
+    id: "operator-doctor",
+    requirement: "A local operator has a runnable preflight command for laptop startup, local AI, ports, data directory, and safety flags.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : "Latest plug-and-play doctor artifact proves repository safety, local startup prerequisites, start-wrapper safety, local Ollama, ports, data directory, and disabled command upload.",
+    evidence: [
+      "scripts/plug-and-play-doctor.ts",
+      "src/server/__tests__/plugAndPlayDoctor.test.ts",
+      doctor?.relativePath ?? ".tmp/plug-and-play-doctor"
+    ].filter(isString)
+  };
+}
+
+function doctorCheckStatusOk(checks: Record<string, unknown>[], id: string) {
+  const check = checks.find((item) => item.id === id);
+  if (!check) return false;
+  if (check.status === "pass") return true;
+  return SOFT_DOCTOR_CHECK_IDS.has(id) && check.status === "warn";
+}
+
+function doctorRuntimeDependencyEvidenceOk(checks: Record<string, unknown>[]) {
+  const check = checks.find((item) => item.id === "runtime-dependencies");
+  if (!check) return false;
+  const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
+  const details = typeof check.details === "string" ? check.details : "";
+  const haystack = [details, ...evidence].join("\n");
+  return REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE.every((item) => haystack.includes(item));
+}
+
+async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck> {
+  const artifact = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+
+  if (!isRecord(manifest)) {
+    return {
+      id: "source-control-handoff",
+      requirement: "Source-control publication and GitHub handoff state are recorded separately from hardware readiness.",
+      status: "warn",
+      details: "No source-control handoff artifact exists; run npm run audit:source-control before claiming GitHub-published plug-and-play distribution.",
+      evidence: [".tmp/source-control-handoff"]
+    };
+  }
+  const validation = validateSourceControlHandoffManifest(manifest);
+  if (!validation.ok) {
+    return {
+      id: "source-control-handoff",
+      requirement: "Source-control publication and GitHub handoff state are recorded separately from hardware readiness.",
+      status: "fail",
+      details: `Source-control handoff artifact is unsafe or malformed: ${validation.problems.join("; ")}.`,
+      evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
+    };
+  }
+
+  return {
+    id: "source-control-handoff",
+    requirement: "Source-control publication and GitHub handoff state are recorded separately from hardware readiness.",
+    status: validation.blockedCheckIds.length || validation.warningCheckIds.length ? "warn" : "pass",
+    details: validation.blockedCheckIds.length
+      ? `Source-control handoff is not ready yet: ${validation.blockedCheckIds.join(", ")}.`
+      : validation.warningCheckIds.length
+        ? `Source-control handoff has warning(s): ${validation.warningCheckIds.join(", ")}.`
+        : "Source-control handoff artifact records local Git metadata plus GitHub remote refs/default branch.",
+    evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
+  };
+}
+
+async function operatorStartCheck(root: string): Promise<PlugAndPlayCheck> {
+  const packageJson = await readJson(path.join(root, "package.json"));
+  const scripts = isRecord(packageJson) && isRecord(packageJson.scripts) ? packageJson.scripts : {};
+  const startScript = await readText(path.join(root, "scripts/rehearsal-start.sh"));
+  const problems: string[] = [];
+
+  if (scripts["rehearsal:start"] !== "bash scripts/rehearsal-start.sh") {
+    problems.push("package.json scripts.rehearsal:start must point at bash scripts/rehearsal-start.sh");
+  }
+  if (!startScript) {
+    problems.push("scripts/rehearsal-start.sh is missing");
+  } else {
+    for (const signal of [
+      "set -euo pipefail",
+      ".tmp/rehearsal-data",
+      "SEEKR_EXPECTED_SOURCES",
+      "mavlink:telemetry:drone-1",
+      "ros2-slam:map",
+      "lidar-slam:lidar",
+      "isaac-nvblox:costmap",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "exec npm run dev"
+    ]) {
+      if (!startScript.includes(signal)) problems.push(`scripts/rehearsal-start.sh missing ${signal}`);
+    }
+    const setupIndex = startScript.indexOf("npm run setup:local");
+    const sourceControlIndex = startScript.indexOf("npm run audit:source-control");
+    const doctorIndex = startScript.indexOf("npm run doctor");
+    const devIndex = startScript.indexOf("exec npm run dev");
+    if (
+      setupIndex === -1 ||
+      sourceControlIndex === -1 ||
+      doctorIndex === -1 ||
+      devIndex === -1 ||
+      setupIndex > sourceControlIndex ||
+      sourceControlIndex > doctorIndex ||
+      doctorIndex > devIndex
+    ) {
+      problems.push("scripts/rehearsal-start.sh must run npm run setup:local before npm run audit:source-control before npm run doctor before exec npm run dev");
+    }
+  }
+
+  return {
+    id: "operator-start",
+    requirement: "A local operator has one command that starts a project-local rehearsal with expected read-only sources.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : "npm run rehearsal:start sets a project-local data directory, declares expected read-only sources, runs npm run setup:local, refreshes source-control handoff evidence, runs npm run doctor, and launches npm run dev.",
+    evidence: ["package.json scripts.rehearsal:start", "scripts/rehearsal-start.sh"]
+  };
+}
+
+async function operatorStartSmokeCheck(root: string): Promise<PlugAndPlayCheck> {
+  const packageJson = await readJson(path.join(root, "package.json"));
+  const scripts = isRecord(packageJson) && isRecord(packageJson.scripts) ? packageJson.scripts : {};
+  const script = await readText(path.join(root, "scripts/rehearsal-start-smoke.ts"));
+  const artifact = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
+  const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  const validation = validateRehearsalStartSmokeManifest(manifest);
+  const problems: string[] = [];
+
+  if (scripts["smoke:rehearsal:start"] !== "tsx scripts/rehearsal-start-smoke.ts") {
+    problems.push("package.json scripts.smoke:rehearsal:start must point at tsx scripts/rehearsal-start-smoke.ts");
+  }
+  if (!script) {
+    problems.push("scripts/rehearsal-start-smoke.ts is missing");
+  } else {
+    for (const signal of ["npm", "rehearsal:start", "/api/config", "/api/source-health", "/api/readiness", "commandUploadEnabled"]) {
+      if (!script.includes(signal)) problems.push(`scripts/rehearsal-start-smoke.ts missing ${signal}`);
+    }
+  }
+  if (!artifact) problems.push("latest rehearsal-start smoke artifact is missing");
+  if (artifact && !validation.ok) problems.push(`latest rehearsal-start smoke artifact is unsafe or malformed: ${validation.problems.join("; ")}`);
+
+  return {
+    id: "operator-start-smoke",
+    requirement: "The one-command operator start path has a bounded smoke proof for setup, doctor, API/client startup, source health, readiness, and shutdown.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : "Latest rehearsal-start smoke artifact proves the wrapper can run setup, doctor, local API/client startup, source-health/readiness checks, and clean shutdown with command upload disabled.",
+    evidence: [
+      "package.json scripts.smoke:rehearsal:start",
+      "scripts/rehearsal-start-smoke.ts",
+      artifact?.relativePath ?? ".tmp/rehearsal-start-smoke"
+    ].filter(isString)
+  };
+}
+
+async function operatorQuickstartDocCheck(root: string): Promise<PlugAndPlayCheck> {
+  const content = await readText(path.join(root, OPERATOR_QUICKSTART_PATH));
+  const requiredSignals = [
+    "npm ci",
+    "npm run setup:local",
+    "npm run audit:source-control",
+    "npm run doctor",
+    "npm run rehearsal:start",
+    "Ollama",
+    "llama3.2:latest",
+    "/api/config",
+    "/api/readiness",
+    "/api/source-health",
+    "/api/verify",
+    "/api/replays",
+    "command upload",
+    "hardware actuation",
+    "real-world blockers"
+  ];
+  const missing = requiredSignals.filter((signal) => !content.includes(signal));
+  const sourceControlOrderOk = commandOrderOk(content, [
+    "npm run setup:local",
+    "npm run audit:source-control",
+    "npm run doctor",
+    "npm run rehearsal:start"
+  ]);
+  const problems = [...missing];
+  if (content && !missing.length && !sourceControlOrderOk) {
+    problems.push("npm run setup:local before npm run audit:source-control before npm run doctor before npm run rehearsal:start");
+  }
+
+  return {
+    id: "operator-quickstart-doc",
+    requirement: "The operator quickstart documents local setup, source-control audit, start, local AI, evidence checks, and safety limits for plug-and-play use.",
+    status: !content || problems.length ? "fail" : "pass",
+    details: !content
+      ? `${OPERATOR_QUICKSTART_PATH} is missing.`
+      : problems.length
+        ? `${OPERATOR_QUICKSTART_PATH} is missing plug-and-play signal(s): ${problems.join(", ")}.`
+        : "Operator quickstart covers local setup, source-control audit, start, Ollama AI, API evidence checks, source-health proof, and the disabled command/hardware boundary.",
+    evidence: [OPERATOR_QUICKSTART_PATH]
+  };
+}
+
+function commandOrderOk(content: string, commands: string[]) {
+  let lastIndex = -1;
+  for (const command of commands) {
+    const index = content.indexOf(command);
+    if (index <= lastIndex) return false;
+    lastIndex = index;
+  }
+  return true;
+}
+
+async function envExampleCheck(root: string): Promise<PlugAndPlayCheck> {
+  const content = await readText(path.join(root, ".env.example"));
+  const missing = REQUIRED_ENV_EXAMPLE_SIGNALS.filter((signal) => !content.includes(signal));
+  return {
+    id: "operator-env",
+    requirement: "A local operator can see the default API/client/data/AI environment knobs.",
+    status: missing.length ? "fail" : "pass",
+    details: missing.length
+      ? `.env.example is missing: ${missing.join(", ")}.`
+      : ".env.example documents local ports, data directory, env-file loading controls, and the default local Ollama provider, URL, model, and timeout.",
+    evidence: [".env.example"]
+  };
+}
+
+async function envLoaderCheck(root: string): Promise<PlugAndPlayCheck> {
+  const requiredFiles = [
+    {
+      path: "src/server/env.ts",
+      signals: ["export function loadLocalEnv", "parseEnvContent", "SEEKR_ENV_FILE", "SEEKR_LOAD_DOTENV", "outside-root"]
+    },
+    { path: "src/server/index.ts", signals: ["loadLocalEnv();"] },
+    { path: "src/server/config.ts", signals: ["loadLocalEnv();"] },
+    { path: "src/server/session.ts", signals: ["loadLocalEnv();"] },
+    { path: "src/server/ai/llamaProvider.ts", signals: ["loadLocalEnv();"] },
+    { path: "src/server/sourceHealth.ts", signals: ["loadLocalEnv();"] },
+    { path: "src/server/persistence.ts", signals: ["loadLocalEnv();"] },
+    { path: "src/server/api/auth.ts", signals: ["loadLocalEnv();"] },
+    {
+      path: "src/server/__tests__/envLoader.test.ts",
+      signals: ["does not override explicit environment variables", "outside the project root", "fills unset server AI settings"]
+    }
+  ];
+  const missing: string[] = [];
+  for (const item of requiredFiles) {
+    const content = await readText(path.join(root, item.path));
+    if (!content) {
+      missing.push(`${item.path} missing`);
+      continue;
+    }
+    for (const signal of item.signals) {
+      if (!content.includes(signal)) missing.push(`${item.path} missing ${signal}`);
+    }
+  }
+
+  return {
+    id: "env-loader",
+    requirement: "Local .env loading is implemented, project-root-contained, and covered by tests for copy-and-run operator setup.",
+    status: missing.length ? "fail" : "pass",
+    details: missing.length
+      ? missing.join("; ")
+      : "Project-local .env loading is wired into server/runtime config, preserves explicit shell values, rejects outside-root env files, and has focused tests.",
+    evidence: requiredFiles.map((item) => item.path)
+  };
+}
+
+async function buildOutputCheck(root: string): Promise<PlugAndPlayCheck> {
+  const required = ["dist/index.html"];
+  const missing = [];
+  for (const file of required) {
+    if (!(await pathExists(path.join(root, file)))) missing.push(file);
+  }
+  return {
+    id: "built-app",
+    requirement: "A production shell has been built and is available for preview smoke testing.",
+    status: missing.length ? "fail" : "pass",
+    details: missing.length
+      ? `Missing built production artifacts: ${missing.join(", ")}.`
+      : "Production shell exists under dist/.",
+    evidence: required
+  };
+}
+
+async function acceptanceAndAiCheck(root: string): Promise<PlugAndPlayCheck> {
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const release = await latestJson(root, ".tmp/release-evidence", (name) => name.startsWith("seekr-release-"));
+  const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
+  const releaseChecksum = isRecord(acceptance) && isRecord(acceptance.releaseChecksum) ? acceptance.releaseChecksum : {};
+  const problems: string[] = [];
+
+  if (!isRecord(acceptance) || acceptance.ok !== true) problems.push("acceptance status must pass");
+  if (!isRecord(acceptance) || acceptance.commandUploadEnabled !== false) problems.push("acceptance status must keep commandUploadEnabled false");
+  if (!isRecord(strictLocalAi) || strictLocalAi.ok !== true) problems.push("strict local AI evidence must pass");
+  if (isRecord(strictLocalAi) && strictLocalAi.provider !== "ollama") problems.push("strict local AI should use the local Ollama provider for plug-and-play AI readiness");
+  if (isRecord(strictLocalAi) && typeof strictLocalAi.model !== "string") problems.push("strict local AI must record the model");
+  if (isRecord(strictLocalAi) && Number(strictLocalAi.caseCount) < 4) problems.push("strict local AI must cover the expected smoke cases");
+  if (!release || normalizeArtifactPath(root, releaseChecksum.jsonPath) !== release.relativePath) problems.push("acceptance must point at the latest release checksum");
+
+  return {
+    id: "acceptance-ai",
+    requirement: "Latest acceptance is passing, tied to the release checksum, and includes local AI smoke evidence.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : `Acceptance is passing with local AI ${String(strictLocalAi.provider)} / ${String(strictLocalAi.model)} and release ${String(releaseChecksum.overallSha256 ?? "").slice(0, 12)}...`,
+    evidence: [".tmp/acceptance-status.json", release?.relativePath].filter(isString)
+  };
+}
+
+async function apiProbeCheck(root: string): Promise<PlugAndPlayCheck> {
+  const probe = await latestJson(root, ".tmp/api-probe", (name) => name.startsWith("seekr-api-probe-"));
+  const manifest = probe ? await readJson(probe.absolutePath) : undefined;
+  const checked = isRecord(manifest) && Array.isArray(manifest.checked) ? manifest.checked.map(String) : [];
+  const requiredChecks = ["config", "session-acceptance", "session-acceptance-evidence", "readiness", "verify", "replays", "malformed-json"];
+  const missing = requiredChecks.filter((check) => !checked.includes(check));
+  const ok = isRecord(manifest) && manifest.ok === true && manifest.commandUploadEnabled === false && missing.length === 0;
+  return {
+    id: "api-readback",
+    requirement: "The local API has a current smoke probe for session, config, readiness, replay, and malformed JSON behavior.",
+    status: ok ? "pass" : "fail",
+    details: ok
+      ? "Latest API probe covers the local plug-and-play readback surface with command upload disabled."
+      : `Latest API probe is missing or incomplete: ${missing.join(", ") || "probe failed or commandUploadEnabled was not false"}.`,
+    evidence: [probe?.relativePath ?? ".tmp/api-probe"].filter(isString)
+  };
+}
+
+async function workflowQaCheck(root: string): Promise<PlugAndPlayCheck> {
+  const workflow = await latestJson(root, ".tmp/gstack-workflow-status", (name) => name.startsWith("seekr-gstack-workflow-status-"));
+  const manifest = workflow ? await readJson(workflow.absolutePath) : undefined;
+  const qaReport = isRecord(manifest) && isRecord(manifest.qaReport) ? manifest.qaReport : {};
+  const healthHistory = isRecord(manifest) && isRecord(manifest.healthHistory) ? manifest.healthHistory : {};
+  const problems: string[] = [];
+
+  if (!isRecord(manifest)) problems.push("gstack workflow status is missing");
+  if (isRecord(manifest) && !["pass", "pass-with-limitations"].includes(String(manifest.status))) problems.push("gstack workflow status must pass or pass-with-limitations");
+  if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("gstack workflow status must keep commandUploadEnabled false");
+  if (!isRecord(healthHistory) || healthHistory.status !== "pass") problems.push("health history must be current and passing");
+  if (!isRecord(qaReport) || qaReport.status !== "pass") problems.push("browser QA report must be current and passing");
+  if (isRecord(qaReport) && typeof qaReport.path !== "string") problems.push("browser QA report path must be recorded");
+
+  return {
+    id: "workflow-qa",
+    requirement: "Current health history and browser QA are recorded for plug-and-play operator confidence.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : `Health history and browser QA are current: ${String(qaReport.path)}.`,
+    evidence: [workflow?.relativePath, stringOrUndefined(qaReport.path)].filter(isString)
+  };
+}
+
+async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
+  const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
+  const verification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
+  const manifest = verification ? await readJson(verification.absolutePath) : undefined;
+  const secretScan = isRecord(manifest) && isRecord(manifest.secretScan) ? manifest.secretScan : undefined;
+  const checkedFileCount = isRecord(manifest) ? Number(manifest.checkedFileCount) : Number.NaN;
+  const workflow = await latestJson(root, ".tmp/gstack-workflow-status", (name) => name.startsWith("seekr-gstack-workflow-status-"));
+  const workflowManifest = workflow ? await readJson(workflow.absolutePath) : undefined;
+  const qaReport = isRecord(workflowManifest) && isRecord(workflowManifest.qaReport) ? workflowManifest.qaReport : undefined;
+  const todoAudit = await latestJson(root, ".tmp/todo-audit", (name) => name.startsWith("seekr-todo-audit-"));
+  const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
+  const doctor = await latestJson(root, ".tmp/plug-and-play-doctor", (name) => name.startsWith("seekr-plug-and-play-doctor-"));
+  const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
+  const sourceBundlePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.sourceBundlePath) : undefined;
+  const gstackWorkflowStatusPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.gstackWorkflowStatusPath) : undefined;
+  const gstackQaReportPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.gstackQaReportPath) : undefined;
+  const todoAuditPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.todoAuditPath) : undefined;
+  const sourceControlHandoffPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.sourceControlHandoffPath) : undefined;
+  const plugAndPlaySetupPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlaySetupPath) : undefined;
+  const plugAndPlayDoctorPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlayDoctorPath) : undefined;
+  const rehearsalStartSmokePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.rehearsalStartSmokePath) : undefined;
+  const operatorQuickstartPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.operatorQuickstartPath) : undefined;
+  const latestQaReportPath = isRecord(qaReport) ? normalizeArtifactPath(root, qaReport.path) : undefined;
+  const problems: string[] = [];
+
+  if (!isRecord(manifest) || manifest.status !== "pass") problems.push("review bundle verification must pass");
+  if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("review bundle verification must keep commandUploadEnabled false");
+  if (!bundle || sourceBundlePath !== bundle.relativePath) problems.push("review bundle verification must point at the latest handoff bundle");
+  if (!workflow || gstackWorkflowStatusPath !== workflow.relativePath) problems.push("review bundle verification must point at the latest gstack workflow status");
+  if (!todoAudit || todoAuditPath !== todoAudit.relativePath) problems.push("review bundle verification must point at the latest TODO audit");
+  if (!sourceControl || sourceControlHandoffPath !== sourceControl.relativePath) problems.push("review bundle verification must point at the latest source-control handoff");
+  if (!setup || plugAndPlaySetupPath !== setup.relativePath) problems.push("review bundle verification must point at the latest plug-and-play setup");
+  if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest plug-and-play doctor");
+  if (!rehearsalStartSmoke || rehearsalStartSmokePath !== rehearsalStartSmoke.relativePath) problems.push("review bundle verification must point at the latest rehearsal-start smoke");
+  if (operatorQuickstartPath !== OPERATOR_QUICKSTART_PATH) problems.push("review bundle verification must include the operator quickstart");
+  if (!latestQaReportPath || gstackQaReportPath !== latestQaReportPath) problems.push("review bundle verification must point at the latest gstack QA report");
+  if (!Number.isFinite(checkedFileCount) || checkedFileCount <= 0) problems.push("review bundle verification must check copied files");
+  if (!secretScan || secretScan.status !== "pass" || Number(secretScan.findingCount) !== 0) problems.push("review bundle secret scan must pass with zero findings");
+  if (secretScan && (Number(secretScan.scannedFileCount) !== checkedFileCount || Number(secretScan.expectedFileCount) !== checkedFileCount)) {
+    problems.push("review bundle secret scan must cover every copied file");
+  }
+
+  return {
+    id: "review-bundle",
+    requirement: "A copied local review bundle has passed digest, semantic, QA, TODO, source-control, setup, doctor, operator quickstart, and secret-scan verification.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : `Latest review bundle verification passed with ${checkedFileCount} copied files checked/scanned, current gstack/QA/TODO/source-control/setup/doctor/operator-quickstart evidence, and zero secret findings.`,
+    evidence: [
+      verification?.relativePath ?? ".tmp/handoff-bundles",
+      bundle?.relativePath,
+      workflow?.relativePath,
+      latestQaReportPath,
+      todoAudit?.relativePath,
+      sourceControl?.relativePath,
+      setup?.relativePath,
+      doctor?.relativePath,
+      rehearsalStartSmoke?.relativePath,
+      OPERATOR_QUICKSTART_PATH
+    ].filter(isString)
+  };
+}
+
+async function completionBoundaryCheck(root: string): Promise<PlugAndPlayCheck> {
+  const completion = await latestJson(root, ".tmp/completion-audit", (name) => name.startsWith("seekr-completion-audit-"));
+  const manifest = completion ? await readJson(completion.absolutePath) : undefined;
+  const blockers = isRecord(manifest) && Array.isArray(manifest.realWorldBlockers) ? manifest.realWorldBlockers.map(String) : [];
+  const items = isRecord(manifest) && Array.isArray(manifest.items) ? manifest.items.filter(isRecord) : [];
+  const adapterBoundary = items.find((item) => item.id === "adapter-command-boundary");
+  const commandScan = items.find((item) => item.id === "command-boundary-scan");
+  const policyReview = items.find((item) => item.id === "hardware-actuation-policy-review");
+  const policyDetails = String(policyReview?.details ?? "");
+  const explicitBoundary = isRecord(manifest) && isRecord(manifest.safetyBoundary) ? manifest.safetyBoundary : undefined;
+  const falseHardwareAuthorization = explicitBoundary
+    ? explicitBoundary.hardwareActuationEnabled === false
+    : /false authorization|command authority remains disabled|runtime command authority remains disabled/i.test(policyDetails);
+  const fail = !isRecord(manifest) ||
+    manifest.localAlphaOk !== true ||
+    manifest.commandUploadEnabled !== false ||
+    adapterBoundary?.status !== "pass" ||
+    commandScan?.status !== "pass" ||
+    !falseHardwareAuthorization;
+  return {
+    id: "real-world-boundary",
+    requirement: "Local plug-and-play readiness must keep real hardware blockers explicit instead of claiming aircraft readiness.",
+    status: fail ? "fail" : blockers.length ? "blocked" : "pass",
+    details: fail
+      ? "Completion audit must report localAlphaOk true, keep commandUploadEnabled false, pass command-boundary checks, and preserve false hardware authorization."
+      : blockers.length
+        ? `${blockers.length} real-world blocker category/categories remain before aircraft/hardware plug-and-play.`
+        : "Completion audit reports no remaining real-world blockers.",
+    evidence: [completion?.relativePath ?? ".tmp/completion-audit"]
+  };
+}
+
+function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
+  return `${[
+    "# SEEKR Plug-And-Play Readiness",
+    "",
+    `Generated at: ${manifest.generatedAt}`,
+    `Status: ${manifest.status}`,
+    `Local plug-and-play OK: ${manifest.localPlugAndPlayOk}`,
+    `Complete: ${manifest.complete}`,
+    "Command upload enabled: false",
+    "",
+    "AI:",
+    "",
+    `- Implemented: ${manifest.ai.implemented}`,
+    manifest.ai.provider ? `- Provider: ${manifest.ai.provider}` : undefined,
+    manifest.ai.model ? `- Model: ${manifest.ai.model}` : undefined,
+    typeof manifest.ai.caseCount === "number" ? `- Smoke cases: ${manifest.ai.caseCount}` : undefined,
+    "",
+    "Checks:",
+    "",
+    "| Check | Status | Details |",
+    "| --- | --- | --- |",
+    ...manifest.checks.map((check) => `| ${check.id} | ${check.status} | ${escapeTable(check.details)} |`),
+    "",
+    "Remaining real-world blockers:",
+    "",
+    `Count: ${manifest.remainingRealWorldBlockerCount}`,
+    "",
+    ...(manifest.remainingRealWorldBlockers.length ? manifest.remainingRealWorldBlockers.map((blocker) => `- ${blocker}`) : ["- None"]),
+    "",
+    "Limitations:",
+    "",
+    ...manifest.limitations.map((limitation) => `- ${limitation}`),
+    ""
+  ].filter((line): line is string => typeof line === "string").join("\n")}\n`;
+}
+
+function plugAndPlaySetupOk(manifest: unknown) {
+  if (!isRecord(manifest)) return false;
+  const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
+  const checkIds = new Set(checks.map((check) => String(check.id ?? "")));
+  return manifest.ok === true &&
+    manifest.status === "ready-local-setup" &&
+    manifest.commandUploadEnabled === false &&
+    typeof manifest.envFilePath === "string" &&
+    typeof manifest.dataDirPath === "string" &&
+    ["env-example", "env-file", "rehearsal-data-dir", "safety-boundary"].every((id) => checkIds.has(id)) &&
+    checks.every((check) => check.status === "pass");
+}
+
+interface LatestJson {
+  absolutePath: string;
+  relativePath: string;
+}
+
+async function latestJson(root: string, directory: string, predicate: (name: string) => boolean): Promise<LatestJson | undefined> {
+  const absoluteDir = path.join(root, directory);
+  try {
+    const names = (await readdir(absoluteDir)).filter((name) => name.endsWith(".json") && predicate(name)).sort();
+    const latest = names.at(-1);
+    if (!latest) return undefined;
+    return {
+      absolutePath: path.join(absoluteDir, latest),
+      relativePath: path.posix.join(directory.split(path.sep).join("/"), latest)
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+async function readJson(filePath: string): Promise<unknown> {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
+
+async function readText(filePath: string) {
+  try {
+    return await readFile(filePath, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+async function pathExists(filePath: string) {
+  try {
+    await readFile(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeArtifactPath(root: string, value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const absolutePath = path.isAbsolute(value) ? path.resolve(value) : path.resolve(root, value);
+  const relative = path.relative(root, absolutePath);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) return undefined;
+  return relative.split(path.sep).join("/");
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function stringOrUndefined(value: unknown) {
+  return typeof value === "string" ? value : undefined;
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function escapeTable(value: string) {
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+}
+
+function parseArgs(values: string[]) {
+  const parsed: Record<string, string | boolean | undefined> = {};
+  for (let index = 0; index < values.length; index += 1) {
+    const arg = values[index];
+    if (!arg.startsWith("--")) continue;
+    const [rawKey, inlineValue] = arg.slice(2).split("=", 2);
+    if (typeof inlineValue === "string") parsed[rawKey] = inlineValue;
+    else if (values[index + 1] && !values[index + 1].startsWith("--")) parsed[rawKey] = values[++index];
+    else parsed[rawKey] = true;
+  }
+  return parsed;
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  const args = parseArgs(process.argv.slice(2));
+  const result = await writePlugAndPlayReadiness({
+    outDir: typeof args.out === "string" ? args.out : undefined,
+    generatedAt: typeof args.generatedAt === "string" ? args.generatedAt : undefined
+  });
+  console.log(JSON.stringify({
+    ok: result.manifest.localPlugAndPlayOk,
+    complete: result.manifest.complete,
+    status: result.manifest.status,
+    commandUploadEnabled: result.manifest.commandUploadEnabled,
+    ai: result.manifest.ai,
+    summary: result.manifest.summary,
+    remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,
+    jsonPath: result.jsonPath,
+    markdownPath: result.markdownPath
+  }, null, 2));
+  if (!result.manifest.localPlugAndPlayOk) process.exitCode = 1;
+}

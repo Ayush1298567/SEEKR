@@ -1,0 +1,3 @@
+{"type":"telemetry","vehicleId":"px4-sitl-1","receivedAtMs":1800000000000,"armed":false,"mode":"STANDBY","position":{"x":8,"y":8,"z":0},"home":{"x":8,"y":8,"z":0},"batteryPct":91,"linkQuality":93,"estimatorQuality":89,"preflightOk":true}
+{"type":"command","commandId":"px4-process-arm","vehicleId":"px4-sitl-1","kind":"arm","transport":"sitl","reason":"process IO arm trace","requestedAtMs":1800000001000}
+{"type":"command","commandId":"px4-process-hardware-takeoff","vehicleId":"px4-sitl-1","kind":"takeoff","transport":"hardware","altitudeM":12,"reason":"hardware command must stay locked","requestedAtMs":1800000002000}

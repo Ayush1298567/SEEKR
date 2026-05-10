@@ -1,0 +1,8 @@
+{
+  "droneId": "ros-drone-low-tf",
+  "frame_id": "map",
+  "stamp": 1800000000000,
+  "info": { "width": 2, "height": 2, "resolution": 1 },
+  "data": [0, 0, 80, -1],
+  "transformConfidence": 0.22
+}

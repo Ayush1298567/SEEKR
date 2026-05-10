@@ -1,0 +1,8 @@
+{
+  "droneId": "ros-drone-1",
+  "frame_id": "map",
+  "stamp": 1800000000000,
+  "info": { "width": 4, "height": 3, "resolution": 1 },
+  "data": [-1, 0, 8, 82, 0, 18, 74, 95, -1, 23, 51, 0],
+  "transformConfidence": 0.91
+}

@@ -1,0 +1,19 @@
+{
+  "id": "fixture-det-thermal-1",
+  "droneId": "drone-2",
+  "kind": "thermal-hotspot",
+  "position": { "x": 18, "y": 12, "z": 2 },
+  "confidence": 76,
+  "severity": "P2",
+  "review": "new",
+  "createdAt": 1800000000100,
+  "updatedAt": 1800000000100,
+  "sourceAdapter": "fixture",
+  "immutable": true,
+  "evidenceAssetIds": [],
+  "evidence": {
+    "frameId": "fixture-frame-thermal-1",
+    "thumbnailTone": "amber",
+    "notes": "Fixture thermal hotspot sample"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "assetId": "spatial-vps-pose-drone-2",
+  "kind": "vps-pose",
+  "assetFormat": "preview-points",
+  "coordinateSystem": "mission-local",
+  "renderHints": { "color": "#82cfff", "pointSize": 0.24 },
+  "sourceAdapter": "fixture-vps",
+  "frameId": "vps-rubble-local",
+  "createdAt": 1800000000000,
+  "position": { "x": 5, "y": 15, "z": 2 },
+  "orientation": { "yawDeg": 90 },
+  "confidence": 0.91,
+  "transformConfidence": 0.88,
+  "droneId": "drone-2",
+  "linkedDetectionIds": [],
+  "evidenceAssetIds": [],
+  "status": "pending",
+  "metadata": {
+    "technique": "visual-positioning-system",
+    "alias": "VSP/VPS pose correction",
+    "matchedKeyframes": 19
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "type": "BATTERY_STATUS",
+  "sysid": "mav-drone-1",
+  "battery_remaining": 58
+}

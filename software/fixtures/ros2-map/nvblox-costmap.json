@@ -1,0 +1,26 @@
+{
+  "sourceDroneId": "drone-1",
+  "sourceAdapter": "isaac-nvblox",
+  "frame_id": "map",
+  "stamp": 1800000001000,
+  "transformConfidence": 0.84,
+  "metadata": {
+    "sourceChannels": ["map", "costmap", "perception"],
+    "pipeline": "isaac-ros-nvblox-style-costmap",
+    "input": "depth-or-3d-lidar-plus-pose",
+    "safety": "read-only costmap ingest"
+  },
+  "info": {
+    "width": 5,
+    "height": 5,
+    "resolution": 1,
+    "origin": { "position": { "x": 0, "y": 0, "z": 0 } }
+  },
+  "data": [
+    -1, 0, 0, 0, -1,
+    0, 20, 35, 70, 0,
+    0, 15, 80, 90, 0,
+    0, 0, 30, 60, 0,
+    -1, 0, 0, 0, -1
+  ]
+}

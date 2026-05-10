@@ -1,0 +1,28 @@
+{
+  "assetId": "spatial-rubble-splat-1",
+  "kind": "gaussian-splat",
+  "uri": "local://spatial/rubble-training/south-wing.splat",
+  "previewUri": "fixture://spatial/rubble-training/south-wing.preview.json",
+  "assetFormat": "splat",
+  "coordinateSystem": "mission-local",
+  "bounds": { "x": 14, "y": 14, "width": 9, "height": 8 },
+  "scale": { "x": 1, "y": 1, "z": 1 },
+  "sampleCount": 160,
+  "renderHints": { "color": "#50d7b8", "pointSize": 0.18 },
+  "sourceAdapter": "fixture-spatial",
+  "frameId": "vps-rubble-local",
+  "createdAt": 1800000000000,
+  "position": { "x": 18, "y": 18, "z": 2 },
+  "orientation": { "yawDeg": 34 },
+  "confidence": 0.86,
+  "transformConfidence": 0.82,
+  "linkedDetectionIds": [],
+  "evidenceAssetIds": [],
+  "status": "pending",
+  "metadata": {
+    "technique": "3d-gaussian-splatting",
+    "sourceIdea": "Bilawal transcripts: Gaussian splats as fast editable spatial scene evidence",
+    "pointCount": 18400,
+    "captureFrames": 72
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "detection": {
+    "id": "fixture-det-evidence-1",
+    "droneId": "drone-2",
+    "kind": "motion-anomaly",
+    "position": { "x": 24, "y": 10, "z": 2 },
+    "confidence": 83,
+    "severity": "P2",
+    "review": "new",
+    "createdAt": 1800000000400,
+    "updatedAt": 1800000000400,
+    "sourceAdapter": "fixture",
+    "immutable": true,
+    "evidenceAssetIds": ["fixture-asset-evidence-1"],
+    "evidence": {
+      "frameId": "fixture-frame-evidence-1",
+      "thumbnailTone": "blue",
+      "notes": "Evidence-linked fixture detection"
+    }
+  },
+  "evidenceAsset": {
+    "assetId": "fixture-asset-evidence-1",
+    "missionId": "seekr-local-v1",
+    "detectionId": "fixture-det-evidence-1",
+    "kind": "frame",
+    "uri": "fixture://evidence/frame-1.png",
+    "mimeType": "image/png",
+    "hash": "fixture-hash-frame-1",
+    "createdAt": 1800000000400,
+    "retentionPolicy": "evidence",
+    "redactionState": "none",
+    "metadata": {
+      "frameId": "fixture-frame-evidence-1"
+    }
+  }
+}

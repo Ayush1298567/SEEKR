@@ -1,0 +1,91 @@
+{
+  "importId": "fixture-lidar-perception-bag-1",
+  "records": [
+    {
+      "type": "telemetry",
+      "sample": {
+        "sampleId": "lidar-bag-telemetry-1",
+        "droneId": "drone-1",
+        "receivedAt": 1800000000000,
+        "heartbeat": true,
+        "batteryPct": 79,
+        "position": { "x": 10, "y": 10, "z": 3 },
+        "mode": "slam-replay",
+        "status": "exploring",
+        "estimatorQuality": 86,
+        "linkQuality": 89,
+        "sourceAdapter": "fast-lio2"
+      }
+    },
+    {
+      "type": "mapDelta",
+      "mapDelta": {
+        "deltaId": "lidar-bag-costmap-1",
+        "sourceDroneId": "drone-1",
+        "sourceAdapter": "isaac-nvblox",
+        "frameId": "map",
+        "transformConfidence": 0.83,
+        "createdAt": 1800000000000,
+        "metadata": {
+          "sourceChannels": ["map", "costmap", "perception"],
+          "pipeline": "nvblox-costmap-replay"
+        },
+        "cells": [
+          { "x": 8, "y": 8, "occupancy": "free", "probability": 0.1, "confidence": 0.8 },
+          { "x": 9, "y": 8, "occupancy": "occupied", "probability": 0.84, "confidence": 0.78 },
+          { "x": 10, "y": 8, "occupancy": "free", "probability": 0.18, "confidence": 0.75 }
+        ]
+      }
+    },
+    {
+      "type": "spatialAsset",
+      "asset": {
+        "assetId": "lidar-bag-point-cloud-1",
+        "kind": "point-cloud",
+        "uri": "local://spatial/import/lidar-bag-point-cloud.pcd",
+        "previewUri": "fixture://import/lidar-bag-point-cloud.preview.json",
+        "assetFormat": "pcd",
+        "coordinateSystem": "mission-local",
+        "bounds": { "x": 8, "y": 8, "width": 7, "height": 6 },
+        "sampleCount": 160,
+        "renderHints": { "color": "#82cfff", "pointSize": 0.14 },
+        "sourceAdapter": "lidar-slam",
+        "frameId": "lidar_map",
+        "createdAt": 1800000000000,
+        "position": { "x": 11, "y": 10, "z": 2 },
+        "confidence": 0.83,
+        "transformConfidence": 0.8,
+        "metadata": {
+          "sourceChannels": ["lidar", "slam", "spatial"],
+          "pointCount": 13240,
+          "densityPointsPerM2": 315.2,
+          "pipeline": "fast-lio2-style-offline-replay"
+        }
+      }
+    },
+    {
+      "type": "spatialAsset",
+      "asset": {
+        "assetId": "lidar-bag-rejected-low-transform",
+        "kind": "point-cloud",
+        "uri": "local://spatial/import/rejected-low-transform.pcd",
+        "assetFormat": "pcd",
+        "coordinateSystem": "mission-local",
+        "bounds": { "x": 8, "y": 8, "width": 7, "height": 6 },
+        "sampleCount": 160,
+        "sourceAdapter": "lidar-slam",
+        "frameId": "lidar_map",
+        "createdAt": 1800000000000,
+        "position": { "x": 11, "y": 10, "z": 2 },
+        "confidence": 0.83,
+        "transformConfidence": 0.1,
+        "metadata": {
+          "sourceChannels": ["lidar", "slam", "spatial"],
+          "pointCount": 1200,
+          "densityPointsPerM2": 28.5,
+          "expectedRejection": "low transform confidence"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "type": "HEARTBEAT",
+  "sysid": "mav-drone-1",
+  "custom_mode": "AUTO",
+  "system_status": "ACTIVE"
+}

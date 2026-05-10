@@ -1,0 +1,28 @@
+{
+  "asset": {
+    "assetId": "spatial-ravine-point-cloud-1",
+    "kind": "point-cloud",
+    "uri": "local://spatial/wilderness-ravine/north-rim.pcd",
+    "previewUri": "fixture://spatial/wilderness-ravine/north-rim.preview.json",
+    "assetFormat": "pcd",
+    "coordinateSystem": "mission-local",
+    "bounds": { "x": 20, "y": 10, "width": 9, "height": 9 },
+    "sampleCount": 180,
+    "renderHints": { "color": "#82cfff", "pointSize": 0.16 },
+    "sourceAdapter": "fixture-spatial",
+    "frameId": "map",
+    "createdAt": 1800000000000,
+    "position": { "x": 24, "y": 14, "z": 3 },
+    "orientation": { "yawDeg": 18 },
+    "confidence": 0.8,
+    "transformConfidence": 0.78,
+    "linkedDetectionIds": [],
+    "evidenceAssetIds": [],
+    "metadata": {
+      "technique": "semantic-point-cloud",
+      "pointCount": 18420,
+      "densityPointsPerM2": 227.4,
+      "transcriptSourceTheme": "point-cloud digital twin"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+export const SEEKR_SCHEMA_VERSION = 1;
+export const SEEKR_SOFTWARE_VERSION = "0.2.0";
+export const DEFAULT_MISSION_ID = "seekr-local-v1";
+export const SIM_EPOCH_MS = Date.UTC(2026, 4, 4, 12, 0, 0);
+export const DEFAULT_SCENARIO_SEED = 4242;
+export const MAX_EVENT_TAIL = 500;
+export const MAX_MAP_DELTA_CELLS = 2_500;
+export const STALE_MAP_SOURCE_MS = 30_000;
+export const MAP_DELTA_STALE_REJECT_MS = 120_000;
+export const MAP_TRANSFORM_HARD_MIN = 0.35;
+export const MAP_CONFLICT_ALERT_THRESHOLD = 4;
+export const SPATIAL_ASSET_STALE_REJECT_MS = 300_000;
+export const SPATIAL_ASSET_TRANSFORM_MIN = 0.35;
+export const AI_PROPOSAL_TTL_MS = 120_000;
+export const COMMAND_APPROVAL_TTL_MS = 120_000;
+export const EVENT_HASH_ALGORITHM = "sha256";

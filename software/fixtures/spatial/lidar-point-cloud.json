@@ -1,0 +1,34 @@
+{
+  "asset": {
+    "assetId": "fixture-lidar-point-cloud-1",
+    "kind": "point-cloud",
+    "uri": "local://spatial/lidar/jetson-yard-scan.pcd",
+    "previewUri": "fixture://spatial/lidar/jetson-yard-scan.preview.json",
+    "assetFormat": "pcd",
+    "coordinateSystem": "mission-local",
+    "bounds": { "x": 16, "y": 10, "width": 12, "height": 9 },
+    "sampleCount": 240,
+    "renderHints": { "color": "#82cfff", "pointSize": 0.14 },
+    "sourceAdapter": "lidar-slam",
+    "frameId": "lidar_map",
+    "createdAt": 1800000000000,
+    "position": { "x": 22, "y": 14, "z": 3 },
+    "orientation": { "yawDeg": 12, "pitchDeg": 0, "rollDeg": 0 },
+    "confidence": 0.84,
+    "transformConfidence": 0.82,
+    "linkedDetectionIds": [],
+    "evidenceAssetIds": [],
+    "metadata": {
+      "technique": "lidar-point-cloud",
+      "sensor": "simulated-3d-lidar",
+      "pipeline": "fast-lio2-style-offline-replay",
+      "pointCount": 24680,
+      "densityPointsPerM2": 228.5,
+      "minRangeM": 0.8,
+      "maxRangeM": 60,
+      "sourceChannels": ["lidar", "slam", "spatial"],
+      "rejectedFrameCount": 0,
+      "safety": "read-only; no flight command output"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "fixture-det-bad",
+  "droneId": "drone-1",
+  "kind": "person",
+  "position": { "x": 10, "y": 10, "z": 2 },
+  "confidence": 500,
+  "severity": "P1",
+  "review": "new",
+  "createdAt": 1800000000300,
+  "updatedAt": 1800000000300,
+  "sourceAdapter": "fixture",
+  "immutable": true,
+  "evidenceAssetIds": [],
+  "evidence": {
+    "frameId": "fixture-frame-bad",
+    "thumbnailTone": "red",
+    "notes": "Malformed confidence"
+  }
+}

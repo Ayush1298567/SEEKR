@@ -1,0 +1,95 @@
+{
+  "importId": "fixture-dimos-readonly-replay-1",
+  "records": [
+    {
+      "type": "telemetry",
+      "sample": {
+        "sampleId": "dimos-pose-1",
+        "droneId": "drone-1",
+        "receivedAt": 1800000000000,
+        "heartbeat": true,
+        "batteryPct": 81,
+        "position": { "x": 13, "y": 12, "z": 2.6 },
+        "velocity": { "x": 0.6, "y": 0.2, "z": 0 },
+        "mode": "dimos-readonly-replay",
+        "status": "exploring",
+        "estimatorQuality": 88,
+        "linkQuality": 90,
+        "sourceAdapter": "dimos-readonly"
+      }
+    },
+    {
+      "type": "mapDelta",
+      "mapDelta": {
+        "deltaId": "dimos-costmap-1",
+        "sourceDroneId": "drone-1",
+        "sourceAdapter": "dimos-readonly",
+        "frameId": "map",
+        "transformConfidence": 0.86,
+        "createdAt": 1800000000000,
+        "metadata": {
+          "sourceChannels": ["map", "slam", "costmap", "perception"],
+          "pipeline": "dimos-exported-costmap",
+          "transport": "LCM-or-ROS2-export",
+          "safety": "read-only export; no movement skill execution"
+        },
+        "cells": [
+          { "x": 12, "y": 12, "occupancy": "free", "probability": 0.12, "confidence": 0.82 },
+          { "x": 13, "y": 12, "occupancy": "free", "probability": 0.18, "confidence": 0.78 },
+          { "x": 14, "y": 12, "occupancy": "occupied", "probability": 0.82, "confidence": 0.76 },
+          { "x": 14, "y": 13, "occupancy": "occupied", "probability": 0.88, "confidence": 0.8 }
+        ]
+      }
+    },
+    {
+      "type": "detection",
+      "detection": {
+        "id": "dimos-det-person-1",
+        "droneId": "drone-1",
+        "kind": "person",
+        "position": { "x": 14, "y": 13, "z": 1 },
+        "confidence": 87,
+        "severity": "P1",
+        "review": "new",
+        "createdAt": 1800000000000,
+        "updatedAt": 1800000000000,
+        "sourceAdapter": "dimos-readonly",
+        "immutable": true,
+        "evidenceAssetIds": [],
+        "evidence": {
+          "frameId": "dimos-rgb-frame-1",
+          "thumbnailTone": "red",
+          "notes": "DimOS-style exported perception record; advisory only"
+        }
+      }
+    },
+    {
+      "type": "spatialAsset",
+      "asset": {
+        "assetId": "dimos-spatial-memory-cloud-1",
+        "kind": "point-cloud",
+        "uri": "local://spatial/dimos/spatial-memory-cloud.pcd",
+        "previewUri": "fixture://dimos/spatial-memory-cloud.preview.json",
+        "assetFormat": "pcd",
+        "coordinateSystem": "mission-local",
+        "bounds": { "x": 11, "y": 10, "width": 7, "height": 6 },
+        "sampleCount": 180,
+        "renderHints": { "color": "#82cfff", "pointSize": 0.14 },
+        "sourceAdapter": "dimos-readonly",
+        "frameId": "dimos_spatial_memory",
+        "createdAt": 1800000000000,
+        "position": { "x": 14, "y": 12, "z": 2 },
+        "confidence": 0.85,
+        "transformConfidence": 0.82,
+        "metadata": {
+          "sourceChannels": ["lidar", "slam", "spatial", "perception"],
+          "pointCount": 18940,
+          "densityPointsPerM2": 451,
+          "pipeline": "dimos-spatial-memory-export",
+          "agentToolsDisabled": ["move", "navigate", "arm", "takeoff", "return-home"],
+          "safety": "read-only replay/export fixture"
+        }
+      }
+    }
+  ]
+}

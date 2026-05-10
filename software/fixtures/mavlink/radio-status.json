@@ -1,0 +1,6 @@
+{
+  "type": "RADIO_STATUS",
+  "sysid": "mav-drone-1",
+  "rssi": 48,
+  "remrssi": 51
+}

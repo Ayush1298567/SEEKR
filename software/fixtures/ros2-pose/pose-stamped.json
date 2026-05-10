@@ -1,0 +1,26 @@
+{
+  "type": "poseStamped",
+  "sourceAdapter": "ros2-pose",
+  "droneId": "drone-ros2-1",
+  "header": {
+    "frame_id": "map",
+    "stamp": {
+      "sec": 1800000002,
+      "nanosec": 250000000
+    }
+  },
+  "pose": {
+    "position": {
+      "x": 18,
+      "y": 12,
+      "z": 4
+    },
+    "orientation": {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    }
+  },
+  "transformConfidence": 0.91
+}

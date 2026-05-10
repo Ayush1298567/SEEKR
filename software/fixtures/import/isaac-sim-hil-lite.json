@@ -1,0 +1,100 @@
+{
+  "importId": "fixture-isaac-sim-hil-lite-1",
+  "records": [
+    {
+      "type": "telemetry",
+      "sample": {
+        "sampleId": "isaac-hil-telemetry-1",
+        "droneId": "drone-1",
+        "receivedAt": 1800000000000,
+        "heartbeat": true,
+        "batteryPct": 82,
+        "position": { "x": 12, "y": 11, "z": 4 },
+        "velocity": { "x": 0.8, "y": 0.2, "z": 0 },
+        "mode": "isaac-sim-hil",
+        "status": "exploring",
+        "estimatorQuality": 87,
+        "linkQuality": 91,
+        "sourceAdapter": "isaac-sim-hil"
+      }
+    },
+    {
+      "type": "mapDelta",
+      "mapDelta": {
+        "deltaId": "isaac-hil-costmap-1",
+        "sourceDroneId": "drone-1",
+        "sourceAdapter": "isaac-sim-hil",
+        "frameId": "map",
+        "transformConfidence": 0.86,
+        "createdAt": 1800000000100,
+        "metadata": {
+          "sourceChannels": ["map", "costmap", "perception"],
+          "pipeline": "isaac-sim-hil-nvblox-style",
+          "simulator": "isaac-sim",
+          "safety": "read-only HIL fixture; no aircraft command output"
+        },
+        "cells": [
+          { "x": 10, "y": 10, "occupancy": "free", "probability": 0.1, "confidence": 0.86 },
+          { "x": 11, "y": 10, "occupancy": "occupied", "probability": 0.82, "confidence": 0.81 },
+          { "x": 12, "y": 10, "occupancy": "free", "probability": 0.18, "confidence": 0.79 },
+          { "x": 11, "y": 11, "occupancy": "occupied", "probability": 0.9, "confidence": 0.84 }
+        ]
+      }
+    },
+    {
+      "type": "detection",
+      "detection": {
+        "id": "isaac-hil-detection-1",
+        "droneId": "drone-1",
+        "kind": "person",
+        "position": { "x": 11, "y": 10, "z": 1 },
+        "confidence": 88,
+        "severity": "P1",
+        "review": "new",
+        "createdAt": 1800000000200,
+        "updatedAt": 1800000000200,
+        "sourceAdapter": "isaac-sim-hil",
+        "immutable": true,
+        "evidenceAssetIds": [],
+        "evidence": {
+          "frameId": "isaac-sim-rgb-frame-0042",
+          "thumbnailTone": "red",
+          "notes": "Isaac Sim HIL-style read-only perception fixture"
+        }
+      }
+    },
+    {
+      "type": "spatialAsset",
+      "asset": {
+        "assetId": "isaac-hil-point-cloud-1",
+        "kind": "point-cloud",
+        "uri": "local://spatial/isaac-sim/hil-point-cloud.pcd",
+        "previewUri": "fixture://import/isaac-sim-hil-point-cloud.preview.json",
+        "assetFormat": "pcd",
+        "coordinateSystem": "mission-local",
+        "bounds": { "x": 8, "y": 8, "width": 8, "height": 7 },
+        "sampleCount": 220,
+        "renderHints": { "color": "#82cfff", "pointSize": 0.13 },
+        "sourceAdapter": "isaac-sim-hil",
+        "frameId": "isaac_sim_lidar",
+        "createdAt": 1800000000300,
+        "position": { "x": 12, "y": 11, "z": 3 },
+        "orientation": { "yawDeg": 18, "pitchDeg": 0, "rollDeg": 0 },
+        "confidence": 0.85,
+        "transformConfidence": 0.83,
+        "droneId": "drone-1",
+        "linkedDetectionIds": ["isaac-hil-detection-1"],
+        "evidenceAssetIds": [],
+        "metadata": {
+          "sourceChannels": ["lidar", "slam", "spatial", "perception"],
+          "pipeline": "isaac-sim-hil-lidar-replay",
+          "pointCount": 18420,
+          "densityPointsPerM2": 329.7,
+          "simulatedSensor": "3d-lidar",
+          "rejectedFrameCount": 0,
+          "safety": "read-only; no command upload"
+        }
+      }
+    }
+  ]
+}

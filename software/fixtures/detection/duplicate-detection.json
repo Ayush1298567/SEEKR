@@ -1,0 +1,19 @@
+{
+  "id": "fixture-det-person-1",
+  "droneId": "drone-3",
+  "kind": "person",
+  "position": { "x": 14, "y": 9, "z": 2 },
+  "confidence": 89,
+  "severity": "P1",
+  "review": "new",
+  "createdAt": 1800000000200,
+  "updatedAt": 1800000000200,
+  "sourceAdapter": "fixture",
+  "immutable": true,
+  "evidenceAssetIds": [],
+  "evidence": {
+    "frameId": "fixture-frame-person-duplicate",
+    "thumbnailTone": "red",
+    "notes": "Duplicate fixture detection should not overwrite original"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "type": "ESTIMATOR_STATUS",
+  "sysid": "mav-drone-1",
+  "pos_horiz_ratio": 0.72,
+  "pos_vert_ratio": 0.43,
+  "vel_ratio": 0.51
+}

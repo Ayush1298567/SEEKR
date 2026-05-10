@@ -1,0 +1,10 @@
+{
+  "droneId": "ros-drone-oversized",
+  "frame_id": "map",
+  "stamp": 1800000000000,
+  "info": { "width": 51, "height": 50, "resolution": 1 },
+  "data": [
+    0
+  ],
+  "transformConfidence": 0.9
+}

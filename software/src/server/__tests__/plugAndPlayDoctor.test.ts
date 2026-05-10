@@ -1,0 +1,484 @@
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { buildPlugAndPlayDoctor, writePlugAndPlayDoctor } from "../../../scripts/plug-and-play-doctor";
+
+describe("plug-and-play doctor", () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = path.join(os.tmpdir(), `seekr-plug-doctor-test-${process.pid}-${Date.now()}`);
+    await seedDoctorProject(root);
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("passes local laptop startup prerequisites while keeping command upload disabled", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      generatedAt: "2026-05-10T09:00:00.000Z",
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest).toMatchObject({
+      schemaVersion: 1,
+      ok: true,
+      status: "ready-local-start",
+      commandUploadEnabled: false,
+      ai: {
+        provider: "ollama",
+        model: "llama3.2:latest",
+        status: "pass",
+        availableModels: ["llama3.2:latest"]
+      },
+      ports: {
+        api: 8787,
+        client: 5173
+      }
+    });
+    expect(manifest.summary.fail).toBe(0);
+    expect(manifest.nextCommands).toContain("npm run rehearsal:start");
+    expect(manifest.checks.find((check) => check.id === "runtime-dependencies")).toMatchObject({
+      status: "pass",
+      evidence: expect.arrayContaining(["package.json engines.node", "package.json packageManager"]),
+      details: expect.stringContaining("node_modules/.bin/vite")
+    });
+    expect(manifest.checks.find((check) => check.id === "repository-safety")).toMatchObject({
+      status: "pass",
+      evidence: expect.arrayContaining([".gitignore data/", ".npmrc engine-strict=true"])
+    });
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
+      status: "pass",
+      evidence: expect.arrayContaining([".tmp/source-control-handoff/seekr-source-control-handoff-test.json"])
+    });
+    expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
+      status: "pass"
+    });
+    expect(manifest.checks.find((check) => check.id === "safety-boundary")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("fails when local runtime dependencies have not been installed", async () => {
+    await rm(path.join(root, "package-lock.json"), { force: true });
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "runtime-dependencies")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("package-lock.json is missing")
+    });
+  });
+
+  it("fails when package runtime metadata is not declared", async () => {
+    const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+    delete packageJson.engines;
+    delete packageJson.packageManager;
+    await writeFile(path.join(root, "package.json"), JSON.stringify(packageJson), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "runtime-dependencies")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("package.json engines.node")
+    });
+  });
+
+  it("fails when local dev server dependency binaries are missing", async () => {
+    await rm(path.join(root, "node_modules/.bin/vite"), { force: true });
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "runtime-dependencies")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("node_modules/.bin/vite")
+    });
+  });
+
+  it("fails when the repository safety policy is missing", async () => {
+    await rm(path.join(root, ".gitignore"), { force: true });
+    await rm(path.join(root, ".npmrc"), { force: true });
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "repository-safety")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining(".npmrc")
+    });
+  });
+
+  it("fails when runtime data is not ignored for source-control handoff", async () => {
+    await writeFile(path.join(root, ".gitignore"), [
+      ".env",
+      ".env.*",
+      "!.env.example",
+      "node_modules/",
+      ".tmp/",
+      ".gstack/",
+      "dist/",
+      "test-results/",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "repository-safety")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining(".gitignore missing data/")
+    });
+  });
+
+  it("warns instead of blocking when source-control handoff has not been initialized", async () => {
+    await rm(path.join(root, ".tmp/source-control-handoff"), { recursive: true, force: true });
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(true);
+    expect(manifest.status).toBe("ready-local-start");
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("npm run audit:source-control")
+    });
+  });
+
+  it("fails when source-control handoff evidence is unsafe", async () => {
+    const sourceControlPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
+    const sourceControl = JSON.parse(await readFile(sourceControlPath, "utf8"));
+    sourceControl.commandUploadEnabled = true;
+    await writeFile(sourceControlPath, JSON.stringify(sourceControl), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("commandUploadEnabled must be false")
+    });
+  });
+
+  it("fails when configured Ollama model is unavailable", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["mistral:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "local-ai")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("llama3.2:latest is not installed")
+    });
+  });
+
+  it("warns when local start ports are already occupied", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async (port) => port !== 5173
+    });
+
+    expect(manifest.ok).toBe(true);
+    expect(manifest.summary.warn).toBeGreaterThanOrEqual(1);
+    expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("5173")
+    });
+  });
+
+  it("fails when unsafe local environment flags are true", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {
+        SEEKR_COMMAND_UPLOAD_ENABLED: "true"
+      },
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "safety-boundary")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("SEEKR_COMMAND_UPLOAD_ENABLED")
+    });
+  });
+
+  it("fails when the rehearsal start wrapper skips local setup", async () => {
+    await writeFile(path.join(root, "scripts/rehearsal-start.sh"), [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
+      "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
+      "npm run doctor",
+      "exec npm run dev",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("setup:local")
+    });
+  });
+
+  it("fails when the rehearsal start wrapper skips source-control handoff refresh", async () => {
+    await writeFile(path.join(root, "scripts/rehearsal-start.sh"), [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
+      "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
+      "npm run setup:local",
+      "npm run doctor",
+      "exec npm run dev",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("audit:source-control")
+    });
+  });
+
+  it("fails when the rehearsal start wrapper skips the doctor preflight", async () => {
+    await writeFile(path.join(root, "scripts/rehearsal-start.sh"), [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
+      "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "exec npm run dev",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("must run npm run setup:local before npm run audit:source-control before npm run doctor before exec npm run dev")
+    });
+  });
+
+  it("writes JSON and Markdown doctor artifacts", async () => {
+    const result = await writePlugAndPlayDoctor({
+      root,
+      outDir: ".tmp/plug-and-play-doctor",
+      generatedAt: "2026-05-10T09:00:00.000Z",
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(result.jsonPath).toContain(`${path.sep}.tmp${path.sep}plug-and-play-doctor${path.sep}`);
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Plug-And-Play Doctor");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("npm run rehearsal:start");
+  });
+});
+
+async function seedDoctorProject(root: string) {
+  await mkdir(root, { recursive: true });
+  await mkdir(path.join(root, "data"), { recursive: true });
+  await mkdir(path.join(root, "scripts"), { recursive: true });
+  await mkdir(path.join(root, "node_modules/.bin"), { recursive: true });
+  await mkdir(path.join(root, ".git"), { recursive: true });
+  await mkdir(path.join(root, ".tmp/source-control-handoff"), { recursive: true });
+  await writeFile(path.join(root, ".git/config"), [
+    "[remote \"origin\"]",
+    "\turl = git@github.com:Ayush1298567/SEEKR.git",
+    ""
+  ].join("\n"), "utf8");
+  await writeFile(path.join(root, "package-lock.json"), JSON.stringify({
+    lockfileVersion: 3,
+    packages: {
+      "": {
+        engines: {
+          node: ">=20",
+          npm: ">=10"
+        }
+      }
+    }
+  }), "utf8");
+  await writeFile(path.join(root, "node_modules/.bin/tsx"), "#!/usr/bin/env node\n", "utf8");
+  await writeFile(path.join(root, "node_modules/.bin/concurrently"), "#!/usr/bin/env node\n", "utf8");
+  await writeFile(path.join(root, "node_modules/.bin/vite"), "#!/usr/bin/env node\n", "utf8");
+  await writeFile(path.join(root, ".gitignore"), [
+    ".env",
+    ".env.*",
+    "!.env.example",
+    "node_modules/",
+    ".tmp/",
+    ".gstack/",
+    "data/",
+    "dist/",
+    "test-results/",
+    ""
+  ].join("\n"), "utf8");
+  await writeFile(path.join(root, ".npmrc"), "engine-strict=true\n", "utf8");
+  await writeFile(path.join(root, "package.json"), JSON.stringify({
+    packageManager: "npm@11.8.0",
+    repository: {
+      type: "git",
+      url: "git+https://github.com/Ayush1298567/SEEKR.git",
+      directory: "software"
+    },
+    engines: {
+      node: ">=20",
+      npm: ">=10"
+    },
+    scripts: {
+      doctor: "tsx scripts/plug-and-play-doctor.ts",
+      "setup:local": "tsx scripts/local-setup.ts",
+      dev: "concurrently -k -n server,client -c cyan,green \"npm:server\" \"npm:client\"",
+      "rehearsal:start": "bash scripts/rehearsal-start.sh",
+      server: "tsx src/server/index.ts",
+      client: "vite --host 127.0.0.1",
+      "test:ai:local": "tsx scripts/ai-smoke.ts --require-ollama",
+      "audit:source-control": "tsx scripts/source-control-handoff.ts",
+      "audit:plug-and-play": "tsx scripts/plug-and-play-readiness.ts",
+      acceptance: "npm run check"
+    }
+  }), "utf8");
+  await writeFile(path.join(root, "README.md"), "Source-control reference: https://github.com/Ayush1298567/SEEKR\n", "utf8");
+  await writeFile(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), JSON.stringify({
+    schemaVersion: 1,
+    status: "ready-source-control-handoff",
+    ready: true,
+    commandUploadEnabled: false,
+    repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    gitMetadataPath: ".git",
+    configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
+    remoteDefaultBranch: "main",
+    remoteRefCount: 1,
+    blockedCheckCount: 0,
+    warningCheckCount: 0,
+    checks: [
+      { id: "repository-reference", status: "pass", details: "Repository reference is present." },
+      { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
+      { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
+      { id: "github-remote-refs", status: "pass", details: "Remote refs are present." }
+    ],
+    nextActionChecklist: [
+      {
+        id: "verify-source-control-before-bundle",
+        status: "verification",
+        details: "Rerun the read-only audit before final bundling to keep source-control evidence current.",
+        commands: ["npm run audit:source-control"],
+        clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs"]
+      }
+    ],
+    limitations: [
+      "This audit is read-only and does not initialize Git, commit files, push branches, or change GitHub settings.",
+      "Source-control handoff status is separate from aircraft hardware readiness.",
+      "Real command upload and hardware actuation remain disabled."
+    ]
+  }), "utf8");
+  await writeFile(path.join(root, ".env.example"), [
+    "PORT=8787",
+    "SEEKR_API_PORT=8787",
+    "SEEKR_CLIENT_PORT=5173",
+    "SEEKR_DATA_DIR=data",
+    "SEEKR_AI_PROVIDER=ollama",
+    "SEEKR_OLLAMA_URL=http://127.0.0.1:11434",
+    "SEEKR_OLLAMA_MODEL=llama3.2:latest",
+      "SEEKR_OLLAMA_TIMEOUT_MS=20000",
+      ""
+    ].join("\n"), "utf8");
+  await writeFile(path.join(root, "scripts/rehearsal-start.sh"), [
+    "#!/usr/bin/env bash",
+    "set -euo pipefail",
+    "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
+    "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
+    "npm run setup:local",
+    "npm run audit:source-control",
+    "npm run doctor",
+    "exec npm run dev",
+    ""
+  ].join("\n"), "utf8");
+}
+
+function mockOllamaFetch(models: string[]): typeof fetch {
+  return (async () => new Response(JSON.stringify({
+    models: models.map((name) => ({ name }))
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  })) as typeof fetch;
+}

@@ -1,0 +1,46 @@
+{
+  "importId": "fixture-rosbag-lite-1",
+  "records": [
+    {
+      "type": "telemetry",
+      "sample": {
+        "sampleId": "bag-telemetry-1",
+        "droneId": "drone-1",
+        "receivedAt": 1800000000000,
+        "heartbeat": true,
+        "batteryPct": 77,
+        "position": { "x": 9, "y": 9, "z": 2 },
+        "mode": "bag-replay",
+        "status": "exploring",
+        "estimatorQuality": 82,
+        "linkQuality": 88,
+        "sourceAdapter": "rosbag-lite"
+      }
+    },
+    {
+      "type": "spatialAsset",
+      "asset": {
+        "assetId": "bag-rubble-point-cloud-1",
+        "kind": "point-cloud",
+        "uri": "local://spatial/import/rubble-point-cloud.pcd",
+        "previewUri": "fixture://import/rubble-point-cloud.preview.json",
+        "assetFormat": "pcd",
+        "coordinateSystem": "mission-local",
+        "bounds": { "x": 18, "y": 12, "width": 8, "height": 8 },
+        "sampleCount": 140,
+        "renderHints": { "color": "#82cfff", "pointSize": 0.16 },
+        "sourceAdapter": "rosbag-lite",
+        "frameId": "map",
+        "createdAt": 1800000000000,
+        "position": { "x": 21, "y": 16, "z": 2 },
+        "confidence": 0.81,
+        "transformConfidence": 0.78,
+        "metadata": {
+          "pointCount": 14620,
+          "densityPointsPerM2": 228.4,
+          "sourceChannels": ["lidar", "spatial"]
+        }
+      }
+    }
+  ]
+}

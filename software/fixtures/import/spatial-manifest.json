@@ -1,0 +1,22 @@
+{
+  "importId": "fixture-spatial-manifest-1",
+  "assets": [
+    {
+      "assetId": "manifest-rubble-splat-1",
+      "kind": "gaussian-splat",
+      "uri": "local://spatial/import/rubble-splat.splat",
+      "previewUri": "fixture://import/rubble-splat.preview.json",
+      "assetFormat": "splat",
+      "coordinateSystem": "mission-local",
+      "bounds": { "x": 10, "y": 9, "width": 12, "height": 9 },
+      "sampleCount": 120,
+      "renderHints": { "color": "#50d7b8", "pointSize": 0.18 },
+      "sourceAdapter": "fixture-import",
+      "frameId": "map",
+      "createdAt": 1800000000000,
+      "position": { "x": 16, "y": 13, "z": 2 },
+      "confidence": 0.85,
+      "transformConfidence": 0.82
+    }
+  ]
+}

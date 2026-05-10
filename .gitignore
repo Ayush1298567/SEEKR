@@ -1,0 +1,22 @@
+.DS_Store
+
+# Local secrets and machine-specific settings
+.env
+.env.*
+!.env.example
+
+# Dependency installs
+node_modules/
+
+# Build, test, and generated local evidence
+dist/
+coverage/
+test-results/
+playwright-report/
+.tmp/
+.gstack/
+data/
+
+# Logs and local caches
+*.log
+.cache/

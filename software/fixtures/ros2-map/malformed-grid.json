@@ -1,0 +1,8 @@
+{
+  "droneId": "ros-drone-bad",
+  "frame_id": "map",
+  "stamp": 1800000000000,
+  "info": { "width": 2, "height": 2, "resolution": 1 },
+  "data": ["bad", 0, 100, -1],
+  "transformConfidence": 0.9
+}
