@@ -110,6 +110,24 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when API probe readback does not match latest acceptance evidence", async () => {
+    const probePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const probe = JSON.parse(await readFile(probePath, "utf8"));
+    probe.sessionAcceptance.releaseChecksum.overallSha256 = "b".repeat(64);
+    await writeFile(probePath, JSON.stringify(probe), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "api-readback")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("probe release checksum summary does not match acceptance status")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness does not reference the latest setup artifact", async () => {
     await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-zz-newer.json"), JSON.stringify({
       ok: true,

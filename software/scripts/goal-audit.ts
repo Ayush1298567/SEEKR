@@ -329,22 +329,48 @@ async function apiProbeItem(root: string): Promise<GoalAuditItem> {
   }
 
   const manifest = await readJson(probe.absolutePath);
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const checked = isRecord(manifest) && Array.isArray(manifest.checked) ? manifest.checked.map(String) : [];
   const sessionAcceptance = isRecord(manifest) && isRecord(manifest.sessionAcceptance) ? manifest.sessionAcceptance : {};
-  const ok = isRecord(manifest) &&
-    manifest.ok === true &&
-    manifest.commandUploadEnabled === false &&
-    checked.includes("session-acceptance-evidence") &&
-    checked.includes("malformed-json") &&
-    sessionAcceptance.commandUploadEnabled === false;
+  const problems: string[] = [];
+
+  if (!isRecord(manifest) || manifest.ok !== true) problems.push("probe ok is not true");
+  if (!isRecord(manifest) || manifest.commandUploadEnabled !== false) problems.push("probe commandUploadEnabled is not false");
+  if (!checked.includes("session-acceptance-evidence")) problems.push("probe did not check session-acceptance-evidence");
+  if (!checked.includes("malformed-json")) problems.push("probe did not check malformed-json handling");
+  if (sessionAcceptance.commandUploadEnabled !== false) problems.push("probe session acceptance commandUploadEnabled is not false");
+
+  if (isRecord(acceptance) && acceptance.ok === true) {
+    const acceptanceRelease = isRecord(acceptance.releaseChecksum) ? acceptance.releaseChecksum : {};
+    const probeRelease = isRecord(sessionAcceptance.releaseChecksum) ? sessionAcceptance.releaseChecksum : {};
+    const acceptanceScan = isRecord(acceptance.commandBoundaryScan) ? acceptance.commandBoundaryScan : {};
+    const probeScan = isRecord(sessionAcceptance.commandBoundaryScan) ? sessionAcceptance.commandBoundaryScan : {};
+
+    if (sessionAcceptance.status !== "pass") problems.push("probe did not read back passing acceptance status");
+    if (
+      probeRelease.overallSha256 !== acceptanceRelease.overallSha256 ||
+      Number(probeRelease.fileCount) !== Number(acceptanceRelease.fileCount) ||
+      Number(probeRelease.totalBytes) !== Number(acceptanceRelease.totalBytes)
+    ) {
+      problems.push("probe release checksum summary does not match acceptance status");
+    }
+    if (
+      probeScan.status !== "pass" ||
+      Number(probeScan.scannedFileCount) !== Number(acceptanceScan.scannedFileCount) ||
+      Number(probeScan.violationCount) !== 0 ||
+      Number(probeScan.allowedFindingCount) !== Number(acceptanceScan.allowedFindingCount)
+    ) {
+      problems.push("probe command-boundary scan summary does not match acceptance status");
+    }
+  }
 
   return {
     id: "api-readback",
     requirement: "Final API probe persists session-visible acceptance and malformed-JSON evidence.",
-    status: ok ? "pass" : "fail",
-    details: ok
-      ? `Final API probe evidence is present and command-upload-disabled: ${probe.relativePath}.`
-      : "Latest API probe must pass, include session-acceptance-evidence and malformed-json checks, and keep commandUploadEnabled false.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : `Final API probe evidence matches session-visible acceptance evidence and is command-upload-disabled: ${probe.relativePath}.`,
     evidence: [probe.relativePath]
   };
 }
