@@ -1099,18 +1099,20 @@ async function seedRoot(root: string) {
     configuredRemoteUrls: [],
     remoteRefCount: 0,
     blockedCheckCount: 2,
-    warningCheckCount: 1,
+    warningCheckCount: 3,
     checks: [
       { id: "repository-reference", status: "pass", details: "Package metadata or README names the repository." },
       { id: "local-git-metadata", status: "blocked", details: "This workspace is not a Git worktree." },
       { id: "configured-github-remote", status: "warn", details: "No local Git metadata exists." },
-      { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs/default branch." }
+      { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs/default branch." },
+      { id: "local-head-published", status: "warn", details: "No local Git metadata exists, so the published commit cannot be compared to local HEAD." },
+      { id: "working-tree-clean", status: "warn", details: "No local Git metadata exists, so the worktree cleanliness cannot be inspected." }
     ],
     nextActionChecklist: [
       { id: "restore-or-initialize-local-git", status: "required", details: "Restore or initialize local Git metadata.", commands: ["git init"], clearsCheckIds: ["local-git-metadata"] },
       { id: "configure-github-origin", status: "required", details: "Configure the GitHub origin remote.", commands: ["git remote add origin git@github.com:Ayush1298567/SEEKR.git"], clearsCheckIds: ["configured-github-remote"] },
       { id: "publish-reviewed-main", status: "required", details: "Publish the reviewed main branch.", commands: ["git push -u origin main"], clearsCheckIds: ["github-remote-refs"] },
-      { id: "rerun-source-control-audit", status: "verification", details: "Rerun the source-control audit after publication.", commands: ["npm run audit:source-control"], clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs"] }
+      { id: "rerun-source-control-audit", status: "verification", details: "Rerun the source-control audit after publication.", commands: ["npm run audit:source-control"], clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"] }
     ],
     limitations: [
       "This audit is read-only and does not initialize Git, commit files, push branches, or change GitHub settings.",

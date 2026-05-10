@@ -32,6 +32,10 @@ export interface SourceControlHandoffManifest {
   repositoryUrl: string;
   packageRepositoryUrl?: string;
   gitMetadataPath?: string;
+  localBranch?: string;
+  localHeadSha?: string;
+  remoteDefaultBranchSha?: string;
+  workingTreeStatusLineCount?: number;
   configuredRemoteUrls: string[];
   remoteDefaultBranch?: string;
   remoteRefCount: number;
@@ -48,19 +52,36 @@ interface LsRemoteResult {
   error?: string;
 }
 
+interface GitCommandResult {
+  ok: boolean;
+  stdout: string;
+  error?: string;
+}
+
+interface LocalGitState {
+  branch?: string;
+  headSha?: string;
+  statusLines?: string[];
+  branchError?: string;
+  headError?: string;
+  statusError?: string;
+}
+
 const DEFAULT_OUT_DIR = ".tmp/source-control-handoff";
 export const EXPECTED_REPOSITORY_URL = "https://github.com/Ayush1298567/SEEKR";
-const REQUIRED_SOURCE_CONTROL_CHECK_IDS = ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs"];
+const REQUIRED_SOURCE_CONTROL_CHECK_IDS = ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"];
 const execFileAsync = promisify(execFile);
 
 export async function buildSourceControlHandoff(options: {
   root?: string;
   generatedAt?: string;
   lsRemote?: (repositoryUrl: string) => Promise<LsRemoteResult>;
+  git?: (args: string[], cwd: string) => Promise<GitCommandResult>;
 } = {}): Promise<SourceControlHandoffManifest> {
   const root = path.resolve(options.root ?? process.cwd());
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const lsRemote = options.lsRemote ?? gitLsRemote;
+  const git = options.git ?? gitCommand;
   const packageJson = await readJson(path.join(root, "package.json"));
   const localReadme = await readText(path.join(root, "README.md"));
   const parentReadme = await readText(path.join(root, "..", "README.md"));
@@ -70,8 +91,12 @@ export async function buildSourceControlHandoff(options: {
   const configuredRemoteUrls = gitMetadata
     ? remoteUrlsFromGitConfig(await readText(path.join(gitMetadata.gitDir, "config")))
     : [];
+  const localGit = gitMetadata ? await inspectLocalGit(root, git) : {};
   const remoteProbe = await lsRemote(EXPECTED_REPOSITORY_URL);
   const remoteState = parseLsRemote(remoteProbe.output);
+  const remoteDefaultBranchSha = remoteState.defaultBranch ? remoteState.refs.get(`refs/heads/${remoteState.defaultBranch}`) : undefined;
+  const localHeadPublished = Boolean(localGit.headSha && remoteDefaultBranchSha && localGit.headSha === remoteDefaultBranchSha);
+  const workingTreeStatusLineCount = localGit.statusLines?.length;
 
   const checks: SourceControlHandoffCheck[] = [
     {
@@ -109,6 +134,46 @@ export async function buildSourceControlHandoff(options: {
           : "GitHub remote is reachable but has no published refs/default branch yet."
         : `GitHub remote refs could not be inspected: ${remoteProbe.error ?? "unknown git ls-remote failure"}.`,
       evidence: [EXPECTED_REPOSITORY_URL, "git ls-remote --symref"]
+    },
+    {
+      id: "local-head-published",
+      status: !gitMetadata || !remoteProbe.ok
+        ? "warn"
+        : localHeadPublished
+          ? "pass"
+          : "blocked",
+      details: !gitMetadata
+        ? "No local Git metadata exists, so the published commit cannot be compared to local HEAD."
+        : !remoteProbe.ok
+          ? `GitHub remote refs could not be inspected, so local HEAD publication could not be proven: ${remoteProbe.error ?? "unknown git ls-remote failure"}.`
+          : localHeadPublished
+            ? `Local HEAD ${shortSha(localGit.headSha)} on ${localGit.branch ?? "unknown branch"} matches GitHub default branch ${remoteState.defaultBranch}.`
+            : localGit.headSha && remoteDefaultBranchSha
+              ? `Local HEAD ${shortSha(localGit.headSha)} does not match GitHub ${remoteState.defaultBranch} at ${shortSha(remoteDefaultBranchSha)}.`
+              : `Local HEAD or GitHub default branch SHA could not be resolved.${localGit.headError ? ` ${localGit.headError}` : ""}`,
+      evidence: [
+        localGit.branch ? `branch:${localGit.branch}` : "git branch --show-current",
+        localGit.headSha ? `HEAD:${localGit.headSha}` : "git rev-parse HEAD",
+        remoteState.defaultBranch ? `origin/${remoteState.defaultBranch}:${remoteDefaultBranchSha ?? "unknown"}` : "git ls-remote --symref"
+      ]
+    },
+    {
+      id: "working-tree-clean",
+      status: !gitMetadata
+        ? "warn"
+        : localGit.statusLines
+          ? localGit.statusLines.length === 0 ? "pass" : "blocked"
+          : "blocked",
+      details: !gitMetadata
+        ? "No local Git metadata exists, so the worktree cleanliness cannot be inspected."
+        : localGit.statusLines
+          ? localGit.statusLines.length === 0
+            ? "Local Git worktree has no uncommitted tracked or untracked source changes."
+            : `Local Git worktree has ${localGit.statusLines.length} uncommitted status line(s); review, commit, or ignore them before source-control handoff.`
+          : `Local Git worktree status could not be inspected.${localGit.statusError ? ` ${localGit.statusError}` : ""}`,
+      evidence: localGit.statusLines && localGit.statusLines.length
+        ? localGit.statusLines.slice(0, 20)
+        : ["git status --porcelain --untracked-files=normal"]
     }
   ];
 
@@ -130,6 +195,10 @@ export async function buildSourceControlHandoff(options: {
     repositoryUrl: EXPECTED_REPOSITORY_URL,
     packageRepositoryUrl,
     gitMetadataPath: gitMetadata ? path.relative(root, gitMetadata.gitDir) || ".git" : undefined,
+    localBranch: localGit.branch,
+    localHeadSha: localGit.headSha,
+    remoteDefaultBranchSha,
+    workingTreeStatusLineCount,
     configuredRemoteUrls,
     remoteDefaultBranch: remoteState.defaultBranch,
     remoteRefCount: remoteState.refCount,
@@ -170,7 +239,12 @@ function parseLsRemote(output: string) {
     .find((branch): branch is string => typeof branch === "string")
     ?.replace(/^refs\/heads\//, "");
   const refCount = lines.filter((line) => /^[0-9a-f]{40}\s+refs\//i.test(line)).length;
-  return { defaultBranch, refCount };
+  const refs = new Map<string, string>();
+  for (const line of lines) {
+    const match = /^([0-9a-f]{40})\s+(refs\/[^\s]+|HEAD)$/i.exec(line);
+    if (match) refs.set(match[2], match[1]);
+  }
+  return { defaultBranch, refCount, refs };
 }
 
 async function gitLsRemote(repositoryUrl: string): Promise<LsRemoteResult> {
@@ -194,6 +268,41 @@ async function gitLsRemote(repositoryUrl: string): Promise<LsRemoteResult> {
   }
 }
 
+async function gitCommand(args: string[], cwd: string): Promise<GitCommandResult> {
+  try {
+    const { stdout } = await execFileAsync("git", args, {
+      cwd,
+      encoding: "utf8",
+      timeout: 10000,
+      maxBuffer: 1024 * 1024
+    });
+    return { ok: true, stdout };
+  } catch (error) {
+    return {
+      ok: false,
+      stdout: String((error as { stdout?: unknown }).stdout ?? ""),
+      error: [
+        String((error as { stderr?: unknown }).stderr ?? "").trim(),
+        String((error as { message?: unknown }).message ?? "").trim()
+      ].filter(Boolean).join(" ").slice(0, 500)
+    };
+  }
+}
+
+async function inspectLocalGit(root: string, git: (args: string[], cwd: string) => Promise<GitCommandResult>): Promise<LocalGitState> {
+  const branch = await git(["branch", "--show-current"], root);
+  const head = await git(["rev-parse", "HEAD"], root);
+  const status = await git(["status", "--porcelain", "--untracked-files=normal"], root);
+  return {
+    branch: branch.ok ? branch.stdout.trim() || undefined : undefined,
+    headSha: head.ok ? head.stdout.trim() || undefined : undefined,
+    statusLines: status.ok ? status.stdout.split(/\r?\n/).map((line) => line.trimEnd()).filter(Boolean) : undefined,
+    branchError: branch.ok ? undefined : branch.error,
+    headError: head.ok ? undefined : head.error,
+    statusError: status.ok ? undefined : status.error
+  };
+}
+
 function renderMarkdown(manifest: SourceControlHandoffManifest) {
   const lines = [
     "# SEEKR Source-Control Handoff",
@@ -205,9 +314,13 @@ function renderMarkdown(manifest: SourceControlHandoffManifest) {
     `Repository: ${manifest.repositoryUrl}`,
     manifest.packageRepositoryUrl ? `Package repository: ${manifest.packageRepositoryUrl}` : undefined,
     manifest.gitMetadataPath ? `Git metadata: ${manifest.gitMetadataPath}` : "Git metadata: missing",
+    manifest.localBranch ? `Local branch: ${manifest.localBranch}` : undefined,
+    manifest.localHeadSha ? `Local HEAD: ${manifest.localHeadSha}` : undefined,
     `Configured remotes: ${manifest.configuredRemoteUrls.length ? manifest.configuredRemoteUrls.join(", ") : "none"}`,
     `Remote default branch: ${manifest.remoteDefaultBranch ?? "none"}`,
+    manifest.remoteDefaultBranchSha ? `Remote default branch SHA: ${manifest.remoteDefaultBranchSha}` : undefined,
     `Remote ref count: ${manifest.remoteRefCount}`,
+    typeof manifest.workingTreeStatusLineCount === "number" ? `Working tree status lines: ${manifest.workingTreeStatusLineCount}` : undefined,
     `Blocked checks: ${manifest.blockedCheckCount}`,
     `Warning checks: ${manifest.warningCheckCount}`,
     "",
@@ -305,6 +418,9 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
     problems.push("warningCheckCount must be a non-negative integer");
   }
   if (!Array.isArray(manifest.configuredRemoteUrls)) problems.push("configuredRemoteUrls must be an array");
+  if (ready && typeof manifest.localHeadSha !== "string") problems.push("ready source-control handoff must include localHeadSha");
+  if (ready && typeof manifest.remoteDefaultBranchSha !== "string") problems.push("ready source-control handoff must include remoteDefaultBranchSha");
+  if (ready && manifest.workingTreeStatusLineCount !== 0) problems.push("ready source-control handoff must record a clean working tree");
   for (const id of REQUIRED_SOURCE_CONTROL_CHECK_IDS) {
     if (!checkIds.has(id)) problems.push(`missing required check ${id}`);
   }
@@ -328,6 +444,12 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   }
   if (blockedCheckIds.includes("github-remote-refs") && !nextActions.some((action) => nextActionClearsWithCommand(action, "github-remote-refs", /git push/i))) {
     problems.push("nextActionChecklist must include a manual publish step when GitHub has no refs");
+  }
+  if (blockedCheckIds.includes("local-head-published") && !nextActions.some((action) => nextActionClearsWithCommand(action, "local-head-published", /git push/i))) {
+    problems.push("nextActionChecklist must include a push step when local HEAD is not published");
+  }
+  if (blockedCheckIds.includes("working-tree-clean") && !nextActions.some((action) => nextActionClearsWithCommand(action, "working-tree-clean", /git status|git diff|git commit/i))) {
+    problems.push("nextActionChecklist must include a worktree cleanup/review step when local changes are present");
   }
   if (!readyMatchesChecks) problems.push("ready must match blocked check count");
   if (!statusMatchesChecks) problems.push("status must match blocked/warning check count");
@@ -357,6 +479,8 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
   const localGitMissing = statusFor("local-git-metadata") === "blocked";
   const remoteMissing = statusFor("configured-github-remote") === "blocked" || statusFor("configured-github-remote") === "warn";
   const remoteRefsMissing = statusFor("github-remote-refs") === "blocked";
+  const localHeadUnpublished = statusFor("local-head-published") === "blocked";
+  const worktreeDirty = statusFor("working-tree-clean") === "blocked";
   const actions: SourceControlHandoffNextAction[] = [];
 
   if (localGitMissing) {
@@ -404,6 +528,36 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
     });
   }
 
+  if (worktreeDirty) {
+    actions.push({
+      id: "review-and-clear-local-worktree",
+      status: "required",
+      details: "Review uncommitted source changes and either commit intentional work or remove/ignore generated files before publication handoff.",
+      commands: [
+        "git status --short",
+        "git diff --stat",
+        "git add <reviewed-files>",
+        "git commit -m \"Describe reviewed source-control update\""
+      ],
+      clearsCheckIds: ["working-tree-clean"]
+    });
+  }
+
+  if (localHeadUnpublished) {
+    actions.push({
+      id: "publish-current-local-head",
+      status: "required",
+      details: "Publish the reviewed local HEAD to the GitHub default branch so plug-and-play users fetch the same source that was audited locally.",
+      commands: [
+        "git log -1 --oneline",
+        "git status --short",
+        "git push origin HEAD:main",
+        "npm run audit:source-control"
+      ],
+      clearsCheckIds: ["local-head-published", "github-remote-refs"]
+    });
+  }
+
   actions.push({
     id: actions.length ? "rerun-source-control-audit" : "verify-source-control-before-bundle",
     status: "verification",
@@ -435,6 +589,10 @@ function nextActionClearsWithCommand(action: Record<string, unknown>, checkId: s
   const commands = Array.isArray(action.commands) ? action.commands.map(String) : [];
   const clearsCheckIds = Array.isArray(action.clearsCheckIds) ? action.clearsCheckIds.map(String) : [];
   return clearsCheckIds.includes(checkId) && commands.some((command) => commandPattern.test(command));
+}
+
+function shortSha(value: string | undefined) {
+  return value ? value.slice(0, 12) : "unknown";
 }
 
 function repositoryUrlFromPackage(packageJson: unknown) {

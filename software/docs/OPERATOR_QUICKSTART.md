@@ -11,7 +11,7 @@
    npm run doctor
    ```
 
-   `setup:local` creates `.env` only when missing and prepares project-local rehearsal data. `audit:source-control` records the current GitHub handoff state and manual publication next steps without initializing Git, committing, or pushing. `doctor` checks package/runtime metadata, local Ollama, ports, data directory, source-control handoff state, and safety flags without starting the app.
+   `setup:local` creates `.env` only when missing and prepares project-local rehearsal data. `audit:source-control` records the current GitHub handoff state, including local HEAD publication and clean-worktree status, plus manual publication next steps without initializing Git, committing, or pushing. `doctor` checks package/runtime metadata, local Ollama, ports, data directory, source-control handoff state, and safety flags without starting the app.
 
 2. Start the local rehearsal wrapper:
 

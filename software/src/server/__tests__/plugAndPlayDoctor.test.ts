@@ -424,6 +424,10 @@ async function seedDoctorProject(root: string) {
     commandUploadEnabled: false,
     repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
     gitMetadataPath: ".git",
+    localBranch: "main",
+    localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
     remoteDefaultBranch: "main",
     remoteRefCount: 1,
@@ -433,7 +437,9 @@ async function seedDoctorProject(root: string) {
       { id: "repository-reference", status: "pass", details: "Repository reference is present." },
       { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
-      { id: "github-remote-refs", status: "pass", details: "Remote refs are present." }
+      { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
+      { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
+      { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
     ],
     nextActionChecklist: [
       {
@@ -441,7 +447,7 @@ async function seedDoctorProject(root: string) {
         status: "verification",
         details: "Rerun the read-only audit before final bundling to keep source-control evidence current.",
         commands: ["npm run audit:source-control"],
-        clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs"]
+        clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"]
       }
     ],
     limitations: [

@@ -4,6 +4,9 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildSourceControlHandoff, validateSourceControlHandoffManifest, writeSourceControlHandoff } from "../../../scripts/source-control-handoff";
 
+const LOCAL_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const REMOTE_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
 describe("source-control handoff audit", () => {
   let root: string;
 
@@ -20,12 +23,17 @@ describe("source-control handoff audit", () => {
     const manifest = await buildSourceControlHandoff({
       root,
       generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
       lsRemote: async () => ({
         ok: true,
         output: [
           "ref: refs/heads/main\tHEAD",
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tHEAD",
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\trefs/heads/main",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
           ""
         ].join("\n")
       })
@@ -38,8 +46,12 @@ describe("source-control handoff audit", () => {
       commandUploadEnabled: false,
       repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       gitMetadataPath: ".git",
+      localBranch: "main",
+      localHeadSha: LOCAL_SHA,
       remoteDefaultBranch: "main",
+      remoteDefaultBranchSha: LOCAL_SHA,
       remoteRefCount: 1,
+      workingTreeStatusLineCount: 0,
       blockedCheckCount: 0,
       warningCheckCount: 0,
       nextActionChecklist: [
@@ -51,6 +63,55 @@ describe("source-control handoff audit", () => {
       ]
     });
     expect(manifest.checks.every((check) => check.status === "pass")).toBe(true);
+  });
+
+  it("blocks when local HEAD is unpublished or the worktree is dirty", async () => {
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: " M software/README.md\n?? software/scripts/new-audit.ts\n"
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${REMOTE_SHA}\tHEAD`,
+          `${REMOTE_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      })
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(2);
+    expect(manifest.warningCheckCount).toBe(0);
+    expect(manifest.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "local-head-published",
+        status: "blocked",
+        details: expect.stringContaining("does not match")
+      }),
+      expect.objectContaining({
+        id: "working-tree-clean",
+        status: "blocked",
+        details: expect.stringContaining("2 uncommitted")
+      })
+    ]));
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "review-and-clear-local-worktree",
+        clearsCheckIds: expect.arrayContaining(["working-tree-clean"])
+      }),
+      expect.objectContaining({
+        id: "publish-current-local-head",
+        commands: expect.arrayContaining(["git push origin HEAD:main"]),
+        clearsCheckIds: expect.arrayContaining(["local-head-published"])
+      })
+    ]));
   });
 
   it("blocks when local git metadata is absent and the GitHub repo has no refs", async () => {
@@ -66,7 +127,7 @@ describe("source-control handoff audit", () => {
     expect(manifest.status).toBe("blocked-source-control-handoff");
     expect(manifest.commandUploadEnabled).toBe(false);
     expect(manifest.blockedCheckCount).toBe(2);
-    expect(manifest.warningCheckCount).toBe(1);
+    expect(manifest.warningCheckCount).toBe(3);
     expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "restore-or-initialize-local-git",
@@ -105,6 +166,11 @@ describe("source-control handoff audit", () => {
     const manifest = await buildSourceControlHandoff({
       root,
       generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
       lsRemote: async () => ({
         ok: false,
         output: "",
@@ -114,9 +180,14 @@ describe("source-control handoff audit", () => {
 
     expect(manifest.ready).toBe(true);
     expect(manifest.status).toBe("ready-source-control-handoff-with-warnings");
+    expect(manifest.warningCheckCount).toBe(2);
     expect(manifest.checks.find((check) => check.id === "github-remote-refs")).toMatchObject({
       status: "warn",
       details: expect.stringContaining("network unavailable")
+    });
+    expect(manifest.checks.find((check) => check.id === "local-head-published")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("could not be proven")
     });
   });
 
@@ -125,6 +196,11 @@ describe("source-control handoff audit", () => {
       root,
       outDir: ".tmp/source-control-handoff",
       generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
       lsRemote: async () => ({ ok: true, output: "" })
     });
 
@@ -139,11 +215,16 @@ describe("source-control handoff audit", () => {
     const manifest = await buildSourceControlHandoff({
       root,
       generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
       lsRemote: async () => ({
         ok: true,
         output: [
           "ref: refs/heads/main\tHEAD",
-          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\trefs/heads/main",
+          `${LOCAL_SHA}\trefs/heads/main`,
           ""
         ].join("\n")
       })
@@ -191,4 +272,14 @@ async function seedSourceControlProject(root: string) {
     }
   }), "utf8");
   await writeFile(path.join(root, "README.md"), "See https://github.com/Ayush1298567/SEEKR for source-control handoff.\n", "utf8");
+}
+
+function gitMock(state: { branch: string; headSha: string; status: string }) {
+  return async (args: string[]) => {
+    const key = args.join(" ");
+    if (key === "branch --show-current") return { ok: true, stdout: `${state.branch}\n` };
+    if (key === "rev-parse HEAD") return { ok: true, stdout: `${state.headSha}\n` };
+    if (key === "status --porcelain --untracked-files=normal") return { ok: true, stdout: state.status };
+    return { ok: false, stdout: "", error: `unexpected git args: ${key}` };
+  };
 }

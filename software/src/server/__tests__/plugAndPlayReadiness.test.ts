@@ -300,18 +300,20 @@ describe("plug-and-play readiness audit", () => {
       configuredRemoteUrls: [],
       remoteRefCount: 0,
       blockedCheckCount: 2,
-      warningCheckCount: 1,
+      warningCheckCount: 3,
       checks: [
         { id: "repository-reference", status: "pass", details: "Repository reference is present." },
         { id: "local-git-metadata", status: "blocked", details: "This workspace is not a Git worktree." },
         { id: "configured-github-remote", status: "warn", details: "No local Git metadata exists." },
-        { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs." }
+        { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs." },
+        { id: "local-head-published", status: "warn", details: "No local Git metadata exists, so the published commit cannot be compared to local HEAD." },
+        { id: "working-tree-clean", status: "warn", details: "No local Git metadata exists, so the worktree cleanliness cannot be inspected." }
       ],
       nextActionChecklist: [
         { id: "restore-or-initialize-local-git", status: "required", details: "Restore or initialize local Git metadata.", commands: ["git init"], clearsCheckIds: ["local-git-metadata"] },
         { id: "configure-github-origin", status: "required", details: "Configure the GitHub origin remote.", commands: ["git remote add origin git@github.com:Ayush1298567/SEEKR.git"], clearsCheckIds: ["configured-github-remote"] },
         { id: "publish-reviewed-main", status: "required", details: "Publish the reviewed main branch.", commands: ["git push -u origin main"], clearsCheckIds: ["github-remote-refs"] },
-        { id: "rerun-source-control-audit", status: "verification", details: "Rerun the source-control audit after publication.", commands: ["npm run audit:source-control"], clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs"] }
+        { id: "rerun-source-control-audit", status: "verification", details: "Rerun the source-control audit after publication.", commands: ["npm run audit:source-control"], clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"] }
       ],
       limitations: [
         "This audit is read-only and does not initialize Git, commit files, push branches, or change GitHub settings.",
@@ -562,6 +564,10 @@ describe("plug-and-play readiness audit", () => {
       ready: true,
       commandUploadEnabled: false,
       repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      localBranch: "main",
+      localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      workingTreeStatusLineCount: 0,
       configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
       remoteRefCount: 1,
       blockedCheckCount: 0,
@@ -570,7 +576,9 @@ describe("plug-and-play readiness audit", () => {
         { id: "repository-reference", status: "pass", details: "Repository reference is present." },
         { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
         { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
-        { id: "github-remote-refs", status: "pass", details: "Remote refs are present." }
+        { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
+        { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
+        { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
       ],
       nextActionChecklist: [
         {
@@ -578,7 +586,7 @@ describe("plug-and-play readiness audit", () => {
           status: "verification",
           details: "Rerun the read-only audit before final bundling to keep source-control evidence current.",
           commands: ["npm run audit:source-control"],
-          clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs"]
+          clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"]
         }
       ],
       limitations: [
@@ -1024,6 +1032,10 @@ async function seedDoctorFiles(root: string) {
     commandUploadEnabled: false,
     repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
     gitMetadataPath: ".git",
+    localBranch: "main",
+    localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
     remoteDefaultBranch: "main",
     remoteRefCount: 1,
@@ -1033,7 +1045,9 @@ async function seedDoctorFiles(root: string) {
       { id: "repository-reference", status: "pass", details: "Repository reference is present." },
       { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
-      { id: "github-remote-refs", status: "pass", details: "Remote refs are present." }
+      { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
+      { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
+      { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
     ],
     nextActionChecklist: [
       {
@@ -1041,7 +1055,7 @@ async function seedDoctorFiles(root: string) {
         status: "verification",
         details: "Rerun the read-only audit before final bundling to keep source-control evidence current.",
         commands: ["npm run audit:source-control"],
-        clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs"]
+        clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"]
       }
     ],
     limitations: [
