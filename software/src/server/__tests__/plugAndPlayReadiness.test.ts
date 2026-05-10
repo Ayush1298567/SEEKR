@@ -54,6 +54,25 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("clean worktree");
   });
 
+  it("fails when the API probe readback does not match acceptance evidence", async () => {
+    const apiProbePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const apiProbe = JSON.parse(await readFile(apiProbePath, "utf8"));
+    apiProbe.sessionAcceptance.releaseChecksum.overallSha256 = "b".repeat(64);
+    await writeFile(apiProbePath, JSON.stringify(apiProbe), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "api-readback")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("probe release checksum summary does not match acceptance status")
+    });
+  });
+
   it("fails when strict local AI evidence is not implemented", async () => {
     await writeFile(path.join(root, ".tmp/acceptance-status.json"), JSON.stringify({
       ok: true,
@@ -61,7 +80,18 @@ describe("plug-and-play readiness audit", () => {
       strictLocalAi: { ok: false, provider: "rules", model: "deterministic-v1", caseCount: 0 },
       releaseChecksum: {
         jsonPath: ".tmp/release-evidence/seekr-release-test.json",
-        overallSha256: "a".repeat(64)
+        overallSha256: "a".repeat(64),
+        fileCount: 10,
+        totalBytes: 1000
+      },
+      commandBoundaryScan: {
+        jsonPath: ".tmp/safety-evidence/seekr-command-boundary-scan-test.json",
+        markdownPath: ".tmp/safety-evidence/seekr-command-boundary-scan-test.md",
+        status: "pass",
+        scannedFileCount: 126,
+        violationCount: 0,
+        allowedFindingCount: 36,
+        commandUploadEnabled: false
       }
     }), "utf8");
 
@@ -837,13 +867,40 @@ async function seedPlugAndPlayEvidence(root: string) {
     },
     releaseChecksum: {
       jsonPath: releasePath,
-      overallSha256: "a".repeat(64)
+      overallSha256: "a".repeat(64),
+      fileCount: 10,
+      totalBytes: 1000
+    },
+    commandBoundaryScan: {
+      jsonPath: ".tmp/safety-evidence/seekr-command-boundary-scan-test.json",
+      markdownPath: ".tmp/safety-evidence/seekr-command-boundary-scan-test.md",
+      status: "pass",
+      scannedFileCount: 126,
+      violationCount: 0,
+      allowedFindingCount: 36,
+      commandUploadEnabled: false
     }
   }), "utf8");
   await writeFile(path.join(root, ".tmp/api-probe/seekr-api-probe-test.json"), JSON.stringify({
     ok: true,
     commandUploadEnabled: false,
-    checked: ["config", "session-acceptance", "session-acceptance-evidence", "readiness", "verify", "replays", "malformed-json"]
+    checked: ["config", "session-acceptance", "session-acceptance-evidence", "readiness", "verify", "replays", "malformed-json"],
+    sessionAcceptance: {
+      ok: true,
+      status: "pass",
+      commandUploadEnabled: false,
+      releaseChecksum: {
+        overallSha256: "a".repeat(64),
+        fileCount: 10,
+        totalBytes: 1000
+      },
+      commandBoundaryScan: {
+        status: "pass",
+        scannedFileCount: 126,
+        violationCount: 0,
+        allowedFindingCount: 36
+      }
+    }
   }), "utf8");
   await writeFile(path.join(root, ".tmp/completion-audit/seekr-completion-audit-test.json"), JSON.stringify({
     localAlphaOk: true,

@@ -604,17 +604,52 @@ async function acceptanceAndAiCheck(root: string): Promise<PlugAndPlayCheck> {
 async function apiProbeCheck(root: string): Promise<PlugAndPlayCheck> {
   const probe = await latestJson(root, ".tmp/api-probe", (name) => name.startsWith("seekr-api-probe-"));
   const manifest = probe ? await readJson(probe.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const checked = isRecord(manifest) && Array.isArray(manifest.checked) ? manifest.checked.map(String) : [];
+  const sessionAcceptance = isRecord(manifest) && isRecord(manifest.sessionAcceptance) ? manifest.sessionAcceptance : {};
   const requiredChecks = ["config", "session-acceptance", "session-acceptance-evidence", "readiness", "verify", "replays", "malformed-json"];
   const missing = requiredChecks.filter((check) => !checked.includes(check));
-  const ok = isRecord(manifest) && manifest.ok === true && manifest.commandUploadEnabled === false && missing.length === 0;
+  const problems: string[] = [];
+
+  if (!isRecord(manifest) || manifest.ok !== true) problems.push("probe ok is not true");
+  if (!isRecord(manifest) || manifest.commandUploadEnabled !== false) problems.push("probe commandUploadEnabled is not false");
+  if (missing.length) problems.push(`probe missing check(s): ${missing.join(", ")}`);
+  if (!isRecord(acceptance) || acceptance.ok !== true) problems.push("acceptance status must pass before API readback can be trusted");
+  if (isRecord(acceptance) && acceptance.commandUploadEnabled !== false) problems.push("acceptance status commandUploadEnabled is not false");
+  if (sessionAcceptance.ok !== true) problems.push("probe session acceptance ok is not true");
+  if (sessionAcceptance.commandUploadEnabled !== false) problems.push("probe session acceptance commandUploadEnabled is not false");
+
+  if (isRecord(acceptance) && acceptance.ok === true) {
+    const acceptanceRelease = isRecord(acceptance.releaseChecksum) ? acceptance.releaseChecksum : {};
+    const probeRelease = isRecord(sessionAcceptance.releaseChecksum) ? sessionAcceptance.releaseChecksum : {};
+    const acceptanceScan = isRecord(acceptance.commandBoundaryScan) ? acceptance.commandBoundaryScan : {};
+    const probeScan = isRecord(sessionAcceptance.commandBoundaryScan) ? sessionAcceptance.commandBoundaryScan : {};
+
+    if (sessionAcceptance.status !== "pass") problems.push("probe did not read back passing acceptance status");
+    if (
+      probeRelease.overallSha256 !== acceptanceRelease.overallSha256 ||
+      Number(probeRelease.fileCount) !== Number(acceptanceRelease.fileCount) ||
+      Number(probeRelease.totalBytes) !== Number(acceptanceRelease.totalBytes)
+    ) {
+      problems.push("probe release checksum summary does not match acceptance status");
+    }
+    if (
+      probeScan.status !== "pass" ||
+      Number(probeScan.scannedFileCount) !== Number(acceptanceScan.scannedFileCount) ||
+      Number(probeScan.violationCount) !== 0 ||
+      Number(probeScan.allowedFindingCount) !== Number(acceptanceScan.allowedFindingCount)
+    ) {
+      problems.push("probe command-boundary scan summary does not match acceptance status");
+    }
+  }
+
   return {
     id: "api-readback",
     requirement: "The local API has a current smoke probe for session, config, readiness, replay, and malformed JSON behavior.",
-    status: ok ? "pass" : "fail",
-    details: ok
-      ? "Latest API probe covers the local plug-and-play readback surface with command upload disabled."
-      : `Latest API probe is missing or incomplete: ${missing.join(", ") || "probe failed or commandUploadEnabled was not false"}.`,
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : "Latest API probe covers the local plug-and-play readback surface, matches acceptance evidence, and keeps command upload disabled.",
     evidence: [probe?.relativePath ?? ".tmp/api-probe"].filter(isString)
   };
 }
