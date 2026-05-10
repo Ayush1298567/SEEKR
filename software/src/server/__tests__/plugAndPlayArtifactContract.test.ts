@@ -1,0 +1,120 @@
+import { describe, expect, it } from "vitest";
+import {
+  REQUIRED_DOCTOR_CHECK_IDS,
+  REQUIRED_PLUG_AND_PLAY_SETUP_CHECK_IDS,
+  REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE,
+  SOFT_DOCTOR_CHECK_IDS,
+  doctorCheckStatusOk,
+  doctorRuntimeDependencyEvidenceOk,
+  plugAndPlayDoctorOk,
+  plugAndPlaySetupOk
+} from "../../../scripts/plug-and-play-artifact-contract";
+
+const GENERATED_AT = "2026-05-10T10:00:00.000Z";
+
+describe("plug-and-play artifact contract", () => {
+  it("accepts a complete local setup artifact", () => {
+    expect(REQUIRED_PLUG_AND_PLAY_SETUP_CHECK_IDS).toEqual([
+      "env-example",
+      "env-file",
+      "rehearsal-data-dir",
+      "safety-boundary"
+    ]);
+    expect(plugAndPlaySetupOk(setupManifest())).toBe(true);
+  });
+
+  it("rejects setup artifacts that omit a required check", () => {
+    const manifest = setupManifest({
+      checks: setupManifest().checks.filter((check) => check.id !== "safety-boundary")
+    });
+
+    expect(plugAndPlaySetupOk(manifest)).toBe(false);
+  });
+
+  it("accepts a doctor artifact with only soft warnings and current acceptance evidence", () => {
+    const manifest = doctorManifest({
+      summary: { pass: 7, warn: 3, fail: 0 },
+      checks: doctorChecks().map((check) =>
+        SOFT_DOCTOR_CHECK_IDS.has(check.id) ? { ...check, status: "warn" } : check
+      )
+    });
+
+    expect(plugAndPlayDoctorOk(manifest, { generatedAt: "2026-05-10T09:59:00.000Z" })).toBe(true);
+  });
+
+  it("rejects a doctor artifact older than the latest acceptance record", () => {
+    expect(plugAndPlayDoctorOk(doctorManifest(), { generatedAt: "2026-05-10T10:01:00.000Z" })).toBe(false);
+  });
+
+  it("rejects doctor artifacts missing runtime dependency evidence", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "runtime-dependencies"
+        ? {
+            ...check,
+            details: "Runtime evidence incomplete.",
+            evidence: REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE.slice(0, -1)
+          }
+        : check
+    );
+
+    expect(doctorRuntimeDependencyEvidenceOk(checks)).toBe(false);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
+  });
+
+  it("rejects warning statuses on critical doctor checks", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ai" ? { ...check, status: "warn" } : check
+    );
+
+    expect(doctorCheckStatusOk(checks, "local-ai")).toBe(false);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
+  });
+});
+
+function setupManifest(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true,
+    status: "ready-local-setup",
+    commandUploadEnabled: false,
+    envFilePath: ".env",
+    dataDirPath: "data",
+    checks: REQUIRED_PLUG_AND_PLAY_SETUP_CHECK_IDS.map((id) => ({
+      id,
+      status: "pass",
+      details: `${id} ok`,
+      evidence: [id]
+    })),
+    ...overrides
+  };
+}
+
+function doctorManifest(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true,
+    status: "ready-local-start",
+    commandUploadEnabled: false,
+    generatedAt: GENERATED_AT,
+    ai: {
+      provider: "ollama",
+      status: "pass"
+    },
+    summary: {
+      pass: REQUIRED_DOCTOR_CHECK_IDS.length,
+      warn: 0,
+      fail: 0
+    },
+    checks: doctorChecks(),
+    ...overrides
+  };
+}
+
+function doctorChecks() {
+  return REQUIRED_DOCTOR_CHECK_IDS.map((id) => ({
+    id,
+    status: "pass",
+    details: id === "runtime-dependencies"
+      ? `Runtime evidence: ${REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE.join(", ")}`
+      : `${id} ok`,
+    evidence: id === "runtime-dependencies" ? [...REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE] : [id]
+  }));
+}
