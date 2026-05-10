@@ -128,6 +128,24 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when API probe AI readback does not match latest acceptance evidence", async () => {
+    const probePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const probe = JSON.parse(await readFile(probePath, "utf8"));
+    probe.sessionAcceptance.strictLocalAi.model = "stale-model:latest";
+    await writeFile(probePath, JSON.stringify(probe), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "api-readback")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("probe strict local AI summary does not match acceptance status")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness does not reference the latest setup artifact", async () => {
     await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-zz-newer.json"), JSON.stringify({
       ok: true,
@@ -917,6 +935,13 @@ async function seedRoot(root: string) {
   await writeFile(path.join(root, ".tmp/acceptance-status.json"), JSON.stringify({
     ok: true,
     generatedAt: Date.parse("2026-05-09T20:00:00.000Z"),
+    completedCommands: ["typecheck", "test", "ui"],
+    strictLocalAi: {
+      ok: true,
+      provider: "ollama",
+      model: "llama3.2:latest",
+      caseCount: 4
+    },
     releaseChecksum: {
       jsonPath: releasePath,
       sha256Path: releasePath.replace(/\.json$/, ".sha256"),
@@ -967,7 +992,15 @@ async function seedRoot(root: string) {
     ],
     sessionAcceptance: {
       status: "pass",
+      generatedAt: Date.parse("2026-05-09T20:00:00.000Z"),
+      commandCount: 3,
       commandUploadEnabled: false,
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        caseCount: 4
+      },
       releaseChecksum: {
         overallSha256: releaseChecksum,
         fileCount: releaseFileCount,
