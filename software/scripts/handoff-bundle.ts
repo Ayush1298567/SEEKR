@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
 import { buildHandoffVerification } from "./handoff-verify";
+import { OPERATOR_QUICKSTART_PATH, operatorQuickstartOk } from "./operator-quickstart-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 
@@ -84,30 +85,6 @@ const SOURCE_CONTROL_HANDOFF_DIR = ".tmp/source-control-handoff";
 const PLUG_AND_PLAY_SETUP_DIR = ".tmp/plug-and-play-setup";
 const PLUG_AND_PLAY_DOCTOR_DIR = ".tmp/plug-and-play-doctor";
 const REHEARSAL_START_SMOKE_DIR = ".tmp/rehearsal-start-smoke";
-const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
-const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
-  "npm ci",
-  "npm run setup:local",
-  "npm run audit:source-control",
-  "npm run doctor",
-  "npm run rehearsal:start",
-  "Ollama",
-  "llama3.2:latest",
-  "AI output is advisory",
-  "validated candidate plans",
-  "cannot create command payloads",
-  "bypass operator validation",
-  "No AI-created command payloads",
-  "No operator answer bypassing validation",
-  "/api/config",
-  "/api/readiness",
-  "/api/source-health",
-  "/api/verify",
-  "/api/replays",
-  "command upload",
-  "hardware actuation",
-  "real-world blockers"
-];
 const REQUIRED_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
 const REQUIRED_DOCTOR_CHECK_IDS = ["package-scripts", "runtime-dependencies", "repository-safety", "source-control-handoff", "operator-start", "operator-env", "local-ai", "local-ports", "data-dir", "safety-boundary"];
 const SOFT_DOCTOR_CHECK_IDS = new Set(["source-control-handoff", "local-ports", "data-dir"]);
@@ -770,26 +747,6 @@ function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unknown) {
 
 function rehearsalStartSmokeOk(manifest: unknown) {
   return validateRehearsalStartSmokeManifest(manifest).ok;
-}
-
-function operatorQuickstartOk(content: string) {
-  return REQUIRED_OPERATOR_QUICKSTART_SIGNALS.every((signal) => content.includes(signal)) &&
-    commandOrderOk(content, [
-      "npm run setup:local",
-      "npm run audit:source-control",
-      "npm run doctor",
-      "npm run rehearsal:start"
-    ]);
-}
-
-function commandOrderOk(content: string, commands: string[]) {
-  let lastIndex = -1;
-  for (const command of commands) {
-    const index = content.indexOf(command);
-    if (index <= lastIndex) return false;
-    lastIndex = index;
-  }
-  return true;
 }
 
 function doctorCheckStatusOk(checks: Record<string, unknown>[], id: string) {

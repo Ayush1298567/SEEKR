@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { OPERATOR_QUICKSTART_PATH, operatorQuickstartOk } from "./operator-quickstart-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 
@@ -89,30 +90,6 @@ const REQUIRED_TODO_CATEGORY_IDS = [
   "hil-failsafe-manual-override",
   "isaac-sim-jetson-capture",
   "hardware-actuation-policy-review"
-];
-const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
-const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
-  "npm ci",
-  "npm run setup:local",
-  "npm run audit:source-control",
-  "npm run doctor",
-  "npm run rehearsal:start",
-  "Ollama",
-  "llama3.2:latest",
-  "AI output is advisory",
-  "validated candidate plans",
-  "cannot create command payloads",
-  "bypass operator validation",
-  "No AI-created command payloads",
-  "No operator answer bypassing validation",
-  "/api/config",
-  "/api/readiness",
-  "/api/source-health",
-  "/api/verify",
-  "/api/replays",
-  "command upload",
-  "hardware actuation",
-  "real-world blockers"
 ];
 const SECRET_PATTERNS: Array<{ rule: string; pattern: RegExp; details: string }> = [
   {
@@ -925,26 +902,6 @@ function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unknown) {
 
 function rehearsalStartSmokeOk(manifest: unknown) {
   return validateRehearsalStartSmokeManifest(manifest).ok;
-}
-
-function operatorQuickstartOk(content: string) {
-  return REQUIRED_OPERATOR_QUICKSTART_SIGNALS.every((signal) => content.includes(signal)) &&
-    commandOrderOk(content, [
-      "npm run setup:local",
-      "npm run audit:source-control",
-      "npm run doctor",
-      "npm run rehearsal:start"
-    ]);
-}
-
-function commandOrderOk(content: string, commands: string[]) {
-  let lastIndex = -1;
-  for (const command of commands) {
-    const index = content.indexOf(command);
-    if (index <= lastIndex) return false;
-    lastIndex = index;
-  }
-  return true;
 }
 
 function doctorCheckStatusOk(checks: Record<string, unknown>[], id: string) {

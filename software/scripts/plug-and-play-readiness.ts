@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 
@@ -46,7 +47,6 @@ export interface PlugAndPlayReadinessManifest {
 }
 
 const DEFAULT_OUT_DIR = ".tmp/plug-and-play-readiness";
-const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
 
 const REQUIRED_COMMANDS = [
   "setup:local",
@@ -101,30 +101,6 @@ const REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE = [
   "node_modules/.bin/concurrently",
   "node_modules/.bin/vite"
 ];
-const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
-  "npm ci",
-  "npm run setup:local",
-  "npm run audit:source-control",
-  "npm run doctor",
-  "npm run rehearsal:start",
-  "Ollama",
-  "llama3.2:latest",
-  "AI output is advisory",
-  "validated candidate plans",
-  "cannot create command payloads",
-  "bypass operator validation",
-  "No AI-created command payloads",
-  "No operator answer bypassing validation",
-  "/api/config",
-  "/api/readiness",
-  "/api/source-health",
-  "/api/verify",
-  "/api/replays",
-  "command upload",
-  "hardware actuation",
-  "real-world blockers"
-];
-
 export async function buildPlugAndPlayReadiness(options: {
   root?: string;
   generatedAt?: string;
@@ -474,17 +450,7 @@ async function operatorStartSmokeCheck(root: string): Promise<PlugAndPlayCheck> 
 
 async function operatorQuickstartDocCheck(root: string): Promise<PlugAndPlayCheck> {
   const content = await readText(path.join(root, OPERATOR_QUICKSTART_PATH));
-  const missing = REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) => !content.includes(signal));
-  const sourceControlOrderOk = commandOrderOk(content, [
-    "npm run setup:local",
-    "npm run audit:source-control",
-    "npm run doctor",
-    "npm run rehearsal:start"
-  ]);
-  const problems = [...missing];
-  if (content && !missing.length && !sourceControlOrderOk) {
-    problems.push("npm run setup:local before npm run audit:source-control before npm run doctor before npm run rehearsal:start");
-  }
+  const problems = operatorQuickstartProblems(content);
 
   return {
     id: "operator-quickstart-doc",
@@ -497,16 +463,6 @@ async function operatorQuickstartDocCheck(root: string): Promise<PlugAndPlayChec
         : "Operator quickstart covers local setup, source-control audit, start, advisory-only Ollama AI, API evidence checks, source-health proof, and the disabled command/hardware boundary.",
     evidence: [OPERATOR_QUICKSTART_PATH]
   };
-}
-
-function commandOrderOk(content: string, commands: string[]) {
-  let lastIndex = -1;
-  for (const command of commands) {
-    const index = content.indexOf(command);
-    if (index <= lastIndex) return false;
-    lastIndex = index;
-  }
-  return true;
 }
 
 async function envExampleCheck(root: string): Promise<PlugAndPlayCheck> {

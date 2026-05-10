@@ -1,0 +1,55 @@
+export const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
+
+export const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
+  "npm ci",
+  "npm run setup:local",
+  "npm run audit:source-control",
+  "npm run doctor",
+  "npm run rehearsal:start",
+  "Ollama",
+  "llama3.2:latest",
+  "AI output is advisory",
+  "validated candidate plans",
+  "cannot create command payloads",
+  "bypass operator validation",
+  "No AI-created command payloads",
+  "No operator answer bypassing validation",
+  "/api/config",
+  "/api/readiness",
+  "/api/source-health",
+  "/api/verify",
+  "/api/replays",
+  "command upload",
+  "hardware actuation",
+  "real-world blockers"
+] as const;
+
+export const REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER = [
+  "npm run setup:local",
+  "npm run audit:source-control",
+  "npm run doctor",
+  "npm run rehearsal:start"
+] as const;
+
+export function operatorQuickstartProblems(content: string) {
+  const missing: string[] = REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) => !content.includes(signal));
+  const problems = [...missing];
+  if (content && !missing.length && !operatorQuickstartCommandOrderOk(content)) {
+    problems.push(REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER.join(" before "));
+  }
+  return problems;
+}
+
+export function operatorQuickstartOk(content: string) {
+  return content.length > 0 && operatorQuickstartProblems(content).length === 0;
+}
+
+function operatorQuickstartCommandOrderOk(content: string) {
+  let lastIndex = -1;
+  for (const command of REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER) {
+    const index = content.indexOf(command);
+    if (index <= lastIndex) return false;
+    lastIndex = index;
+  }
+  return true;
+}
