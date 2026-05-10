@@ -13,6 +13,7 @@ describe("demo readiness package", () => {
     await mkdir(path.join(root, ".tmp/safety-evidence"), { recursive: true });
     await mkdir(path.join(root, ".tmp/api-probe"), { recursive: true });
     await mkdir(path.join(root, ".tmp/completion-audit"), { recursive: true });
+    await mkdir(path.join(root, ".tmp/source-control-handoff"), { recursive: true });
     await mkdir(path.join(root, ".tmp/hardware-evidence"), { recursive: true });
     await mkdir(path.join(root, ".tmp/policy-evidence"), { recursive: true });
     await mkdir(path.join(root, ".tmp/overnight"), { recursive: true });
@@ -109,7 +110,8 @@ describe("demo readiness package", () => {
       expect.objectContaining({
         id: "dx",
         status: "ready-local-alpha",
-        nextAction: expect.stringContaining("Git checkout")
+        gaps: expect.arrayContaining([expect.stringContaining("Source-control handoff evidence is missing")]),
+        nextAction: expect.stringContaining("audit:source-control")
       }),
       expect.objectContaining({
         id: "replay",
@@ -128,8 +130,34 @@ describe("demo readiness package", () => {
     expect(manifest.artifacts.hardwareEvidenceJsonPath).toContain(".tmp/hardware-evidence/");
     expect(manifest.artifacts.safetyScanJsonPath).toContain(".tmp/safety-evidence/");
     expect(manifest.artifacts.apiProbeJsonPath).toContain(".tmp/api-probe/");
+    expect(manifest.artifacts.sourceControlHandoffJsonPath).toBeUndefined();
     expect(manifest.artifacts.policyGateJsonPath).toContain(".tmp/policy-evidence/");
     expect(manifest.artifacts.overnightStatusPath).toBe(".tmp/overnight/STATUS.md");
+  });
+
+  it("uses source-control handoff evidence for the DX perspective when GitHub publication is ready", async () => {
+    await writeReadySourceControlHandoff(root);
+
+    const manifest = await buildDemoReadinessPackage({
+      root,
+      generatedAt: "2026-05-09T20:00:00.000Z",
+      label: "alpha-demo"
+    });
+
+    const dx = manifest.perspectiveReview.find((item) => item.id === "dx");
+    expect(dx).toMatchObject({
+      status: "ready-local-alpha",
+      gaps: [],
+      strengths: expect.arrayContaining([
+        expect.stringContaining("local HEAD is published to GitHub")
+      ]),
+      evidence: expect.arrayContaining([
+        ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"
+      ]),
+      nextAction: expect.stringContaining("Keep source-control handoff evidence current")
+    });
+    expect(manifest.artifacts.sourceControlHandoffJsonPath).toBe(".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
+    expect(manifest.artifacts.sourceControlHandoffMarkdownPath).toBe(".tmp/source-control-handoff/seekr-source-control-handoff-test.md");
   });
 
   it("writes JSON and Markdown package artifacts", async () => {
@@ -363,4 +391,51 @@ async function seedPackageEvidence(root: string) {
     }
   }), "utf8");
   await writeFile(path.join(root, ".tmp/overnight/STATUS.md"), "- Last update: 2026-05-09T19:30:00Z\n- Cycle: 12\n- Verdict: pass\n", "utf8");
+}
+
+async function writeReadySourceControlHandoff(root: string) {
+  const sourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-test.json";
+  const manifest = {
+    schemaVersion: 1,
+    generatedAt: "2026-05-09T19:30:00.000Z",
+    status: "ready-source-control-handoff",
+    ready: true,
+    commandUploadEnabled: false,
+    repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+    gitMetadataPath: "../.git",
+    localBranch: "main",
+    localHeadSha: "a".repeat(40),
+    remoteDefaultBranchSha: "a".repeat(40),
+    workingTreeStatusLineCount: 0,
+    configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+    remoteDefaultBranch: "main",
+    remoteRefCount: 1,
+    blockedCheckCount: 0,
+    warningCheckCount: 0,
+    checks: [
+      { id: "repository-reference", status: "pass", details: "Repository reference present.", evidence: ["package.json"] },
+      { id: "local-git-metadata", status: "pass", details: "Git metadata present.", evidence: ["../.git"] },
+      { id: "configured-github-remote", status: "pass", details: "GitHub remote configured.", evidence: ["origin"] },
+      { id: "github-remote-refs", status: "pass", details: "GitHub refs available.", evidence: ["refs/heads/main"] },
+      { id: "local-head-published", status: "pass", details: "Local HEAD is published.", evidence: ["origin/main"] },
+      { id: "working-tree-clean", status: "pass", details: "Working tree is clean.", evidence: ["git status --short"] }
+    ],
+    nextActionChecklist: [
+      {
+        id: "rerun-source-control-audit",
+        status: "verification",
+        details: "Rerun source-control audit after future commits.",
+        commands: ["npm run audit:source-control"],
+        clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"]
+      }
+    ],
+    limitations: [
+      "This audit does not initialize Git, commit files, push branches, or change GitHub settings.",
+      "Source-control handoff is separate from aircraft hardware readiness.",
+      "Command upload and hardware actuation remain disabled."
+    ]
+  };
+  await writeFile(path.join(root, sourceControlPath), JSON.stringify(manifest), "utf8");
+  await writeFile(path.join(root, sourceControlPath.replace(/\.json$/, ".md")), "# Source Control Handoff\n", "utf8");
 }

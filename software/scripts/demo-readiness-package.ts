@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
+import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 
 export interface DemoReadinessPackageManifest {
   schemaVersion: 1;
@@ -22,6 +23,8 @@ export interface DemoReadinessPackageManifest {
     apiProbeMarkdownPath?: string;
     completionAuditJsonPath: string;
     completionAuditMarkdownPath?: string;
+    sourceControlHandoffJsonPath?: string;
+    sourceControlHandoffMarkdownPath?: string;
     hardwareEvidenceJsonPath?: string;
     policyGateJsonPath?: string;
     overnightStatusPath?: string;
@@ -103,6 +106,7 @@ export async function buildDemoReadinessPackage(options: {
   const safety = await latestJson(root, ".tmp/safety-evidence", (name) => name.startsWith("seekr-command-boundary-scan-"));
   const apiProbe = await latestJson(root, ".tmp/api-probe", (name) => name.startsWith("seekr-api-probe-"));
   const completionAudit = await latestJson(root, ".tmp/completion-audit", (name) => name.startsWith("seekr-completion-audit-"));
+  const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const hardware = await latestJson(root, ".tmp/hardware-evidence", (name) => name.startsWith("seekr-hardware-evidence-"));
   const policyGate = await latestJson(root, ".tmp/policy-evidence", (name) => name.startsWith("seekr-hardware-actuation-gate-"));
   const overnightStatusPath = ".tmp/overnight/STATUS.md";
@@ -128,6 +132,7 @@ export async function buildDemoReadinessPackage(options: {
   const safetyManifest = safety ? await readJson(safety.absolutePath) : undefined;
   const apiProbeManifest = apiProbe ? await readJson(apiProbe.absolutePath) : undefined;
   const auditManifest = completionAudit ? await readJson(completionAudit.absolutePath) : undefined;
+  const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   if (release && (!isRecord(releaseManifest) || releaseManifest.commandUploadEnabled !== false || typeof releaseManifest.overallSha256 !== "string")) {
     blockers.push("Release checksum evidence must keep commandUploadEnabled false and include an overall SHA-256.");
   }
@@ -190,6 +195,8 @@ export async function buildDemoReadinessPackage(options: {
     complete,
     apiProbeManifest,
     auditManifest,
+    sourceControlPath: sourceControl?.relativePath,
+    sourceControlManifest,
     overnightStatus,
     realWorldBlockers,
     nextEvidenceChecklist
@@ -214,6 +221,8 @@ export async function buildDemoReadinessPackage(options: {
       apiProbeMarkdownPath: apiProbe ? replaceExtension(apiProbe.relativePath, ".md") : undefined,
       completionAuditJsonPath: completionAudit?.relativePath ?? "",
       completionAuditMarkdownPath: completionAudit ? replaceExtension(completionAudit.relativePath, ".md") : undefined,
+      sourceControlHandoffJsonPath: sourceControl?.relativePath,
+      sourceControlHandoffMarkdownPath: sourceControl ? replaceExtension(sourceControl.relativePath, ".md") : undefined,
       hardwareEvidenceJsonPath: hardware?.relativePath,
       policyGateJsonPath: policyGate?.relativePath,
       overnightStatusPath
@@ -314,6 +323,7 @@ function renderMarkdown(manifest: DemoReadinessPackageManifest) {
     manifest.artifacts.safetyScanJsonPath ? `- Command-boundary scan: ${manifest.artifacts.safetyScanJsonPath}` : undefined,
     manifest.artifacts.apiProbeJsonPath ? `- API probe evidence: ${manifest.artifacts.apiProbeJsonPath}` : undefined,
     `- Completion audit: ${manifest.artifacts.completionAuditJsonPath}`,
+    manifest.artifacts.sourceControlHandoffJsonPath ? `- Source-control handoff: ${manifest.artifacts.sourceControlHandoffJsonPath}` : undefined,
     manifest.artifacts.hardwareEvidenceJsonPath ? `- Hardware evidence: ${manifest.artifacts.hardwareEvidenceJsonPath}` : undefined,
     manifest.artifacts.policyGateJsonPath ? `- Policy gate evidence: ${manifest.artifacts.policyGateJsonPath}` : undefined,
     manifest.artifacts.overnightStatusPath ? `- Overnight status: ${manifest.artifacts.overnightStatusPath}` : undefined,
@@ -476,6 +486,8 @@ function buildPerspectiveReview(options: {
   complete: boolean;
   apiProbeManifest: unknown;
   auditManifest: unknown;
+  sourceControlPath?: string;
+  sourceControlManifest?: unknown;
   overnightStatus: DemoReadinessPackageManifest["overnightStatus"];
   realWorldBlockers: string[];
   nextEvidenceChecklist: DemoNextEvidenceItem[];
@@ -497,6 +509,7 @@ function buildPerspectiveReview(options: {
     if (!options.localAlphaOk) return "needs-attention";
     return hasRealWorldGap || !options.complete ? "blocked-real-world" : "ready-local-alpha";
   };
+  const sourceControlState = sourceControlReviewState(options.sourceControlManifest, options.sourceControlPath);
   const hasChecklist = (id: string) => options.nextEvidenceChecklist.some((item) => item.id === id);
   const apiProbeOk = checked.includes("session-acceptance-evidence") && checked.includes("verify") && checked.includes("replays");
   const overnightOk = options.overnightStatus?.ok === true && options.overnightStatus.stale === false;
@@ -547,11 +560,12 @@ function buildPerspectiveReview(options: {
       summary: "The command surface is scriptable and the demo package turns blockers into runbook-backed next actions.",
       strengths: [
         "Acceptance, audit, demo, bench-packet, handoff, and bridge commands are exposed through package scripts.",
-        "Next-evidence checklist includes commands, runbooks, and hardware-required flags."
+        "Next-evidence checklist includes commands, runbooks, and hardware-required flags.",
+        ...(sourceControlState.ready ? ["Source-control handoff confirms local HEAD is published to GitHub with a clean worktree."] : [])
       ],
-      gaps: ["Diff-based gstack review is unavailable in this workspace because Git metadata is absent."],
-      evidence: ["package.json", "docs/goal.md", "docs/EDGE_HARDWARE_BENCH.md"],
-      nextAction: "Run the same package in a Git checkout before landing so diff review can inspect actual changes."
+      gaps: sourceControlState.gaps,
+      evidence: ["package.json", "docs/goal.md", "docs/EDGE_HARDWARE_BENCH.md", ...sourceControlState.evidence],
+      nextAction: sourceControlState.nextAction
     },
     {
       id: "replay",
@@ -673,6 +687,42 @@ function apiProbeManifestOk(manifest: unknown) {
     checked.includes("session-acceptance-evidence") &&
     checked.includes("malformed-json") &&
     sessionAcceptance.commandUploadEnabled === false;
+}
+
+function sourceControlReviewState(manifest: unknown, sourceControlPath?: string) {
+  const evidence = [sourceControlPath ?? ".tmp/source-control-handoff"];
+  const validation = validateSourceControlHandoffManifest(manifest);
+  if (!isRecord(manifest)) {
+    return {
+      ready: false,
+      gaps: ["Source-control handoff evidence is missing; run npm run audit:source-control before claiming GitHub review readiness."],
+      evidence,
+      nextAction: "Run npm run audit:source-control after publishing the current local HEAD."
+    };
+  }
+  if (!validation.ok) {
+    return {
+      ready: false,
+      gaps: [`Source-control handoff evidence is malformed or unsafe: ${validation.problems.join("; ")}.`],
+      evidence,
+      nextAction: "Regenerate source-control handoff evidence with npm run audit:source-control."
+    };
+  }
+  if (!validation.ready) {
+    const pending = [...validation.blockedCheckIds, ...validation.warningCheckIds];
+    return {
+      ready: false,
+      gaps: [`Source-control handoff is not ready for GitHub review yet: ${pending.join(", ")}.`],
+      evidence,
+      nextAction: "Resolve source-control handoff gaps, publish the current local HEAD, and rerun npm run audit:source-control."
+    };
+  }
+  return {
+    ready: true,
+    gaps: [],
+    evidence,
+    nextAction: "Keep source-control handoff evidence current after every commit before internal review."
+  };
 }
 
 function replaceExtension(filePath: string, extension: string) {
