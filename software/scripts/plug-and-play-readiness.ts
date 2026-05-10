@@ -624,8 +624,25 @@ async function apiProbeCheck(root: string): Promise<PlugAndPlayCheck> {
     const probeRelease = isRecord(sessionAcceptance.releaseChecksum) ? sessionAcceptance.releaseChecksum : {};
     const acceptanceScan = isRecord(acceptance.commandBoundaryScan) ? acceptance.commandBoundaryScan : {};
     const probeScan = isRecord(sessionAcceptance.commandBoundaryScan) ? sessionAcceptance.commandBoundaryScan : {};
+    const acceptanceAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
+    const probeAi = isRecord(sessionAcceptance.strictLocalAi) ? sessionAcceptance.strictLocalAi : {};
+    const acceptanceCommandCount = Array.isArray(acceptance.completedCommands) ? acceptance.completedCommands.length : undefined;
 
     if (sessionAcceptance.status !== "pass") problems.push("probe did not read back passing acceptance status");
+    if (Number(sessionAcceptance.generatedAt) !== Number(acceptance.generatedAt)) {
+      problems.push("probe acceptance timestamp does not match acceptance status");
+    }
+    if (typeof acceptanceCommandCount === "number" && Number(sessionAcceptance.commandCount) !== acceptanceCommandCount) {
+      problems.push("probe acceptance command count does not match acceptance status");
+    }
+    if (
+      probeAi.ok !== acceptanceAi.ok ||
+      probeAi.provider !== acceptanceAi.provider ||
+      probeAi.model !== acceptanceAi.model ||
+      Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount)
+    ) {
+      problems.push("probe strict local AI summary does not match acceptance status");
+    }
     if (
       probeRelease.overallSha256 !== acceptanceRelease.overallSha256 ||
       Number(probeRelease.fileCount) !== Number(acceptanceRelease.fileCount) ||

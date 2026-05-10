@@ -73,9 +73,29 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when the API probe AI readback does not match acceptance evidence", async () => {
+    const apiProbePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const apiProbe = JSON.parse(await readFile(apiProbePath, "utf8"));
+    apiProbe.sessionAcceptance.strictLocalAi.model = "stale-model:latest";
+    await writeFile(apiProbePath, JSON.stringify(apiProbe), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "api-readback")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("probe strict local AI summary does not match acceptance status")
+    });
+  });
+
   it("fails when strict local AI evidence is not implemented", async () => {
     await writeFile(path.join(root, ".tmp/acceptance-status.json"), JSON.stringify({
       ok: true,
+      generatedAt: Date.parse("2026-05-10T07:00:00.000Z"),
       commandUploadEnabled: false,
       strictLocalAi: { ok: false, provider: "rules", model: "deterministic-v1", caseCount: 0 },
       releaseChecksum: {
@@ -858,6 +878,7 @@ async function seedPlugAndPlayEvidence(root: string) {
   }), "utf8");
   await writeFile(path.join(root, ".tmp/acceptance-status.json"), JSON.stringify({
     ok: true,
+    generatedAt: Date.parse("2026-05-10T07:00:00.000Z"),
     commandUploadEnabled: false,
     strictLocalAi: {
       ok: true,
@@ -888,7 +909,14 @@ async function seedPlugAndPlayEvidence(root: string) {
     sessionAcceptance: {
       ok: true,
       status: "pass",
+      generatedAt: Date.parse("2026-05-10T07:00:00.000Z"),
       commandUploadEnabled: false,
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        caseCount: 4
+      },
       releaseChecksum: {
         overallSha256: "a".repeat(64),
         fileCount: 10,
