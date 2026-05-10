@@ -260,7 +260,7 @@ export async function buildHandoffBundleVerification(options: {
   if (bundleDirectory && bundleDirectoryOk && sourceControlHandoffPath) {
     const sourceControl = await readCopiedJson(bundleDirectory, sourceControlHandoffPath);
     if (!sourceControlHandoffOk(sourceControl)) {
-      blockers.push("Copied source-control handoff must be read-only, name the SEEKR GitHub repository, include local Git and remote-ref checks, and keep commandUploadEnabled false.");
+      blockers.push("Copied source-control handoff must be read-only, name the SEEKR GitHub repository, include local Git, remote-ref, published-HEAD, and clean-worktree checks, and keep commandUploadEnabled false.");
     } else if (isRecord(sourceControl) && sourceControl.ready !== true) {
       warnings.push("Copied source-control handoff remains not ready for publication; local Git/GitHub limitation is preserved for review.");
     }

@@ -352,7 +352,7 @@ async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck
       ? `Source-control handoff is not ready yet: ${validation.blockedCheckIds.join(", ")}.`
       : validation.warningCheckIds.length
         ? `Source-control handoff has warning(s): ${validation.warningCheckIds.join(", ")}.`
-        : "Source-control handoff artifact records local Git metadata plus GitHub remote refs/default branch.",
+        : "Source-control handoff artifact records local Git metadata, GitHub remote refs/default branch, published local HEAD, and a clean worktree.",
     evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
   };
 }

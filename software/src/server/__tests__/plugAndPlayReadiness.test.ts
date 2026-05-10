@@ -47,6 +47,11 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "real-world-boundary")).toMatchObject({
       status: "blocked"
     });
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
+      status: "pass",
+      details: expect.stringContaining("published local HEAD")
+    });
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("clean worktree");
   });
 
   it("fails when strict local AI evidence is not implemented", async () => {

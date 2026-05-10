@@ -54,8 +54,10 @@ describe("plug-and-play doctor", () => {
     });
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
       status: "pass",
+      details: expect.stringContaining("published local HEAD"),
       evidence: expect.arrayContaining([".tmp/source-control-handoff/seekr-source-control-handoff-test.json"])
     });
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("clean worktree");
     expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
       status: "pass"
     });
