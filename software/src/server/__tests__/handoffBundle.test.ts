@@ -659,6 +659,44 @@ describe("handoff bundle", () => {
       "```",
       "",
       "Local AI uses Ollama with llama3.2:latest.",
+      "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
+      "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
+      "real-world blockers remain until physical evidence exists.",
+      "No command upload or hardware actuation is allowed.",
+      "No AI-created command payloads.",
+      "No operator answer bypassing validation.",
+      ""
+    ].join("\n"), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("source-control audit")
+    ]));
+  });
+
+  it("blocks bundling when the operator quickstart omits advisory AI command-safety guidance", async () => {
+    await writeFile(path.join(root, operatorQuickstartPath), [
+      "# SEEKR Operator Quickstart",
+      "",
+      "## Setup",
+      "",
+      "```bash",
+      "npm ci",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "npm run rehearsal:start",
+      "```",
+      "",
+      "Local AI uses Ollama with llama3.2:latest.",
       "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
       "real-world blockers remain until physical evidence exists.",
       "No command upload or hardware actuation is allowed.",
@@ -675,7 +713,7 @@ describe("handoff bundle", () => {
     expect(result.manifest.commandUploadEnabled).toBe(false);
     expect(result.manifest.copiedFileCount).toBe(0);
     expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("source-control audit")
+      expect.stringContaining("advisory-only Ollama AI")
     ]));
   });
 
@@ -1103,9 +1141,12 @@ describe("handoff bundle", () => {
         "```",
         "",
         "Local AI uses Ollama with llama3.2:latest.",
+        "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
         "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
         "real-world blockers remain until physical evidence exists.",
         "No command upload or hardware actuation is allowed.",
+        "No AI-created command payloads.",
+        "No operator answer bypassing validation.",
         ""
       ].join("\n"),
       "utf8"
@@ -1121,6 +1162,48 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
       expect.stringContaining("source-control audit")
+    ]));
+  });
+
+  it("fails bundle verification when the copied operator quickstart omits advisory AI command-safety guidance", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    await writeFile(
+      path.join(result.bundleDirectory, "artifacts", operatorQuickstartPath),
+      [
+        "# SEEKR Operator Quickstart",
+        "",
+        "## Setup",
+        "",
+        "```bash",
+        "npm ci",
+        "npm run setup:local",
+        "npm run audit:source-control",
+        "npm run doctor",
+        "npm run rehearsal:start",
+        "```",
+        "",
+        "Local AI uses Ollama with llama3.2:latest.",
+        "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
+        "real-world blockers remain until physical evidence exists.",
+        "No command upload or hardware actuation is allowed.",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("advisory-only Ollama AI")
     ]));
   });
 
@@ -2102,9 +2185,12 @@ async function seedBundleEvidence(root: string) {
     "```",
     "",
     "Local AI uses Ollama with llama3.2:latest.",
+    "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
     "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
     "real-world blockers remain until physical evidence exists.",
     "No command upload or hardware actuation is allowed.",
+    "No AI-created command payloads.",
+    "No operator answer bypassing validation.",
     ""
   ].join("\n"), "utf8");
 

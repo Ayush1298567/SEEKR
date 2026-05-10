@@ -91,6 +91,29 @@ const REQUIRED_TODO_CATEGORY_IDS = [
   "hardware-actuation-policy-review"
 ];
 const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
+const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
+  "npm ci",
+  "npm run setup:local",
+  "npm run audit:source-control",
+  "npm run doctor",
+  "npm run rehearsal:start",
+  "Ollama",
+  "llama3.2:latest",
+  "AI output is advisory",
+  "validated candidate plans",
+  "cannot create command payloads",
+  "bypass operator validation",
+  "No AI-created command payloads",
+  "No operator answer bypassing validation",
+  "/api/config",
+  "/api/readiness",
+  "/api/source-health",
+  "/api/verify",
+  "/api/replays",
+  "command upload",
+  "hardware actuation",
+  "real-world blockers"
+];
 const SECRET_PATTERNS: Array<{ rule: string; pattern: RegExp; details: string }> = [
   {
     rule: "private-key-block",
@@ -313,7 +336,7 @@ export async function buildHandoffBundleVerification(options: {
   if (bundleDirectory && bundleDirectoryOk && operatorQuickstartPath) {
     const quickstart = await readCopiedText(bundleDirectory, operatorQuickstartPath);
     if (!operatorQuickstartOk(quickstart ?? "")) {
-      blockers.push("Copied operator quickstart must document local setup, source-control audit, start, Ollama AI, API evidence, source-health, real-world blockers, and disabled command/hardware authority.");
+      blockers.push("Copied operator quickstart must document local setup, source-control audit, start, advisory-only Ollama AI that cannot create command payloads or bypass validation, API evidence, source-health, real-world blockers, and disabled command/hardware authority.");
     }
   }
 
@@ -905,24 +928,7 @@ function rehearsalStartSmokeOk(manifest: unknown) {
 }
 
 function operatorQuickstartOk(content: string) {
-  const requiredSignals = [
-    "npm ci",
-    "npm run setup:local",
-    "npm run audit:source-control",
-    "npm run doctor",
-    "npm run rehearsal:start",
-    "Ollama",
-    "llama3.2:latest",
-    "/api/config",
-    "/api/readiness",
-    "/api/source-health",
-    "/api/verify",
-    "/api/replays",
-    "command upload",
-    "hardware actuation",
-    "real-world blockers"
-  ];
-  return requiredSignals.every((signal) => content.includes(signal)) &&
+  return REQUIRED_OPERATOR_QUICKSTART_SIGNALS.every((signal) => content.includes(signal)) &&
     commandOrderOk(content, [
       "npm run setup:local",
       "npm run audit:source-control",

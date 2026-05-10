@@ -85,6 +85,29 @@ const PLUG_AND_PLAY_SETUP_DIR = ".tmp/plug-and-play-setup";
 const PLUG_AND_PLAY_DOCTOR_DIR = ".tmp/plug-and-play-doctor";
 const REHEARSAL_START_SMOKE_DIR = ".tmp/rehearsal-start-smoke";
 const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
+const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
+  "npm ci",
+  "npm run setup:local",
+  "npm run audit:source-control",
+  "npm run doctor",
+  "npm run rehearsal:start",
+  "Ollama",
+  "llama3.2:latest",
+  "AI output is advisory",
+  "validated candidate plans",
+  "cannot create command payloads",
+  "bypass operator validation",
+  "No AI-created command payloads",
+  "No operator answer bypassing validation",
+  "/api/config",
+  "/api/readiness",
+  "/api/source-health",
+  "/api/verify",
+  "/api/replays",
+  "command upload",
+  "hardware actuation",
+  "real-world blockers"
+];
 const REQUIRED_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
 const REQUIRED_DOCTOR_CHECK_IDS = ["package-scripts", "runtime-dependencies", "repository-safety", "source-control-handoff", "operator-start", "operator-env", "local-ai", "local-ports", "data-dir", "safety-boundary"];
 const SOFT_DOCTOR_CHECK_IDS = new Set(["source-control-handoff", "local-ports", "data-dir"]);
@@ -186,7 +209,7 @@ export async function writeHandoffBundle(options: {
     blockers.push("Rehearsal-start smoke artifact must pass API/client startup, source-health, readiness, clean shutdown, and commandUploadEnabled false before bundling.");
   }
   if (!operatorQuickstartOk(operatorQuickstart)) {
-    blockers.push("Operator quickstart must document local setup, source-control audit, start, Ollama AI, API evidence, source-health, real-world blockers, and disabled command/hardware authority before bundling.");
+    blockers.push("Operator quickstart must document local setup, source-control audit, start, advisory-only Ollama AI that cannot create command payloads or bypass validation, API evidence, source-health, real-world blockers, and disabled command/hardware authority before bundling.");
   }
 
   if (blockers.length === 0 && index) {
@@ -275,7 +298,7 @@ export async function writeHandoffBundle(options: {
       "It also copies the latest TODO audit artifact so reviewers can inspect TODO/blocker consistency with the handoff packet.",
       "It also copies the latest source-control handoff artifact so reviewers can inspect local Git metadata and GitHub publication readiness separately from hardware readiness.",
       "It also copies the latest plug-and-play setup, doctor, and rehearsal-start smoke artifacts so reviewers can inspect local env/data preparation, start-wrapper, AI, port, data-directory, startup, source-health, readiness, shutdown, and safety preflight evidence.",
-      "It also copies the operator quickstart that the plug-and-play readiness audit checks for local setup, source-control audit, start, AI, API evidence, source-health, and safety-boundary instructions.",
+      "It also copies the operator quickstart that the plug-and-play readiness audit checks for local setup, source-control audit, start, advisory-only AI, API evidence, source-health, and safety-boundary instructions.",
       "It does not regenerate acceptance, completion-audit, demo, bench, hardware, policy, safety, API, or overnight evidence.",
       "It does not validate Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim capture, or hardware actuation.",
       "Real MAVLink, ROS 2, PX4, ArduPilot, mission, geofence, mode, arm, takeoff, land, RTH, terminate, and waypoint command paths remain blocked outside simulator/SITL transports."
@@ -750,24 +773,7 @@ function rehearsalStartSmokeOk(manifest: unknown) {
 }
 
 function operatorQuickstartOk(content: string) {
-  const requiredSignals = [
-    "npm ci",
-    "npm run setup:local",
-    "npm run audit:source-control",
-    "npm run doctor",
-    "npm run rehearsal:start",
-    "Ollama",
-    "llama3.2:latest",
-    "/api/config",
-    "/api/readiness",
-    "/api/source-health",
-    "/api/verify",
-    "/api/replays",
-    "command upload",
-    "hardware actuation",
-    "real-world blockers"
-  ];
-  return requiredSignals.every((signal) => content.includes(signal)) &&
+  return REQUIRED_OPERATOR_QUICKSTART_SIGNALS.every((signal) => content.includes(signal)) &&
     commandOrderOk(content, [
       "npm run setup:local",
       "npm run audit:source-control",

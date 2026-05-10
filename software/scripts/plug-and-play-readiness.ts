@@ -101,6 +101,29 @@ const REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE = [
   "node_modules/.bin/concurrently",
   "node_modules/.bin/vite"
 ];
+const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
+  "npm ci",
+  "npm run setup:local",
+  "npm run audit:source-control",
+  "npm run doctor",
+  "npm run rehearsal:start",
+  "Ollama",
+  "llama3.2:latest",
+  "AI output is advisory",
+  "validated candidate plans",
+  "cannot create command payloads",
+  "bypass operator validation",
+  "No AI-created command payloads",
+  "No operator answer bypassing validation",
+  "/api/config",
+  "/api/readiness",
+  "/api/source-health",
+  "/api/verify",
+  "/api/replays",
+  "command upload",
+  "hardware actuation",
+  "real-world blockers"
+];
 
 export async function buildPlugAndPlayReadiness(options: {
   root?: string;
@@ -451,24 +474,7 @@ async function operatorStartSmokeCheck(root: string): Promise<PlugAndPlayCheck> 
 
 async function operatorQuickstartDocCheck(root: string): Promise<PlugAndPlayCheck> {
   const content = await readText(path.join(root, OPERATOR_QUICKSTART_PATH));
-  const requiredSignals = [
-    "npm ci",
-    "npm run setup:local",
-    "npm run audit:source-control",
-    "npm run doctor",
-    "npm run rehearsal:start",
-    "Ollama",
-    "llama3.2:latest",
-    "/api/config",
-    "/api/readiness",
-    "/api/source-health",
-    "/api/verify",
-    "/api/replays",
-    "command upload",
-    "hardware actuation",
-    "real-world blockers"
-  ];
-  const missing = requiredSignals.filter((signal) => !content.includes(signal));
+  const missing = REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) => !content.includes(signal));
   const sourceControlOrderOk = commandOrderOk(content, [
     "npm run setup:local",
     "npm run audit:source-control",
@@ -488,7 +494,7 @@ async function operatorQuickstartDocCheck(root: string): Promise<PlugAndPlayChec
       ? `${OPERATOR_QUICKSTART_PATH} is missing.`
       : problems.length
         ? `${OPERATOR_QUICKSTART_PATH} is missing plug-and-play signal(s): ${problems.join(", ")}.`
-        : "Operator quickstart covers local setup, source-control audit, start, Ollama AI, API evidence checks, source-health proof, and the disabled command/hardware boundary.",
+        : "Operator quickstart covers local setup, source-control audit, start, advisory-only Ollama AI, API evidence checks, source-health proof, and the disabled command/hardware boundary.",
     evidence: [OPERATOR_QUICKSTART_PATH]
   };
 }

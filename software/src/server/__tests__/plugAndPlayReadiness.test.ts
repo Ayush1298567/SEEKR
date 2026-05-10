@@ -307,6 +307,46 @@ describe("plug-and-play readiness audit", () => {
       "```",
       "",
       "Local AI uses Ollama with llama3.2:latest for advisory proposals.",
+      "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
+      "",
+      "Inspect /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays during rehearsal.",
+      "",
+      "real-world blockers remain until field evidence exists.",
+      "",
+      "No command upload or hardware actuation is allowed.",
+      "No AI-created command payloads.",
+      "No operator answer bypassing validation.",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "operator-quickstart-doc")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("npm run audit:source-control")
+    });
+  });
+
+  it("fails when the operator quickstart omits advisory AI command-safety guidance", async () => {
+    await writeFile(path.join(root, "docs/OPERATOR_QUICKSTART.md"), [
+      "# SEEKR Operator Quickstart",
+      "",
+      "## Setup",
+      "",
+      "```bash",
+      "npm ci",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "npm run rehearsal:start",
+      "```",
+      "",
+      "Local AI uses Ollama with llama3.2:latest for proposals.",
       "",
       "Inspect /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays during rehearsal.",
       "",
@@ -325,7 +365,7 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.status).toBe("blocked-local-plug-and-play");
     expect(manifest.checks.find((check) => check.id === "operator-quickstart-doc")).toMatchObject({
       status: "fail",
-      details: expect.stringContaining("npm run audit:source-control")
+      details: expect.stringContaining("AI output is advisory")
     });
   });
 
@@ -838,12 +878,15 @@ async function seedPlugAndPlayEvidence(root: string) {
     "```",
     "",
     "Local AI uses Ollama with llama3.2:latest for advisory proposals.",
+    "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
     "",
     "Inspect /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays during rehearsal.",
     "",
     "real-world blockers remain until field evidence exists.",
     "",
     "No command upload or hardware actuation is allowed.",
+    "No AI-created command payloads.",
+    "No operator answer bypassing validation.",
     ""
   ].join("\n"), "utf8");
   await writeFile(path.join(root, "dist/index.html"), "<div id=\"root\"></div>\n", "utf8");
