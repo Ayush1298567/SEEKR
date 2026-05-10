@@ -159,6 +159,46 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness does not reference the latest API probe", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    for (const check of readiness.checks) {
+      if (Array.isArray(check.evidence)) {
+        check.evidence = check.evidence.filter((item: string) => !item.includes(".tmp/api-probe/"));
+      }
+    }
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest API probe")
+    });
+  });
+
+  it("fails local alpha when plug-and-play readiness predates the latest acceptance record", async () => {
+    const acceptancePath = path.join(root, ".tmp/acceptance-status.json");
+    const acceptance = JSON.parse(await readFile(acceptancePath, "utf8"));
+    acceptance.generatedAt = Date.parse("2026-05-09T21:00:01.000Z");
+    await writeFile(acceptancePath, JSON.stringify(acceptance), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("newer than or equal to the latest acceptance record")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness omits the operator quickstart reference", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
@@ -1360,6 +1400,12 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       runtimePolicyInstalled: false
     },
     checks: [
+      {
+        id: "api-readback",
+        status: "pass",
+        details: "api ready",
+        evidence: [".tmp/api-probe/seekr-api-probe-test.json"]
+      },
       {
         id: "operator-setup",
         status: "pass",

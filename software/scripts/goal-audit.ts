@@ -692,6 +692,8 @@ async function todoAuditItem(root: string, completionAudit: CompletionAuditManif
 async function plugAndPlayReadinessItem(root: string, completionAudit: CompletionAuditManifest): Promise<GoalAuditItem> {
   const readiness = await latestJson(root, ".tmp/plug-and-play-readiness", (name) => name.startsWith("seekr-plug-and-play-readiness-"));
   const manifest = readiness ? await readJson(readiness.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const apiProbe = await latestJson(root, ".tmp/api-probe", (name) => name.startsWith("seekr-api-probe-"));
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
   const doctor = await latestJson(root, ".tmp/plug-and-play-doctor", (name) => name.startsWith("seekr-plug-and-play-doctor-"));
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
@@ -730,7 +732,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   if (completionAudit.realWorldBlockers.length && isRecord(manifest) && manifest.status !== "ready-local-plug-and-play-real-world-blocked") {
     problems.push("plug-and-play readiness must stay real-world-blocked while physical evidence is missing");
   }
+  const readinessGeneratedAt = isRecord(manifest) ? timeMs(manifest.generatedAt) : undefined;
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
+  if (isRecord(manifest) && acceptanceGeneratedAt !== undefined && readinessGeneratedAt === undefined) {
+    problems.push("plug-and-play readiness must record a parseable generatedAt timestamp");
+  } else if (readinessGeneratedAt !== undefined && acceptanceGeneratedAt !== undefined && readinessGeneratedAt < acceptanceGeneratedAt) {
+    problems.push("plug-and-play readiness must be newer than or equal to the latest acceptance record");
+  }
   for (const [label, artifact] of [
+    ["latest API probe", apiProbe],
     ["latest plug-and-play setup", setup],
     ["latest plug-and-play doctor", doctor],
     ["latest source-control handoff", sourceControl],
@@ -759,6 +769,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
       : "Plug-and-play readiness confirms local app, AI, API, QA, setup, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence while preserving real-world blockers.",
     evidence: [
       readiness?.relativePath,
+      apiProbe?.relativePath,
       setup?.relativePath,
       doctor?.relativePath,
       sourceControl?.relativePath,
@@ -1148,6 +1159,13 @@ function isString(value: unknown): value is string {
 
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function escapeMarkdown(value: string) {
