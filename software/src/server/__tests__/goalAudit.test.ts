@@ -137,6 +137,50 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness does not reference source-control handoff evidence", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    for (const check of readiness.checks) {
+      if (Array.isArray(check.evidence)) {
+        check.evidence = check.evidence.filter((item: string) => !item.includes(".tmp/source-control-handoff/"));
+      }
+    }
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest source-control handoff")
+    });
+  });
+
+  it("fails local alpha when plug-and-play readiness omits the operator quickstart reference", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    for (const check of readiness.checks) {
+      if (Array.isArray(check.evidence)) {
+        check.evidence = check.evidence.filter((item: string) => item !== "docs/OPERATOR_QUICKSTART.md");
+      }
+    }
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("docs/OPERATOR_QUICKSTART.md")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness blocker count is stale", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
@@ -791,7 +835,8 @@ async function seedRoot(root: string) {
     "docs/FLIGHT_SOFTWARE.md",
     "docs/EDGE_HARDWARE_BENCH.md",
     "docs/HARDWARE_DECISION_GATE.md",
-    "docs/V1_ACCEPTANCE.md"
+    "docs/V1_ACCEPTANCE.md",
+    "docs/OPERATOR_QUICKSTART.md"
   ]) {
     await writeFile(path.join(root, doc), `${doc}\n`, "utf8");
   }
@@ -1354,7 +1399,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
           ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
           ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
           ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
-          ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json"
+          ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+          "docs/OPERATOR_QUICKSTART.md"
         ]
       }
     ]

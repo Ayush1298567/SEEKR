@@ -53,6 +53,7 @@ const REQUIRED_FILES = [
   "docs/EDGE_HARDWARE_BENCH.md",
   "docs/HARDWARE_DECISION_GATE.md",
   "docs/V1_ACCEPTANCE.md",
+  "docs/OPERATOR_QUICKSTART.md",
   "docs/goal.md",
   "package.json",
   ".tmp/overnight/STATUS.md"
@@ -693,6 +694,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const manifest = readiness ? await readJson(readiness.absolutePath) : undefined;
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
   const doctor = await latestJson(root, ".tmp/plug-and-play-doctor", (name) => name.startsWith("seekr-plug-and-play-doctor-"));
+  const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
   const bundleVerification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
@@ -731,6 +733,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   for (const [label, artifact] of [
     ["latest plug-and-play setup", setup],
     ["latest plug-and-play doctor", doctor],
+    ["latest source-control handoff", sourceControl],
     ["latest rehearsal-start smoke", rehearsalStartSmoke],
     ["latest handoff bundle", bundle],
     ["latest handoff bundle verification", bundleVerification],
@@ -742,6 +745,9 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     } else if (isRecord(manifest) && !readinessEvidence.has(artifact.relativePath)) {
       problems.push(`plug-and-play readiness must reference the ${label} artifact`);
     }
+  }
+  if (isRecord(manifest) && !readinessEvidence.has("docs/OPERATOR_QUICKSTART.md")) {
+    problems.push("plug-and-play readiness must reference docs/OPERATOR_QUICKSTART.md");
   }
 
   return {
@@ -755,11 +761,13 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
       readiness?.relativePath,
       setup?.relativePath,
       doctor?.relativePath,
+      sourceControl?.relativePath,
       rehearsalStartSmoke?.relativePath,
       bundle?.relativePath,
       bundleVerification?.relativePath,
       workflow?.relativePath,
       todo?.relativePath,
+      "docs/OPERATOR_QUICKSTART.md",
       ".tmp/acceptance-status.json"
     ].filter(isString)
   };
