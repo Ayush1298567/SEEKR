@@ -156,7 +156,7 @@ export async function writeHandoffBundle(options: {
   if (!gstackWorkflow) {
     blockers.push("No gstack workflow status artifact exists; run npm run audit:gstack before bundling for final internal-alpha review.");
   } else if (!(await gstackWorkflowStatusOk(root, gstackWorkflowManifest))) {
-    blockers.push("GStack workflow status artifact must pass or pass-with-limitations, use pass-with-limitations for limitation-only evidence, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, record gstack availability, include required review evidence paths and no-Git workspace limitations, preserve perspective status/score/nextAction details, and keep commandUploadEnabled false before bundling.");
+    blockers.push("GStack workflow status artifact must pass or pass-with-limitations, use pass-with-limitations for limitation-only evidence, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, record gstack availability, include required Git review evidence paths when Git metadata is present or no-Git workspace limitations when absent, preserve perspective status/score/nextAction details, and keep commandUploadEnabled false before bundling.");
   }
   if (!todoAudit) {
     blockers.push("No TODO audit artifact exists; run npm run audit:todo before bundling for final internal-alpha review.");
@@ -488,8 +488,8 @@ async function gstackWorkflowStatusOk(root: string, manifest: unknown) {
   const requiredWorkflowSkillsAvailable = ["health", "review", "planning", "qa"].every((id) =>
     workflows.some((item) => item.id === id && item.skillAvailable === true)
   );
-  const hasGitMetadata = await directoryExists(path.join(root, ".git"));
-  const reviewWorkspaceClaimOk = reviewWorkflowWorkspaceClaimOk(workflows, hasGitMetadata);
+  const hasGitMetadata = Boolean(await findGitMetadataPath(root));
+  const reviewWorkspaceClaimOk = reviewWorkflowWorkspaceClaimOk(manifest, workflows, hasGitMetadata);
   return gstackTopLevelStatusOk(manifest, workflows, healthHistory, qaReport) &&
     manifestLimitationsPreserved(manifest, hasGitMetadata, healthHistory, qaReport) &&
     manifest.commandUploadEnabled === false &&
@@ -541,10 +541,17 @@ function manifestLimitationsPreserved(
   return true;
 }
 
-function reviewWorkflowWorkspaceClaimOk(workflows: Record<string, unknown>[], hasGitMetadata: boolean) {
-  if (hasGitMetadata) return true;
+function reviewWorkflowWorkspaceClaimOk(manifest: Record<string, unknown>, workflows: Record<string, unknown>[], hasGitMetadata: boolean) {
   const review = workflows.find((item) => item.id === "review");
   if (!review) return false;
+  if (hasGitMetadata) {
+    const gitMetadataPath = stringOrUndefined(manifest.gitMetadataPath);
+    const evidence = Array.isArray(review.evidence) ? review.evidence.filter((item) => typeof item === "string") : [];
+    return typeof gitMetadataPath === "string" &&
+      review.status === "pass" &&
+      evidence.includes(gitMetadataPath) &&
+      String(review.details ?? "").includes(gitMetadataPath);
+  }
   const limitations = Array.isArray(review.limitations) ? review.limitations.filter((item) => typeof item === "string") : [];
   const evidence = Array.isArray(review.evidence) ? review.evidence.filter((item) => typeof item === "string") : [];
   const reviewText = [String(review.details ?? ""), ...limitations, ...evidence].join(" ");
@@ -812,6 +819,17 @@ async function directoryExists(directoryPath: string) {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function findGitMetadataPath(start: string) {
+  let current = path.resolve(start);
+  while (true) {
+    const candidate = path.join(current, ".git");
+    if (await pathExists(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
   }
 }
 

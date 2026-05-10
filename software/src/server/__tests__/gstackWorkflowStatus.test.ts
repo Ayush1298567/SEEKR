@@ -98,6 +98,38 @@ describe("gstack workflow status", () => {
     ]));
   });
 
+  it("detects Git metadata from a parent repository root", async () => {
+    const workspaceRoot = path.join(os.tmpdir(), `seekr-gstack-parent-git-${process.pid}-${Date.now()}`);
+    const softwareRoot = path.join(workspaceRoot, "software");
+    const parentSkillRoot = path.join(workspaceRoot, ".skills");
+    const parentHealthHistoryPath = path.join(workspaceRoot, ".gstack/projects/software/health-history.jsonl");
+    await mkdir(path.join(workspaceRoot, ".git"), { recursive: true });
+    await seedRoot(softwareRoot, parentSkillRoot, parentHealthHistoryPath);
+
+    try {
+      const manifest = await buildGstackWorkflowStatus({
+        root: softwareRoot,
+        skillRoot: parentSkillRoot,
+        gstackCliPath: false,
+        healthHistoryPath: parentHealthHistoryPath,
+        generatedAt: GENERATED_AT
+      });
+
+      expect(manifest.gitMetadataPath).toBe("../.git");
+      expect(manifest.workflows.find((item) => item.id === "review")).toMatchObject({
+        status: "pass",
+        evidence: expect.arrayContaining(["../.git"]),
+        details: expect.stringContaining("../.git"),
+        limitations: []
+      });
+      expect(manifest.limitations).toEqual(expect.arrayContaining([
+        expect.stringContaining("Git metadata is present at ../.git")
+      ]));
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
   it("records stale browser QA reports as limitations when they predate acceptance", async () => {
     await writeFile(path.join(root, ".tmp/acceptance-status.json"), JSON.stringify({
       ok: true,
@@ -341,11 +373,12 @@ describe("gstack workflow status", () => {
   });
 });
 
-async function seedRoot(root: string, skillRoot: string) {
+async function seedRoot(root: string, skillRoot: string, healthHistoryOverride?: string) {
+  const seededHealthHistoryPath = healthHistoryOverride ?? path.join(root, ".gstack/projects/software/health-history.jsonl");
   await mkdir(path.join(root, "docs"), { recursive: true });
   await mkdir(path.join(root, ".tmp/demo-readiness"), { recursive: true });
   await mkdir(path.join(root, ".gstack/qa-reports/screenshots"), { recursive: true });
-  await mkdir(path.join(root, ".gstack/projects/software"), { recursive: true });
+  await mkdir(path.dirname(seededHealthHistoryPath), { recursive: true });
   for (const skill of ["gstack-health", "gstack-review", "gstack-autoplan", "gstack-qa"]) {
     await mkdir(path.join(skillRoot, skill), { recursive: true });
     await writeFile(path.join(skillRoot, skill, "SKILL.md"), `${skill}\n`, "utf8");
@@ -388,7 +421,7 @@ async function seedRoot(root: string, skillRoot: string) {
   ].join("\n"), "utf8");
   await writeFile(path.join(root, qaHomeScreenshotPath), "home screenshot", "utf8");
   await writeFile(path.join(root, qaMobileScreenshotPath), "mobile screenshot", "utf8");
-  await writeFile(path.join(root, ".gstack/projects/software/health-history.jsonl"), [
+  await writeFile(seededHealthHistoryPath, [
     JSON.stringify({
       ts: "2026-05-09T21:00:00.000Z",
       branch: "no-git-repo",

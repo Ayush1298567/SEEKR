@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
@@ -615,8 +615,8 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
   const unavailableWorkflowSkills = ["health", "review", "planning", "qa"].filter((id) =>
     !workflowItems.some((item) => item.id === id && item.skillAvailable === true)
   );
-  const hasGitMetadata = await directoryExists(path.join(root, ".git"));
-  const reviewWorkspaceClaimOk = reviewWorkflowWorkspaceClaimOk(workflowItems, hasGitMetadata);
+  const hasGitMetadata = Boolean(await findGitMetadataPath(root));
+  const reviewWorkspaceClaimOk = isRecord(workflowManifest) && reviewWorkflowWorkspaceClaimOk(workflowManifest, workflowItems, hasGitMetadata);
   const perspectives = isRecord(workflowManifest) && Array.isArray(workflowManifest.perspectives)
     ? workflowManifest.perspectives.filter(isRecord)
     : [];
@@ -646,7 +646,7 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
     ...missingSignals.map((signal) => `docs/goal.md missing ${signal}`),
     ...missingScripts.map((script) => `package.json missing ${script}`),
     ...(!workflow ? ["gstack workflow status artifact is missing"] : []),
-    ...(workflow && !workflowStatusOk ? ["gstack workflow status artifact must pass or pass with documented workspace limitations, use pass-with-limitations for limitation-only evidence, include all workflows with installed skill availability, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, preserve no-Git review limitations, include perspective status/score/nextAction details, health history status/path, local QA report status/path, record gstack CLI availability, and keep commandUploadEnabled false"] : [])
+    ...(workflow && !workflowStatusOk ? ["gstack workflow status artifact must pass or pass with documented workspace limitations, use pass-with-limitations for limitation-only evidence, include all workflows with installed skill availability, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, preserve Git metadata review evidence when present or no-Git review limitations when absent, include perspective status/score/nextAction details, health history status/path, local QA report status/path, record gstack CLI availability, and keep commandUploadEnabled false"] : [])
   ];
 
   return {
@@ -888,10 +888,17 @@ function matchesAllPatterns(value: string, patterns: RegExp[]) {
   return patterns.every((pattern) => pattern.test(value));
 }
 
-function reviewWorkflowWorkspaceClaimOk(workflows: Record<string, unknown>[], hasGitMetadata: boolean) {
-  if (hasGitMetadata) return true;
+function reviewWorkflowWorkspaceClaimOk(manifest: Record<string, unknown>, workflows: Record<string, unknown>[], hasGitMetadata: boolean) {
   const review = workflows.find((item) => item.id === "review");
   if (!review) return false;
+  if (hasGitMetadata) {
+    const gitMetadataPath = stringOrUndefined(manifest.gitMetadataPath);
+    const evidence = Array.isArray(review.evidence) ? review.evidence.filter((item) => typeof item === "string") : [];
+    return typeof gitMetadataPath === "string" &&
+      review.status === "pass" &&
+      evidence.includes(gitMetadataPath) &&
+      String(review.details ?? "").includes(gitMetadataPath);
+  }
   const limitations = Array.isArray(review.limitations) ? review.limitations.filter((item) => typeof item === "string") : [];
   const evidence = Array.isArray(review.evidence) ? review.evidence.filter((item) => typeof item === "string") : [];
   const reviewText = [String(review.details ?? ""), ...limitations, ...evidence].join(" ");
@@ -917,6 +924,26 @@ function gstackTopLevelStatusOk(
 async function directoryExists(directoryPath: string) {
   try {
     await readdir(directoryPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function findGitMetadataPath(start: string) {
+  let current = path.resolve(start);
+  while (true) {
+    const candidate = path.join(current, ".git");
+    if (await metadataPathExists(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+async function metadataPathExists(filePath: string) {
+  try {
+    await stat(filePath);
     return true;
   } catch {
     return false;

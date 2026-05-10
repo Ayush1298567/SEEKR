@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
@@ -204,7 +204,7 @@ export async function buildHandoffBundleVerification(options: {
   if (bundleDirectory && bundleDirectoryOk && gstackWorkflowStatusPath) {
     gstackStatus = await readCopiedJson(bundleDirectory, gstackWorkflowStatusPath);
     if (!(await gstackWorkflowStatusOk(root, gstackStatus))) {
-      blockers.push("Copied gstack workflow status must pass or pass-with-limitations, use pass-with-limitations for limitation-only evidence, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, record gstack availability, include all required workflows, perspective status/score/nextAction details, review evidence paths, and no-Git workspace limitations, and keep commandUploadEnabled false.");
+      blockers.push("Copied gstack workflow status must pass or pass-with-limitations, use pass-with-limitations for limitation-only evidence, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, record gstack availability, include all required workflows, perspective status/score/nextAction details, Git review evidence paths when Git metadata is present or no-Git workspace limitations when absent, and keep commandUploadEnabled false.");
     }
   }
   const gstackQaReportPath = isRecord(manifest) ? stringOrUndefined(manifest.gstackQaReportPath) : undefined;
@@ -653,8 +653,8 @@ async function gstackWorkflowStatusOk(root: string, manifest: unknown) {
   const requiredWorkflowSkillsAvailable = ["health", "review", "planning", "qa"].every((id) =>
     workflows.some((item) => item.id === id && item.skillAvailable === true)
   );
-  const hasGitMetadata = await directoryExists(path.join(root, ".git"));
-  const reviewWorkspaceClaimOk = reviewWorkflowWorkspaceClaimOk(workflows, hasGitMetadata);
+  const hasGitMetadata = Boolean(await findGitMetadataPath(root));
+  const reviewWorkspaceClaimOk = reviewWorkflowWorkspaceClaimOk(manifest, workflows, hasGitMetadata);
   return gstackTopLevelStatusOk(manifest, workflows, healthHistory, qaReport) &&
     manifestLimitationsPreserved(manifest, hasGitMetadata, healthHistory, qaReport) &&
     manifest.commandUploadEnabled === false &&
@@ -706,10 +706,17 @@ function manifestLimitationsPreserved(
   return true;
 }
 
-function reviewWorkflowWorkspaceClaimOk(workflows: Record<string, unknown>[], hasGitMetadata: boolean) {
-  if (hasGitMetadata) return true;
+function reviewWorkflowWorkspaceClaimOk(manifest: Record<string, unknown>, workflows: Record<string, unknown>[], hasGitMetadata: boolean) {
   const review = workflows.find((item) => item.id === "review");
   if (!review) return false;
+  if (hasGitMetadata) {
+    const gitMetadataPath = stringOrUndefined(manifest.gitMetadataPath);
+    const evidence = Array.isArray(review.evidence) ? review.evidence.filter((item) => typeof item === "string") : [];
+    return typeof gitMetadataPath === "string" &&
+      review.status === "pass" &&
+      evidence.includes(gitMetadataPath) &&
+      String(review.details ?? "").includes(gitMetadataPath);
+  }
   const limitations = Array.isArray(review.limitations) ? review.limitations.filter((item) => typeof item === "string") : [];
   const evidence = Array.isArray(review.evidence) ? review.evidence.filter((item) => typeof item === "string") : [];
   const reviewText = [String(review.details ?? ""), ...limitations, ...evidence].join(" ");
@@ -968,6 +975,26 @@ function isInsideRoot(root: string, absolutePath: string) {
 async function directoryExists(directoryPath: string) {
   try {
     await readdir(directoryPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function findGitMetadataPath(start: string) {
+  let current = path.resolve(start);
+  while (true) {
+    const candidate = path.join(current, ".git");
+    if (await pathExists(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+async function pathExists(filePath: string) {
+  try {
+    await stat(filePath);
     return true;
   } catch {
     return false;

@@ -58,6 +58,7 @@ export interface GstackWorkflowStatusManifest {
   gstackAvailable: boolean;
   gstackCliAvailable: boolean;
   gstackCliPath?: string;
+  gitMetadataPath?: string;
   workflows: GstackWorkflowItem[];
   perspectives: GstackPerspectiveItem[];
   qaReport: GstackQaReportEvidence;
@@ -113,7 +114,9 @@ export async function buildGstackWorkflowStatus(options: {
     };
   });
   const missingPerspectives = perspectives.filter((item) => item.status === "missing").map((item) => item.id);
-  const hasGitMetadata = await pathExists(path.join(root, ".git"));
+  const gitMetadataAbsolutePath = await findGitMetadataPath(root);
+  const gitMetadataPath = gitMetadataAbsolutePath ? displayPath(root, gitMetadataAbsolutePath) : undefined;
+  const hasGitMetadata = Boolean(gitMetadataAbsolutePath);
   const skillAvailability = {
     health: await skillExists(skillRoot, REQUIRED_SKILLS.health),
     review: await skillExists(skillRoot, REQUIRED_SKILLS.review),
@@ -138,6 +141,7 @@ export async function buildGstackWorkflowStatus(options: {
     reviewWorkflowItem({
       skillAvailable: skillAvailability.review,
       hasGitMetadata,
+      gitMetadataPath,
       goalDoc
     }),
     workflowItem({
@@ -178,6 +182,7 @@ export async function buildGstackWorkflowStatus(options: {
     gstackAvailable,
     gstackCliAvailable,
     gstackCliPath,
+    gitMetadataPath,
     workflows,
     perspectives,
     qaReport,
@@ -197,7 +202,7 @@ export async function buildGstackWorkflowStatus(options: {
         ? `gstack CLI was found at ${gstackCliPath}; local workflow evidence is still recorded through package scripts for reproducibility.`
         : "gstack CLI is not available on PATH; workflow status is recorded from installed skill files and local package-script evidence instead of claiming CLI execution.",
       hasGitMetadata
-        ? "Git metadata is present, so a diff review can be run against a base branch."
+        ? `Git metadata is present at ${gitMetadataPath}, so a diff review can be run against a base branch.`
         : "No .git metadata is present in this workspace, so gstack diff review is recorded as blocked-by-workspace instead of claimed as run.",
       "This artifact records workflow availability and local evidence mapping; it does not validate physical Jetson/Pi hardware or real MAVLink/ROS/HIL evidence.",
       "All aircraft command upload and hardware actuation authority remains disabled."
@@ -496,6 +501,7 @@ function qaWorkflowItem(options: Parameters<typeof workflowItem>[0] & {
 function reviewWorkflowItem(options: {
   skillAvailable: boolean;
   hasGitMetadata: boolean;
+  gitMetadataPath?: string;
   goalDoc: string;
 }): GstackWorkflowItem {
   const limitations: string[] = [];
@@ -506,7 +512,7 @@ function reviewWorkflowItem(options: {
   const hardFailures = limitations.filter((item) => !item.includes("no .git metadata"));
   const status: WorkflowStatus = hardFailures.length
     ? "fail"
-    : options.hasGitMetadata ? "pass-with-limitations" : "blocked-by-workspace";
+    : options.hasGitMetadata ? "pass" : "blocked-by-workspace";
 
   return {
     id: "review",
@@ -516,10 +522,21 @@ function reviewWorkflowItem(options: {
       ? "Review workflow is available, but pre-landing diff review is blocked because this workspace has no .git metadata."
       : status === "fail"
         ? "Review workflow needs gstack availability and docs/goal review status."
-        : "Review workflow is mapped; run gstack review against a base branch when Git metadata is available.",
-    evidence: ["docs/goal.md", ".git"],
+        : `Review workflow is mapped; Git metadata is available at ${options.gitMetadataPath ?? ".git"} for base-branch diff review.`,
+    evidence: ["docs/goal.md", options.gitMetadataPath ?? ".git"],
     limitations
   };
+}
+
+async function findGitMetadataPath(start: string) {
+  let current = path.resolve(start);
+  while (true) {
+    const candidate = path.join(current, ".git");
+    if (await pathExists(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
 }
 
 async function detectGstackSkillRoot() {
@@ -613,6 +630,11 @@ function displayHomeRelative(filePath: string | undefined) {
   return filePath.split(path.sep).join("/");
 }
 
+function displayPath(root: string, absolutePath: string) {
+  const relative = path.relative(root, absolutePath) || ".";
+  return relative.split(path.sep).join("/");
+}
+
 function numberOrNull(value: unknown): number | null | undefined {
   if (value === null) return null;
   return Number.isFinite(Number(value)) ? Number(value) : undefined;
@@ -634,6 +656,7 @@ function renderMarkdown(manifest: GstackWorkflowStatusManifest) {
     `GStack available: ${manifest.gstackAvailable}`,
     `GStack CLI available: ${manifest.gstackCliAvailable}`,
     manifest.gstackCliPath ? `GStack CLI path: ${manifest.gstackCliPath}` : undefined,
+    manifest.gitMetadataPath ? `Git metadata path: ${manifest.gitMetadataPath}` : undefined,
     "",
     "## Workflows",
     "",
@@ -698,6 +721,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
         gstackAvailable: manifest.gstackAvailable,
         gstackCliAvailable: manifest.gstackCliAvailable,
         gstackCliPath: manifest.gstackCliPath,
+        gitMetadataPath: manifest.gitMetadataPath,
         workflowCount: manifest.workflows.length,
         perspectiveCount: manifest.perspectives.length,
         healthHistoryStatus: manifest.healthHistory.status,
