@@ -242,6 +242,28 @@ describe("plug-and-play doctor", () => {
     });
   });
 
+  it("includes read-only listener diagnostics when occupied ports are not a healthy SEEKR instance", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async (port) => port !== 8787,
+      portInspector: async (port) => port === 8787
+        ? [{ command: "node", pid: 12345, cwd: "~/Ayush/Prophet/prophet-console" }]
+        : []
+    });
+
+    expect(manifest.ok).toBe(true);
+    expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("node pid 12345 cwd ~/Ayush/Prophet/prophet-console"),
+      evidence: expect.arrayContaining([
+        "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+        "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+      ])
+    });
+  });
+
   it("passes when occupied local ports already serve a healthy SEEKR instance", async () => {
     const manifest = await buildPlugAndPlayDoctor({
       root,

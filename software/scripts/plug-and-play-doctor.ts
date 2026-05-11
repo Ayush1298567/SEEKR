@@ -1,7 +1,9 @@
+import { execFile } from "node:child_process";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { parseEnvContent } from "../src/server/env";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
@@ -42,6 +44,13 @@ export interface PlugAndPlayDoctorManifest {
   limitations: string[];
 }
 
+interface PortListenerDiagnostic {
+  command: string;
+  pid: number;
+  cwd?: string;
+}
+
+const execFileAsync = promisify(execFile);
 const DEFAULT_OUT_DIR = ".tmp/plug-and-play-doctor";
 const DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434";
 const DEFAULT_OLLAMA_MODEL = "llama3.2:latest";
@@ -72,6 +81,7 @@ export async function buildPlugAndPlayDoctor(options: {
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
   portAvailable?: (port: number, host: string) => Promise<boolean>;
+  portInspector?: (port: number, host: string) => Promise<PortListenerDiagnostic[]>;
 } = {}): Promise<PlugAndPlayDoctorManifest> {
   const root = path.resolve(options.root ?? process.cwd());
   const generatedAt = options.generatedAt ?? new Date().toISOString();
@@ -80,6 +90,7 @@ export async function buildPlugAndPlayDoctor(options: {
   const profile = env.SEEKR_DOCTOR_PROFILE === "rehearsal-start-smoke" ? "rehearsal-start-smoke" : "operator-start";
   const fetchImpl = options.fetchImpl ?? fetch;
   const portAvailable = options.portAvailable ?? isPortAvailable;
+  const portInspector = options.portInspector ?? inspectPortListeners;
 
   const packageScripts = await packageScriptCheck(root);
   const runtimeDependencies = await runtimeDependencyCheck(root);
@@ -88,7 +99,7 @@ export async function buildPlugAndPlayDoctor(options: {
   const operatorStart = await operatorStartScriptCheck(root);
   const envCheck = await envSetupCheck(root, env, effectiveEnv);
   const aiCheck = await localAiCheck(effectiveEnv, fetchImpl);
-  const portCheck = await localPortCheck(effectiveEnv, portAvailable, fetchImpl);
+  const portCheck = await localPortCheck(effectiveEnv, portAvailable, fetchImpl, portInspector);
   const dataDirCheck = await localDataDirCheck(root, effectiveEnv);
   const safetyCheck = safetyBoundaryCheck(effectiveEnv);
   const checks = [packageScripts, runtimeDependencies, repositorySafety, sourceControlHandoff, operatorStart, envCheck, aiCheck.check, portCheck.check, dataDirCheck, safetyCheck];
@@ -434,28 +445,40 @@ async function localAiCheck(effectiveEnv: Map<string, string>, fetchImpl: typeof
 async function localPortCheck(
   effectiveEnv: Map<string, string>,
   portAvailable: (port: number, host: string) => Promise<boolean>,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  portInspector: (port: number, host: string) => Promise<PortListenerDiagnostic[]>
 ) {
   const host = "127.0.0.1";
   const api = parsePort(effectiveEnv.get("SEEKR_API_PORT") ?? effectiveEnv.get("PORT"), 8787);
   const client = parsePort(effectiveEnv.get("SEEKR_CLIENT_PORT"), 5173);
-  const occupied: Array<{ role: "api" | "client"; port: number; healthy: boolean; url: string }> = [];
+  const occupied: Array<{ role: "api" | "client"; port: number; healthy: boolean; url: string; listeners: PortListenerDiagnostic[] }> = [];
   for (const candidate of [
     { role: "api" as const, port: api },
     { role: "client" as const, port: client }
   ]) {
     if (!(await portAvailable(candidate.port, host))) {
-      occupied.push(await probeOccupiedSeekrPort(candidate.role, candidate.port, host, fetchImpl));
+      const [probe, listeners] = await Promise.all([
+        probeOccupiedSeekrPort(candidate.role, candidate.port, host, fetchImpl),
+        portInspector(candidate.port, host)
+      ]);
+      occupied.push({ ...probe, listeners });
     }
   }
   const unknown = occupied.filter((item) => !item.healthy);
+  const listenerDetails = unknown.flatMap((item) =>
+    item.listeners.map((listener) => `${item.role} ${item.port} -> ${formatPortListener(listener)}`)
+  );
+  const listenerEvidence = occupied.flatMap((item) => [
+    `lsof -nP -iTCP:${item.port} -sTCP:LISTEN`,
+    ...item.listeners.map((listener) => listener.cwd ? `listener ${listener.pid} cwd ${listener.cwd}` : `listener ${listener.pid} command ${listener.command}`)
+  ]);
   return {
     ports: { api, client },
     check: {
       id: "local-ports",
       status: unknown.length ? "warn" as const : "pass" as const,
       details: unknown.length
-        ? `Port(s) already in use on ${host} by an unknown or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. Stop the existing process before starting a fresh npm run dev.`
+        ? `Port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}Stop the existing process before starting a fresh npm run dev.`
         : occupied.length
           ? `Port(s) already have a healthy SEEKR local instance on ${host}: ${occupied.map((item) => `${item.role} ${item.port}`).join(", ")}. Keep using it or stop it before starting a fresh npm run dev.`
           : `API/client ports are available on ${host}: ${api}, ${client}.`,
@@ -463,7 +486,8 @@ async function localPortCheck(
         "PORT",
         "SEEKR_API_PORT",
         "SEEKR_CLIENT_PORT",
-        ...occupied.map((item) => item.url)
+        ...occupied.map((item) => item.url),
+        ...listenerEvidence
       ]
     }
   };
@@ -493,6 +517,53 @@ async function probeOccupiedSeekrPort(role: "api" | "client", port: number, host
   } catch {
     return { role, port, healthy: false, url };
   }
+}
+
+async function inspectPortListeners(port: number, _host: string): Promise<PortListenerDiagnostic[]> {
+  try {
+    const { stdout } = await execFileAsync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN"]);
+    const listeners = parseLsofListenerRows(stdout);
+    return await Promise.all(listeners.map(async (listener) => ({
+      ...listener,
+      cwd: await listenerCwd(listener.pid)
+    })));
+  } catch {
+    return [];
+  }
+}
+
+function parseLsofListenerRows(stdout: string): PortListenerDiagnostic[] {
+  return stdout
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(/\s+/);
+      const pid = Number(parts[1]);
+      if (!parts[0] || !Number.isInteger(pid)) return undefined;
+      return { command: parts[0], pid };
+    })
+    .filter((listener): listener is PortListenerDiagnostic => Boolean(listener));
+}
+
+async function listenerCwd(pid: number) {
+  try {
+    const { stdout } = await execFileAsync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"]);
+    const cwd = stdout.split(/\r?\n/).find((line) => line.startsWith("n"))?.slice(1);
+    return cwd ? displayPath(cwd) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function formatPortListener(listener: PortListenerDiagnostic) {
+  return `${listener.command} pid ${listener.pid}${listener.cwd ? ` cwd ${listener.cwd}` : ""}`;
+}
+
+function displayPath(value: string) {
+  const home = process.env.HOME;
+  return home && value.startsWith(`${home}/`) ? `~/${value.slice(home.length + 1)}` : value;
 }
 
 async function localDataDirCheck(root: string, effectiveEnv: Map<string, string>): Promise<PlugAndPlayDoctorCheck> {
