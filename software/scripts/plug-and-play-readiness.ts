@@ -1478,6 +1478,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     ai: result.manifest.ai,
     sourceControl: result.manifest.sourceControl,
     operatorStartPorts: result.manifest.operatorStartPorts,
+    freshClone: result.manifest.freshClone,
     reviewBundle: result.manifest.reviewBundle,
     summary: result.manifest.summary,
     remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,

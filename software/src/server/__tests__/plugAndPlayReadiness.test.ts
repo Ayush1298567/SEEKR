@@ -1532,6 +1532,8 @@ describe("plug-and-play readiness audit", () => {
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Plug-And-Play Readiness");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Operator start ports");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Fresh clone");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control local HEAD");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control remote default SHA");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Remaining real-world blockers");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Count: 8");
   });
