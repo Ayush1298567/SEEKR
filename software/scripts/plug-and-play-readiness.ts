@@ -322,6 +322,8 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
 async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck> {
   const artifact = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
 
   if (!isRecord(manifest)) {
     return {
@@ -340,6 +342,25 @@ async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck
       status: "fail",
       details: `Source-control handoff artifact is unsafe or malformed: ${validation.problems.join("; ")}.`,
       evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
+    };
+  }
+  const sourceControlGeneratedAt = timeMs(manifest.generatedAt);
+  if (validation.ready && acceptanceGeneratedAt !== undefined && sourceControlGeneratedAt === undefined) {
+    return {
+      id: "source-control-handoff",
+      requirement: "Source-control publication and GitHub handoff state are recorded separately from hardware readiness.",
+      status: "fail",
+      details: "Ready source-control handoff artifact must record a parseable generatedAt timestamp so plug-and-play readiness can prove it follows acceptance.",
+      evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
+    };
+  }
+  if (validation.ready && acceptanceGeneratedAt !== undefined && sourceControlGeneratedAt !== undefined && sourceControlGeneratedAt < acceptanceGeneratedAt) {
+    return {
+      id: "source-control-handoff",
+      requirement: "Source-control publication and GitHub handoff state are recorded separately from hardware readiness.",
+      status: "fail",
+      details: "Ready source-control handoff artifact must be newer than or equal to the latest acceptance record.",
+      evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff", ".tmp/acceptance-status.json"]
     };
   }
 

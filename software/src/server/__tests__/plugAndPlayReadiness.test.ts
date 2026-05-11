@@ -471,6 +471,25 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when ready source-control handoff evidence predates acceptance", async () => {
+    const sourceControlPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
+    const sourceControl = JSON.parse(await readFile(sourceControlPath, "utf8"));
+    sourceControl.generatedAt = "2026-05-10T06:59:00.000Z";
+    await writeFile(sourceControlPath, JSON.stringify(sourceControl), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("newer than or equal to the latest acceptance record")
+    });
+  });
+
   it("fails when the local setup artifact has not been generated", async () => {
     await rm(path.join(root, ".tmp/plug-and-play-setup"), { recursive: true, force: true });
 
@@ -1236,6 +1255,7 @@ async function seedDoctorFiles(root: string) {
   }), "utf8");
   await writeFile(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), JSON.stringify({
     schemaVersion: 1,
+    generatedAt: "2026-05-10T07:00:30.000Z",
     status: "ready-source-control-handoff",
     ready: true,
     commandUploadEnabled: false,
