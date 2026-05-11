@@ -110,7 +110,7 @@ describe("plug-and-play artifact contract", () => {
     expect(plugAndPlayDoctorOk(doctorManifest({ checks, summary: { pass: 9, warn: 1, fail: 0 } }))).toBe(true);
   });
 
-  it("accepts auto-recoverable non-SEEKR default-port pass evidence only with listener diagnostics and free-port fallback proof", () => {
+  it("accepts auto-recoverable non-SEEKR default-port pass evidence only with listener diagnostics and free-port fallback candidate proof", () => {
     const checks = doctorChecks().map((check) =>
       check.id === "local-ports"
         ? {
@@ -151,7 +151,7 @@ describe("plug-and-play artifact contract", () => {
     expect(plugAndPlayDoctorOk(doctorManifest({ checks, summary: { pass: 9, warn: 1, fail: 0 } }))).toBe(false);
   });
 
-  it("rejects auto-recoverable non-SEEKR default-port pass evidence that drops fallback proof", () => {
+  it("rejects auto-recoverable non-SEEKR default-port pass evidence that drops fallback candidate proof", () => {
     const checks = doctorChecks().map((check) =>
       check.id === "local-ports"
         ? {
