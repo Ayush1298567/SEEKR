@@ -254,6 +254,25 @@ describe("source-control handoff audit", () => {
     }).problems).toEqual(expect.arrayContaining([
       expect.stringContaining("nextActionChecklist")
     ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      checks: [
+        ...manifest.checks,
+        { id: "unreviewed-extra-check", status: "pass", details: "Unexpected check should not be accepted." }
+      ]
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("exactly match the required source-control check IDs")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      checks: [
+        manifest.checks[1],
+        manifest.checks[0],
+        ...manifest.checks.slice(2)
+      ]
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("exactly match the required source-control check IDs")
+    ]));
   });
 });
 

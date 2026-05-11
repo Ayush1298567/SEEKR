@@ -381,7 +381,8 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
     };
   }
 
-  const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
+  const rawChecks = Array.isArray(manifest.checks) ? manifest.checks : [];
+  const checks = rawChecks.filter(isRecord);
   const checkIds = new Set(checks.map((check) => String(check.id ?? "")));
   const blockedCheckIds = checks
     .filter((check) => check.status === "blocked")
@@ -421,6 +422,14 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if (ready && typeof manifest.localHeadSha !== "string") problems.push("ready source-control handoff must include localHeadSha");
   if (ready && typeof manifest.remoteDefaultBranchSha !== "string") problems.push("ready source-control handoff must include remoteDefaultBranchSha");
   if (ready && manifest.workingTreeStatusLineCount !== 0) problems.push("ready source-control handoff must record a clean working tree");
+  if (!Array.isArray(manifest.checks)) {
+    problems.push("checks must be an array");
+  } else if (rawChecks.length !== checks.length) {
+    problems.push("checks must contain only JSON objects");
+  }
+  if (!sourceControlCheckIdsAreExact(checks)) {
+    problems.push("checks must exactly match the required source-control check IDs in order");
+  }
   for (const id of REQUIRED_SOURCE_CONTROL_CHECK_IDS) {
     if (!checkIds.has(id)) problems.push(`missing required check ${id}`);
   }
@@ -569,6 +578,11 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
   });
 
   return actions;
+}
+
+function sourceControlCheckIdsAreExact(checks: Record<string, unknown>[]) {
+  return checks.length === REQUIRED_SOURCE_CONTROL_CHECK_IDS.length &&
+    checks.every((check, index) => check.id === REQUIRED_SOURCE_CONTROL_CHECK_IDS[index]);
 }
 
 function sourceControlNextActionOk(action: Record<string, unknown>) {
