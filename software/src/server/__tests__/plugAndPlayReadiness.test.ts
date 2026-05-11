@@ -803,7 +803,7 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "operator-doctor")?.details).toContain("healthy SEEKR local instance");
   });
 
-  it("warns when source-control handoff evidence is not ready", async () => {
+  it("fails when source-control handoff evidence is not ready", async () => {
     await writeFile(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), JSON.stringify({
       schemaVersion: 1,
       status: "blocked-source-control-handoff",
@@ -842,14 +842,15 @@ describe("plug-and-play readiness audit", () => {
       generatedAt: "2026-05-10T07:03:00.000Z"
     });
 
-    expect(manifest.localPlugAndPlayOk).toBe(true);
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
-      status: "warn",
+      status: "fail",
       details: expect.stringContaining("local-git-metadata")
     });
   });
 
-  it("warns when a ready source-control handoff could not inspect remote refs", async () => {
+  it("fails when a ready source-control handoff still has warning checks", async () => {
     const sourceControlPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
     const sourceControl = JSON.parse(await readFile(sourceControlPath, "utf8"));
     sourceControl.status = "ready-source-control-handoff-with-warnings";
@@ -887,9 +888,9 @@ describe("plug-and-play readiness audit", () => {
       generatedAt: "2026-05-10T07:03:00.000Z"
     });
 
-    expect(manifest.localPlugAndPlayOk).toBe(true);
-    expect(manifest.status).toBe("ready-local-plug-and-play-real-world-blocked");
-    expect(manifest.summary.warn).toBe(1);
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.summary.fail).toBeGreaterThanOrEqual(1);
     expect(manifest.sourceControl).toMatchObject({
       status: "ready-source-control-handoff-with-warnings",
       remoteRefCount: 0,
@@ -904,9 +905,10 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.sourceControl.remoteDefaultBranchSha).toBeUndefined();
     expect(manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha).toBeUndefined();
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
-      status: "warn",
-      details: expect.stringContaining("github-remote-refs")
+      status: "fail",
+      details: expect.stringContaining("warning-free")
     });
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("github-remote-refs");
   });
 
   it("fails when source-control handoff evidence is unsafe", async () => {

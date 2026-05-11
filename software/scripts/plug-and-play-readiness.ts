@@ -488,7 +488,7 @@ async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck
     return {
       id: "source-control-handoff",
       requirement: "Source-control publication and GitHub handoff state are recorded separately from hardware readiness.",
-      status: "warn",
+      status: "fail",
       details: "No source-control handoff artifact exists; run npm run audit:source-control before claiming GitHub-published plug-and-play distribution.",
       evidence: [".tmp/source-control-handoff"]
     };
@@ -526,11 +526,11 @@ async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck
   return {
     id: "source-control-handoff",
     requirement: "Source-control publication and GitHub handoff state are recorded separately from hardware readiness.",
-    status: validation.blockedCheckIds.length || validation.warningCheckIds.length ? "warn" : "pass",
+    status: validation.blockedCheckIds.length || validation.warningCheckIds.length ? "fail" : "pass",
     details: validation.blockedCheckIds.length
-      ? `Source-control handoff is not ready yet: ${validation.blockedCheckIds.join(", ")}.`
+      ? `Source-control handoff is not clean enough for plug-and-play distribution: blocked check(s) ${validation.blockedCheckIds.join(", ")}.`
       : validation.warningCheckIds.length
-        ? `Source-control handoff has warning(s): ${validation.warningCheckIds.join(", ")}.`
+        ? `Source-control handoff must be warning-free for plug-and-play distribution: warning check(s) ${validation.warningCheckIds.join(", ")}.`
         : "Source-control handoff artifact records local Git metadata, GitHub remote refs/default branch, published local HEAD, and a clean worktree.",
     evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
   };
