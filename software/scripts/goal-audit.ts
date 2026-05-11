@@ -1002,6 +1002,12 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (numberOrUndefined(readinessPorts.client) !== doctorPorts.client) {
       problems.push("plug-and-play readiness operator-start client port summary must match the latest doctor");
     }
+    if (numberOrUndefined(readinessPorts.fallbackApi) !== doctorPorts.fallbackApi) {
+      problems.push("plug-and-play readiness operator-start fallback API port summary must match the latest doctor");
+    }
+    if (numberOrUndefined(readinessPorts.fallbackClient) !== doctorPorts.fallbackClient) {
+      problems.push("plug-and-play readiness operator-start fallback client port summary must match the latest doctor");
+    }
     if (booleanOrUndefined(readinessPorts.defaultPortsOccupied) !== doctorPorts.defaultPortsOccupied) {
       problems.push("plug-and-play readiness operator-start default-port occupancy summary must match the latest doctor local-ports evidence");
     }
@@ -1187,6 +1193,8 @@ function operatorDoctorPortSummary(doctorPath: string | undefined, manifest: unk
     status: isRecord(portCheck) ? stringOrUndefined(portCheck.status) : undefined,
     api: numberOrUndefined(ports.api),
     client: numberOrUndefined(ports.client),
+    fallbackApi: numberOrUndefined(ports.fallbackApi),
+    fallbackClient: numberOrUndefined(ports.fallbackClient),
     defaultPortsOccupied: /already in use|occupied|busy/i.test(text),
     autoRecoverable: /auto-selects free local API\/client ports|auto-selected free local API\/client ports|auto-selected free local/i.test(text),
     listenerDiagnostics: evidence.filter((item) => /^listener\s+\d+\s+cwd\s+/.test(item))

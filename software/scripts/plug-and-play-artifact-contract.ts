@@ -107,7 +107,9 @@ export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
   if (check.status === "warn") return hasListenerDetails && hasPortInspectorEvidence;
   const hasAutoFallbackDetails = /auto-selects free local API\/client ports/.test(details);
   const hasAutoFallbackEvidence = evidence.some((item) => item.includes("auto-selected free local API/client ports"));
-  return hasListenerDetails && hasPortInspectorEvidence && hasAutoFallbackDetails && hasAutoFallbackEvidence;
+  const hasFallbackCandidate = /Current free fallback candidate\(s\): API \d+, client \d+/.test(details) &&
+    evidence.some((item) => /^fallback (API|client) port candidate \d+$/.test(item));
+  return hasListenerDetails && hasPortInspectorEvidence && hasAutoFallbackDetails && hasAutoFallbackEvidence && hasFallbackCandidate;
 }
 
 function timeMs(value: unknown) {

@@ -116,12 +116,13 @@ describe("plug-and-play artifact contract", () => {
         ? {
             ...check,
             status: "pass",
-            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s).",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s). Current free fallback candidate(s): API 6100, client 5173; npm run rehearsal:start prints the actual URLs it selects at startup.",
             evidence: [
               "PORT",
               "SEEKR_API_PORT",
               "SEEKR_CLIENT_PORT",
               "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+              "fallback API port candidate 6100",
               "http://127.0.0.1:8787/api/health",
               "lsof -nP -iTCP:8787 -sTCP:LISTEN",
               "listener 12345 cwd ~/Ayush/Prophet/prophet-console"

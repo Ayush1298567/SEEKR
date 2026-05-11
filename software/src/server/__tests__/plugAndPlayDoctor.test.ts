@@ -278,17 +278,24 @@ describe("plug-and-play doctor", () => {
       env: {},
       fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
       portAvailable: async (port) => port !== 5173,
+      freePort: async () => 6100,
       portInspector: async (port) => port === 5173
         ? [{ command: "node", pid: 12345, cwd: "~/Ayush/Prophet/prophet-console" }]
         : []
     });
 
     expect(manifest.ok).toBe(true);
+    expect(manifest.ports).toMatchObject({
+      api: 8787,
+      client: 5173,
+      fallbackClient: 6100
+    });
     expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
       status: "pass",
       details: expect.stringContaining("auto-selects free local API/client ports"),
       evidence: expect.arrayContaining([
         "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+        "fallback client port candidate 6100",
         "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
       ])
     });
@@ -318,6 +325,7 @@ describe("plug-and-play doctor", () => {
       env: {},
       fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
       portAvailable: async (port) => port !== 8787,
+      freePort: async () => 6200,
       portInspector: async (port) => port === 8787
         ? [{ command: "node", pid: 12345, cwd: "~/Ayush/Prophet/prophet-console" }]
         : []
@@ -328,6 +336,7 @@ describe("plug-and-play doctor", () => {
       status: "pass",
       details: expect.stringContaining("node pid 12345 cwd ~/Ayush/Prophet/prophet-console"),
       evidence: expect.arrayContaining([
+        "fallback API port candidate 6200",
         "lsof -nP -iTCP:8787 -sTCP:LISTEN",
         "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
       ])

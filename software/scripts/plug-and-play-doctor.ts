@@ -33,6 +33,8 @@ export interface PlugAndPlayDoctorManifest {
   ports: {
     api: number;
     client: number;
+    fallbackApi?: number;
+    fallbackClient?: number;
   };
   summary: {
     pass: number;
@@ -83,6 +85,7 @@ export async function buildPlugAndPlayDoctor(options: {
   fetchImpl?: typeof fetch;
   portAvailable?: (port: number, host: string) => Promise<boolean>;
   portInspector?: (port: number, host: string) => Promise<PortListenerDiagnostic[]>;
+  freePort?: (host: string) => Promise<number>;
 } = {}): Promise<PlugAndPlayDoctorManifest> {
   const root = path.resolve(options.root ?? process.cwd());
   const generatedAt = options.generatedAt ?? new Date().toISOString();
@@ -92,6 +95,7 @@ export async function buildPlugAndPlayDoctor(options: {
   const fetchImpl = options.fetchImpl ?? fetch;
   const portAvailable = options.portAvailable ?? isPortAvailable;
   const portInspector = options.portInspector ?? inspectPortListeners;
+  const freePort = options.freePort ?? selectFreeLocalPort;
 
   const packageScripts = await packageScriptCheck(root);
   const runtimeDependencies = await runtimeDependencyCheck(root);
@@ -106,7 +110,8 @@ export async function buildPlugAndPlayDoctor(options: {
     portAvailable,
     fetchImpl,
     portInspector,
-    operatorStart.status === "pass"
+    operatorStart.status === "pass",
+    freePort
   );
   const dataDirCheck = await localDataDirCheck(root, effectiveEnv);
   const safetyCheck = safetyBoundaryCheck(effectiveEnv);
@@ -466,7 +471,8 @@ async function localPortCheck(
   portAvailable: (port: number, host: string) => Promise<boolean>,
   fetchImpl: typeof fetch,
   portInspector: (port: number, host: string) => Promise<PortListenerDiagnostic[]>,
-  startWrapperAutoFallbackAvailable: boolean
+  startWrapperAutoFallbackAvailable: boolean,
+  freePort: (host: string) => Promise<number>
 ) {
   const host = "127.0.0.1";
   const api = parsePort(effectiveEnv.get("SEEKR_API_PORT") ?? effectiveEnv.get("PORT"), 8787);
@@ -498,14 +504,24 @@ async function localPortCheck(
     (item.role === "api" && item.port === 8787 && !apiExplicit) ||
     (item.role === "client" && item.port === 5173 && !clientExplicit)
   );
+  const fallbackPorts: { fallbackApi?: number; fallbackClient?: number } = autoRecoverableDefaults
+    ? await fallbackPortCandidates({ api, client, unknown, host, freePort })
+    : {};
+  const fallbackDetails = fallbackPorts.fallbackApi !== undefined || fallbackPorts.fallbackClient !== undefined
+    ? ` Current free fallback candidate(s): API ${fallbackPorts.fallbackApi ?? api}, client ${fallbackPorts.fallbackClient ?? client}; npm run rehearsal:start prints the actual URLs it selects at startup.`
+    : "";
+  const fallbackEvidence = [
+    fallbackPorts.fallbackApi !== undefined ? `fallback API port candidate ${fallbackPorts.fallbackApi}` : undefined,
+    fallbackPorts.fallbackClient !== undefined ? `fallback client port candidate ${fallbackPorts.fallbackClient}` : undefined
+  ].filter(isString);
   return {
-    ports: { api, client },
+    ports: { api, client, ...fallbackPorts },
     check: {
       id: "local-ports",
       status: unknown.length && !autoRecoverableDefaults ? "warn" as const : "pass" as const,
       details: unknown.length
         ? autoRecoverableDefaults
-          ? `Default port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s).`
+          ? `Default port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s).${fallbackDetails}`
           : `Port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}Stop the existing process or choose different explicit ports before starting SEEKR.`
         : occupied.length
           ? `Port(s) already have a healthy SEEKR local instance on ${host}: ${occupied.map((item) => `${item.role} ${item.port}`).join(", ")}. Keep using it or stop it before starting a fresh npm run dev.`
@@ -515,11 +531,42 @@ async function localPortCheck(
         "SEEKR_API_PORT",
         "SEEKR_CLIENT_PORT",
         "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+        ...fallbackEvidence,
         ...occupied.map((item) => item.url),
         ...listenerEvidence
       ]
     }
   };
+}
+
+async function fallbackPortCandidates(options: {
+  api: number;
+  client: number;
+  unknown: Array<{ role: "api" | "client"; port: number }>;
+  host: string;
+  freePort: (host: string) => Promise<number>;
+}) {
+  const occupiedRoles = new Set(options.unknown.map((item) => item.role));
+  const reserved = new Set<number>();
+  let fallbackApi: number | undefined;
+  let fallbackClient: number | undefined;
+  if (occupiedRoles.has("api")) {
+    fallbackApi = await nextDistinctFreePort(options.host, options.freePort, reserved);
+    reserved.add(fallbackApi);
+  }
+  if (occupiedRoles.has("client")) {
+    fallbackClient = await nextDistinctFreePort(options.host, options.freePort, reserved);
+    reserved.add(fallbackClient);
+  }
+  return { fallbackApi, fallbackClient };
+}
+
+async function nextDistinctFreePort(host: string, freePort: (host: string) => Promise<number>, reserved: Set<number>) {
+  for (let attempts = 0; attempts < 20; attempts += 1) {
+    const candidate = await freePort(host);
+    if (!reserved.has(candidate)) return candidate;
+  }
+  throw new Error("Unable to select distinct fallback port candidate");
 }
 
 async function probeOccupiedSeekrPort(role: "api" | "client", port: number, host: string, fetchImpl: typeof fetch) {
@@ -666,6 +713,21 @@ async function isPortAvailable(port: number, host: string) {
   });
 }
 
+async function selectFreeLocalPort(host: string) {
+  return await new Promise<number>((resolve, reject) => {
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen(0, host, () => {
+      const address = server.address();
+      const port = address && typeof address === "object" ? address.port : undefined;
+      server.close(() => {
+        if (typeof port === "number") resolve(port);
+        else reject(new Error("No local fallback port was selected"));
+      });
+    });
+  });
+}
+
 async function readJson(filePath: string): Promise<unknown> {
   try {
     return JSON.parse(await readFile(filePath, "utf8"));
@@ -720,6 +782,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
 function escapeTable(value: string) {
   return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
@@ -745,6 +811,8 @@ function renderMarkdown(manifest: PlugAndPlayDoctorManifest) {
     "",
     `- API: ${manifest.ports.api}`,
     `- Client: ${manifest.ports.client}`,
+    typeof manifest.ports.fallbackApi === "number" ? `- Fallback API candidate: ${manifest.ports.fallbackApi}` : undefined,
+    typeof manifest.ports.fallbackClient === "number" ? `- Fallback client candidate: ${manifest.ports.fallbackClient}` : undefined,
     "",
     "Checks:",
     "",

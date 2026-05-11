@@ -69,6 +69,7 @@ describe("plug-and-play readiness audit", () => {
         status: "pass",
         api: 8787,
         client: 5173,
+        fallbackClient: 6100,
         defaultPortsOccupied: true,
         autoRecoverable: true,
         listenerDiagnostics: ["listener 12345 cwd ~/Ayush/Prophet/prophet-console"],
@@ -2023,7 +2024,7 @@ async function seedDoctorFiles(root: string) {
   await writeFile(path.join(root, "scripts/plug-and-play-doctor.ts"), [
     "export async function buildPlugAndPlayDoctor() { return {}; }",
     "export async function writePlugAndPlayDoctor() { return {}; }",
-    "const checks = ['runtime-dependencies', 'repository-safety', 'source-control-handoff', 'packageManager', 'engines.node', '.npmrc', 'node_modules/.bin/concurrently', 'node_modules/.bin/vite', 'local-ai', 'local-ports', 'auto-selected free local', 'SEEKR_DOCTOR_PROFILE'];",
+    "const checks = ['runtime-dependencies', 'repository-safety', 'source-control-handoff', 'packageManager', 'engines.node', '.npmrc', 'node_modules/.bin/concurrently', 'node_modules/.bin/vite', 'local-ai', 'local-ports', 'auto-selected free local', 'fallback API port candidate', 'fallbackClient', 'SEEKR_DOCTOR_PROFILE'];",
     "function probeOccupiedSeekrPort() { return true; }",
     "const healthy = 'healthy SEEKR local instance';",
     "const disabled = process.env.SEEKR_COMMAND_UPLOAD_ENABLED;",
@@ -2036,6 +2037,7 @@ async function seedDoctorFiles(root: string) {
     "it('passes when unconfigured default ports are occupied because rehearsal start can auto-select free ports', () => {});",
     "it('warns when explicitly configured local start ports are already occupied', () => {});",
     "it('passes when occupied local ports already serve a healthy SEEKR instance', () => {});",
+    "const fallbackClient = 6100;",
     "const details = 'healthy SEEKR local instance';",
     "it('fails when unsafe local environment flags are true', () => {});",
     "it('fails when the rehearsal start wrapper skips the doctor preflight', () => {});",
@@ -2050,7 +2052,8 @@ async function seedDoctorFiles(root: string) {
     commandUploadEnabled: false,
     ports: {
       api: 8787,
-      client: 5173
+      client: 5173,
+      fallbackClient: 6100
     },
     ai: {
       provider: "ollama",
@@ -2091,12 +2094,13 @@ async function seedDoctorFiles(root: string) {
         ? {
             id,
             status: "pass",
-            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set.",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set. Current free fallback candidate(s): API 8787, client 6100; npm run rehearsal:start prints the actual URLs it selects at startup.",
             evidence: [
               "PORT",
               "SEEKR_API_PORT",
               "SEEKR_CLIENT_PORT",
               "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+              "fallback client port candidate 6100",
               "lsof -nP -iTCP:5173 -sTCP:LISTEN",
               "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
             ]

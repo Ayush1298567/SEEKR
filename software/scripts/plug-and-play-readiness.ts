@@ -70,6 +70,8 @@ export interface PlugAndPlayReadinessManifest {
     status?: string;
     api?: number;
     client?: number;
+    fallbackApi?: number;
+    fallbackClient?: number;
     defaultPortsOccupied?: boolean;
     autoRecoverable?: boolean;
     listenerDiagnostics?: string[];
@@ -396,6 +398,8 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     "local-ai",
     "local-ports",
     "auto-selected free local",
+    "fallback API port candidate",
+    "fallbackClient",
     "probeOccupiedSeekrPort",
     "healthy SEEKR local instance",
     "SEEKR_DOCTOR_PROFILE",
@@ -411,6 +415,7 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     "local start ports are already occupied",
     "occupied local ports already serve a healthy SEEKR instance",
     "healthy SEEKR local instance",
+    "fallbackClient",
     "unsafe local environment flags",
     "rehearsal start wrapper skips the doctor preflight",
     "port normalization and automatic fallback"
@@ -1180,6 +1185,8 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.operatorStartPorts.status ? `- Port check status: ${manifest.operatorStartPorts.status}` : undefined,
     typeof manifest.operatorStartPorts.api === "number" ? `- API port: ${manifest.operatorStartPorts.api}` : undefined,
     typeof manifest.operatorStartPorts.client === "number" ? `- Client port: ${manifest.operatorStartPorts.client}` : undefined,
+    typeof manifest.operatorStartPorts.fallbackApi === "number" ? `- Fallback API candidate: ${manifest.operatorStartPorts.fallbackApi}` : undefined,
+    typeof manifest.operatorStartPorts.fallbackClient === "number" ? `- Fallback client candidate: ${manifest.operatorStartPorts.fallbackClient}` : undefined,
     typeof manifest.operatorStartPorts.defaultPortsOccupied === "boolean" ? `- Default ports occupied: ${manifest.operatorStartPorts.defaultPortsOccupied}` : undefined,
     typeof manifest.operatorStartPorts.autoRecoverable === "boolean" ? `- Auto-recoverable by wrapper fallback: ${manifest.operatorStartPorts.autoRecoverable}` : undefined,
     manifest.operatorStartPorts.listenerDiagnostics?.length ? `- Listener diagnostics: ${manifest.operatorStartPorts.listenerDiagnostics.join("; ")}` : undefined,
@@ -1352,6 +1359,8 @@ async function operatorStartPortsSummary(root: string): Promise<PlugAndPlayReadi
     status,
     api: numberOrUndefined(ports.api),
     client: numberOrUndefined(ports.client),
+    fallbackApi: numberOrUndefined(ports.fallbackApi),
+    fallbackClient: numberOrUndefined(ports.fallbackClient),
     defaultPortsOccupied: /already in use|occupied|busy/i.test(text),
     autoRecoverable: /auto-selects free local API\/client ports|auto-selected free local API\/client ports|auto-selected free local/i.test(text),
     listenerDiagnostics,

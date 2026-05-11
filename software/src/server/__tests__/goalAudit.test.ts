@@ -273,6 +273,7 @@ describe("goal audit", () => {
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
     readiness.operatorStartPorts.defaultPortsOccupied = false;
     readiness.operatorStartPorts.autoRecoverable = false;
+    delete readiness.operatorStartPorts.fallbackClient;
     readiness.operatorStartPorts.listenerDiagnostics = [];
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
@@ -287,6 +288,7 @@ describe("goal audit", () => {
       details: expect.stringContaining("operator-start default-port occupancy summary")
     });
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("listener diagnostics summary");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("fallback client port summary");
   });
 
   it("fails local alpha when plug-and-play readiness hides fresh-clone summary drift", async () => {
@@ -1810,7 +1812,7 @@ async function seedRoot(root: string) {
     status: "ready-local-start",
     commandUploadEnabled: false,
     ai: { provider: "ollama", model: "llama3.2:latest", status: "pass" },
-    ports: { api: 8787, client: 5173 },
+    ports: { api: 8787, client: 5173, fallbackClient: 6100 },
     summary: { pass: 10, warn: 0, fail: 0 },
     checks: [
       { id: "package-scripts", status: "pass" },
@@ -1823,9 +1825,10 @@ async function seedRoot(root: string) {
       {
         id: "local-ports",
         status: "pass",
-        details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set.",
+        details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set. Current free fallback candidate(s): API 8787, client 6100; npm run rehearsal:start prints the actual URLs it selects at startup.",
         evidence: [
           "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+          "fallback client port candidate 6100",
           "lsof -nP -iTCP:5173 -sTCP:LISTEN",
           "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
         ]
@@ -2076,10 +2079,11 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       status: "pass",
       api: 8787,
       client: 5173,
+      fallbackClient: 6100,
       defaultPortsOccupied: true,
       autoRecoverable: true,
       listenerDiagnostics: ["listener 12345 cwd ~/Ayush/Prophet/prophet-console"],
-      details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set."
+      details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set. Current free fallback candidate(s): API 8787, client 6100; npm run rehearsal:start prints the actual URLs it selects at startup."
     },
     freshClone: {
       path: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
