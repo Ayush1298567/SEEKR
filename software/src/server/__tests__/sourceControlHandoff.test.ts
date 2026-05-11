@@ -429,6 +429,19 @@ describe("source-control handoff audit", () => {
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,
+      checks: manifest.checks.map((check) => check.id === "fresh-clone-smoke"
+        ? {
+          ...check,
+          evidence: check.evidence.map((item) => item === "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline"
+            ? "operator note says npm ci --dry-run still needs to be run"
+            : item)
+        }
+        : check)
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("fresh-clone-smoke pass")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
       checks: [
         ...manifest.checks,
         { id: "unreviewed-extra-check", status: "pass", details: "Unexpected check should not be accepted." }

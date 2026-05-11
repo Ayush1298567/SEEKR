@@ -100,6 +100,8 @@ const REQUIRED_FRESH_CLONE_PATHS = [
   "software/scripts/rehearsal-start.sh",
   "software/docs/OPERATOR_QUICKSTART.md"
 ];
+const FRESH_CLONE_COMMAND = "git clone --depth 1";
+const NPM_CI_DRY_RUN_COMMAND = "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline";
 const execFileAsync = promisify(execFile);
 
 export async function buildSourceControlHandoff(options: {
@@ -478,8 +480,8 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
       details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)}, contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart, and passes npm ci --dry-run.`,
       evidence: [
         EXPECTED_REPOSITORY_URL,
-        "git clone --depth 1",
-        "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
+        FRESH_CLONE_COMMAND,
+        NPM_CI_DRY_RUN_COMMAND,
         ...result.checkedPaths.map((checkedPath) => `fresh-clone:${checkedPath}`)
       ]
     };
@@ -491,7 +493,7 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
       details: `A shallow fresh clone succeeded but the published repository is missing required plug-and-play file(s): ${result.missingPaths.join(", ")}.`,
       evidence: [
         EXPECTED_REPOSITORY_URL,
-        "git clone --depth 1",
+        FRESH_CLONE_COMMAND,
         ...result.missingPaths.map((missingPath) => `missing:${missingPath}`)
       ]
     };
@@ -503,8 +505,8 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
       details: `A shallow fresh clone succeeded, but published package install consistency failed npm ci --dry-run: ${result.installDryRunError ?? "unknown npm ci dry-run failure"}.`,
       evidence: [
         EXPECTED_REPOSITORY_URL,
-        "git clone --depth 1",
-        "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline"
+        FRESH_CLONE_COMMAND,
+        NPM_CI_DRY_RUN_COMMAND
       ]
     };
   }
@@ -512,7 +514,7 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
     id: "fresh-clone-smoke",
     status: "warn",
     details: `A shallow fresh clone could not be completed, so clone-readiness could not be proven in this run: ${result.error ?? "unknown clone failure"}.`,
-    evidence: [EXPECTED_REPOSITORY_URL, "git clone --depth 1"]
+    evidence: [EXPECTED_REPOSITORY_URL, FRESH_CLONE_COMMAND]
   };
 }
 
@@ -666,8 +668,8 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
 function freshClonePassEvidenceOk(check: Record<string, unknown>) {
   const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
   return evidence.includes(EXPECTED_REPOSITORY_URL) &&
-    evidence.some((item) => item.includes("git clone --depth 1")) &&
-    evidence.some((item) => item.includes("npm ci --dry-run")) &&
+    evidence.includes(FRESH_CLONE_COMMAND) &&
+    evidence.includes(NPM_CI_DRY_RUN_COMMAND) &&
     REQUIRED_FRESH_CLONE_PATHS.every((relativePath) => evidence.includes(`fresh-clone:${relativePath}`));
 }
 
