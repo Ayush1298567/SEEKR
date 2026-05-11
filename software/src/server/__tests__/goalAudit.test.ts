@@ -407,6 +407,18 @@ describe("goal audit", () => {
       status: "fail",
       details: expect.stringContaining("audit:todo")
     });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "named-commands")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("audit:source-control")
+    });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "named-commands")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("rehearsal:start")
+    });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "named-commands")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("qa:gstack")
+    });
   });
 
   it("fails local alpha when the final handoff verification is missing", async () => {
@@ -1469,8 +1481,18 @@ async function writePackageJson(root: string) {
   await writeFile(path.join(root, "package.json"), JSON.stringify({
     scripts: {
       check: "npm run typecheck && npm run test",
-      acceptance: "npm run check",
+      typecheck: "tsc --noEmit",
       test: "vitest run",
+      build: "vite build",
+      preview: "vite preview",
+      server: "tsx watch src/server/index.ts",
+      client: "vite --host 127.0.0.1",
+      dev: "concurrently -k -n server,client -c cyan,green \"npm:server\" \"npm:client\"",
+      acceptance: "npm run check",
+      "setup:local": "tsx scripts/local-setup.ts",
+      doctor: "tsx scripts/plug-and-play-doctor.ts",
+      "rehearsal:start": "bash scripts/rehearsal-start.sh",
+      "smoke:rehearsal:start": "tsx scripts/rehearsal-start-smoke.ts",
       "bridge:mavlink": "tsx scripts/bridge-mavlink-readonly.ts",
       "bridge:mavlink:serial": "tsx scripts/bridge-mavlink-serial-readonly.ts",
       "bridge:ros2": "tsx scripts/bridge-ros2-readonly.ts",
@@ -1484,8 +1506,9 @@ async function writePackageJson(root: string) {
       "safety:command-boundary": "tsx scripts/command-boundary-scan.ts",
       "test:ai:local": "tsx scripts/ai-smoke.ts --require-ollama",
       "test:ui": "playwright test",
+      "qa:gstack": "tsx scripts/gstack-browser-qa.ts",
       "smoke:preview": "npm run build && npm run probe:preview",
-      "smoke:rehearsal:start": "tsx scripts/rehearsal-start-smoke.ts",
+      "probe:preview": "tsx scripts/preview-smoke.ts",
       "release:checksum": "tsx scripts/release-checksums.ts",
       "acceptance:record": "tsx scripts/acceptance-record.ts",
       "probe:api": "tsx scripts/api-probe.ts",
@@ -1505,6 +1528,7 @@ async function writePackageJson(root: string) {
       "handoff:bundle": "tsx scripts/handoff-bundle.ts",
       "handoff:bundle:verify": "tsx scripts/handoff-bundle-verify.ts",
       "audit:gstack": "tsx scripts/gstack-workflow-status.ts",
+      "audit:source-control": "tsx scripts/source-control-handoff.ts",
       "audit:todo": "tsx scripts/todo-audit.ts",
       "audit:plug-and-play": "tsx scripts/plug-and-play-readiness.ts",
       "audit:goal": "tsx scripts/goal-audit.ts",
