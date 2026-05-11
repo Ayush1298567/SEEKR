@@ -1029,6 +1029,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
         configuredRemoteUrls: manifest.configuredRemoteUrls,
         remoteDefaultBranch: manifest.remoteDefaultBranch,
         remoteRefCount: manifest.remoteRefCount,
+        workingTreeClean: manifest.workingTreeClean,
+        workingTreeStatusLineCount: manifest.workingTreeStatusLineCount,
         blockedCheckCount: manifest.blockedCheckCount,
         warningCheckCount: manifest.warningCheckCount,
         jsonPath,
