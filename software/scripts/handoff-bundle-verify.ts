@@ -7,6 +7,7 @@ import { OPERATOR_QUICKSTART_PATH, operatorQuickstartOk } from "./operator-quick
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
 
 type VerificationStatus = "pass" | "fail";
 
@@ -185,6 +186,27 @@ export async function buildHandoffBundleVerification(options: {
   if (sourceIndexPath && !manifestFiles.some((file) => file.sourcePath === sourceIndexPath)) {
     blockers.push("Handoff bundle does not include the source handoff index JSON.");
   }
+  const copiedAcceptance = manifestFiles.some((file) => file.sourcePath === ".tmp/acceptance-status.json")
+    ? await readCopiedJson(bundleDirectory ?? root, ".tmp/acceptance-status.json")
+    : undefined;
+  if (!copiedAcceptance) {
+    blockers.push("Handoff bundle does not include copied acceptance status JSON.");
+  } else if (!acceptanceStrictLocalAiOk(copiedAcceptance)) {
+    blockers.push("Copied acceptance status must pass, keep commandUploadEnabled false, and include all required strict local AI scenario names.");
+  }
+  const copiedApiProbeFile = manifestFiles
+    .map((file) => String(file.sourcePath ?? ""))
+    .filter((sourcePath) => sourcePath.startsWith(".tmp/api-probe/") && sourcePath.endsWith(".json"))
+    .sort()
+    .at(-1);
+  if (!copiedApiProbeFile) {
+    blockers.push("Handoff bundle does not include copied API probe JSON.");
+  } else if (bundleDirectory && bundleDirectoryOk) {
+    const copiedApiProbe = await readCopiedJson(bundleDirectory, copiedApiProbeFile);
+    if (!apiProbeAcceptanceReadbackOk(copiedApiProbe, copiedAcceptance)) {
+      blockers.push("Copied API probe must read back the copied acceptance timestamp, command count, strict local AI scenario names, release checksum, command-boundary scan, and commandUploadEnabled false.");
+    }
+  }
   const gstackWorkflowStatusPath = isRecord(manifest) ? stringOrUndefined(manifest.gstackWorkflowStatusPath) : undefined;
   let gstackStatus: unknown;
   if (gstackWorkflowStatusPath && !manifestFiles.some((file) => file.sourcePath === gstackWorkflowStatusPath)) {
@@ -248,12 +270,9 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && sourceControlHandoffPath) {
     const sourceControl = await readCopiedJson(bundleDirectory, sourceControlHandoffPath);
-    const acceptance = manifestFiles.some((file) => file.sourcePath === ".tmp/acceptance-status.json")
-      ? await readCopiedJson(bundleDirectory, ".tmp/acceptance-status.json")
-      : undefined;
     if (!sourceControlHandoffOk(sourceControl)) {
       blockers.push("Copied source-control handoff must be read-only, name the SEEKR GitHub repository, include local Git, remote-ref, published-HEAD, and clean-worktree checks, and keep commandUploadEnabled false.");
-    } else if (!sourceControlHandoffFreshForAcceptance(sourceControl, acceptance)) {
+    } else if (!sourceControlHandoffFreshForAcceptance(sourceControl, copiedAcceptance)) {
       blockers.push("Copied ready source-control handoff must be newer than or equal to the copied acceptance record.");
     } else if (isRecord(sourceControl) && sourceControl.ready !== true) {
       warnings.push("Copied source-control handoff remains not ready for publication; local Git/GitHub limitation is preserved for review.");
@@ -281,10 +300,7 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && plugAndPlayDoctorPath) {
     const doctor = await readCopiedJson(bundleDirectory, plugAndPlayDoctorPath);
-    const acceptance = manifestFiles.some((file) => file.sourcePath === ".tmp/acceptance-status.json")
-      ? await readCopiedJson(bundleDirectory, ".tmp/acceptance-status.json")
-      : undefined;
-    if (!plugAndPlayDoctorOk(doctor, acceptance, sourceControlHandoffPath)) {
+    if (!plugAndPlayDoctorOk(doctor, copiedAcceptance, sourceControlHandoffPath)) {
       blockers.push("Copied plug-and-play doctor must pass repository-safety, matching source-control handoff recording, local startup, start-wrapper, local Ollama, ports, data directory, commandUploadEnabled false, and acceptance-freshness semantic checks.");
     }
   }
@@ -345,7 +361,7 @@ export async function buildHandoffBundleVerification(options: {
     limitations: [
       "This verification checks a copied local handoff bundle manifest and the SHA-256 digests it recorded for copied artifacts.",
       "It scans copied text artifacts for high-confidence secret patterns before review handoff.",
-      "It semantically checks the copied gstack workflow-status, TODO audit, source-control handoff, plug-and-play setup, plug-and-play doctor, rehearsal-start smoke, and operator quickstart artifacts included in the review packet.",
+      "It semantically checks the copied acceptance status, API-probe acceptance readback, gstack workflow-status, TODO audit, source-control handoff, plug-and-play setup, plug-and-play doctor, rehearsal-start smoke, and operator quickstart artifacts included in the review packet.",
       "When the bundle names a local gstack browser QA report, this verifier checks that the report and named screenshots were copied and secret-scanned with the rest of the packet.",
       "It does not regenerate acceptance, completion-audit, demo, bench, hardware, policy, safety, API, overnight, handoff index, or handoff verification evidence.",
       "It does not validate Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim capture, or hardware actuation."
@@ -797,6 +813,55 @@ function extractQaScreenshotPaths(content: string) {
 
 function arraysEqual(left: string[], right: string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function acceptanceStrictLocalAiOk(manifest: unknown) {
+  if (!isRecord(manifest)) return false;
+  const strictLocalAi = isRecord(manifest.strictLocalAi) ? manifest.strictLocalAi : {};
+  const caseNames = stringArray(strictLocalAi.caseNames);
+  return manifest.ok === true &&
+    manifest.commandUploadEnabled === false &&
+    strictLocalAi.ok === true &&
+    strictLocalAi.provider === "ollama" &&
+    typeof strictLocalAi.model === "string" &&
+    Number(strictLocalAi.caseCount) === caseNames.length &&
+    REQUIRED_STRICT_AI_SMOKE_CASES.every((name) => caseNames.includes(name));
+}
+
+function apiProbeAcceptanceReadbackOk(apiProbe: unknown, acceptance: unknown) {
+  if (!isRecord(apiProbe) || !isRecord(acceptance)) return false;
+  const sessionAcceptance = isRecord(apiProbe.sessionAcceptance) ? apiProbe.sessionAcceptance : {};
+  const probeAi = isRecord(sessionAcceptance.strictLocalAi) ? sessionAcceptance.strictLocalAi : {};
+  const acceptanceAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
+  const probeRelease = isRecord(sessionAcceptance.releaseChecksum) ? sessionAcceptance.releaseChecksum : {};
+  const acceptanceRelease = isRecord(acceptance.releaseChecksum) ? acceptance.releaseChecksum : {};
+  const probeScan = isRecord(sessionAcceptance.commandBoundaryScan) ? sessionAcceptance.commandBoundaryScan : {};
+  const acceptanceScan = isRecord(acceptance.commandBoundaryScan) ? acceptance.commandBoundaryScan : {};
+  const acceptanceCommandCount = Array.isArray(acceptance.completedCommands) ? acceptance.completedCommands.length : undefined;
+  const acceptanceAiCaseNames = stringArray(acceptanceAi.caseNames);
+  const probeAiCaseNames = stringArray(probeAi.caseNames);
+  return apiProbe.ok === true &&
+    apiProbe.commandUploadEnabled === false &&
+    sessionAcceptance.status === "pass" &&
+    sessionAcceptance.commandUploadEnabled === false &&
+    Number(sessionAcceptance.generatedAt) === Number(acceptance.generatedAt) &&
+    (acceptanceCommandCount === undefined || Number(sessionAcceptance.commandCount) === acceptanceCommandCount) &&
+    probeAi.ok === acceptanceAi.ok &&
+    probeAi.provider === acceptanceAi.provider &&
+    probeAi.model === acceptanceAi.model &&
+    Number(probeAi.caseCount) === Number(acceptanceAi.caseCount) &&
+    arraysEqual(probeAiCaseNames, acceptanceAiCaseNames) &&
+    probeRelease.overallSha256 === acceptanceRelease.overallSha256 &&
+    Number(probeRelease.fileCount) === Number(acceptanceRelease.fileCount) &&
+    Number(probeRelease.totalBytes) === Number(acceptanceRelease.totalBytes) &&
+    probeScan.status === acceptanceScan.status &&
+    Number(probeScan.scannedFileCount) === Number(acceptanceScan.scannedFileCount) &&
+    Number(probeScan.violationCount) === Number(acceptanceScan.violationCount) &&
+    Number(probeScan.allowedFindingCount) === Number(acceptanceScan.allowedFindingCount);
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
 }
 
 function todoAuditOk(manifest: unknown) {

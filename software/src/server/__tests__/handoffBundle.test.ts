@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeHandoffBundle } from "../../../scripts/handoff-bundle";
 import { writeHandoffBundleVerification } from "../../../scripts/handoff-bundle-verify";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 describe("handoff bundle", () => {
   let root: string;
@@ -12,6 +13,7 @@ describe("handoff bundle", () => {
   beforeEach(async () => {
     root = path.join(os.tmpdir(), `seekr-handoff-bundle-test-${process.pid}-${Date.now()}`);
     await mkdir(path.join(root, ".tmp/handoff-index"), { recursive: true });
+    await mkdir(path.join(root, ".tmp/api-probe"), { recursive: true });
     await mkdir(path.join(root, ".tmp/demo-readiness"), { recursive: true });
     await mkdir(path.join(root, ".tmp/bench-evidence-packet"), { recursive: true });
     await mkdir(path.join(root, ".tmp/gstack-workflow-status"), { recursive: true });
@@ -58,7 +60,7 @@ describe("handoff bundle", () => {
       rehearsalStartSmokePath: rehearsalStartSmokePath,
       rehearsalStartSmokeStatus: "pass",
       operatorQuickstartPath,
-      copiedFileCount: 21,
+      copiedFileCount: 22,
       safetyBoundary: {
         realAircraftCommandUpload: false,
         hardwareActuationEnabled: false,
@@ -75,6 +77,7 @@ describe("handoff bundle", () => {
       expect.objectContaining({ sourcePath: indexPath }),
       expect.objectContaining({ sourcePath: indexPath.replace(/\.json$/, ".md") }),
       expect.objectContaining({ sourcePath: acceptancePath }),
+      expect.objectContaining({ sourcePath: apiProbePath }),
       expect.objectContaining({ sourcePath: demoPath }),
       expect.objectContaining({ sourcePath: benchPath }),
       expect.objectContaining({ sourcePath: workflowPath }),
@@ -96,6 +99,9 @@ describe("handoff bundle", () => {
     ]));
     const copiedAcceptance = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", acceptancePath), "utf8"));
     expect(copiedAcceptance.commandUploadEnabled).toBe(false);
+    expect(copiedAcceptance.strictLocalAi.caseNames).toEqual(REQUIRED_STRICT_AI_SMOKE_CASES);
+    const copiedApiProbe = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", apiProbePath), "utf8"));
+    expect(copiedApiProbe.sessionAcceptance.strictLocalAi.caseNames).toEqual(REQUIRED_STRICT_AI_SMOKE_CASES);
     const copiedWorkflow = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", workflowPath), "utf8"));
     expect(copiedWorkflow.commandUploadEnabled).toBe(false);
     const copiedTodoAudit = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", todoPath), "utf8"));
@@ -140,7 +146,7 @@ describe("handoff bundle", () => {
       plugAndPlayDoctorPath: doctorPath,
       rehearsalStartSmokePath,
       operatorQuickstartPath,
-      checkedFileCount: 21,
+      checkedFileCount: 22,
       validation: {
         ok: true,
         blockers: []
@@ -1090,10 +1096,35 @@ describe("handoff bundle", () => {
     });
     expect(verification.manifest.secretScan).toMatchObject({
       status: "pass",
-      expectedFileCount: 21,
-      scannedFileCount: 21,
+      expectedFileCount: 22,
+      scannedFileCount: 22,
       findingCount: 0
     });
+  });
+
+  it("fails bundle verification when copied API probe strict AI scenarios drift from copied acceptance", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedApiProbePath = path.join(result.bundleDirectory, "artifacts", apiProbePath);
+    const copiedApiProbe = JSON.parse(await readFile(copiedApiProbePath, "utf8"));
+    copiedApiProbe.sessionAcceptance.strictLocalAi.caseNames = REQUIRED_STRICT_AI_SMOKE_CASES.filter((name) => name !== "prompt-injection-spatial-metadata");
+    const content = JSON.stringify(copiedApiProbe);
+    await writeFile(copiedApiProbePath, content, "utf8");
+    await updateBundleManifestDigest(result.jsonPath, apiProbePath, content);
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied API probe must read back the copied acceptance")
+    ]));
   });
 
   it("fails bundle verification when copied plug-and-play setup is no longer valid", async () => {
@@ -2002,18 +2033,19 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.secretScan).toMatchObject({
       status: "fail",
-      expectedFileCount: 21,
-      scannedFileCount: 20,
+      expectedFileCount: 22,
+      scannedFileCount: 21,
       findingCount: 0
     });
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("Handoff bundle secret scan covered 20/21 copied files")
+      expect.stringContaining("Handoff bundle secret scan covered 21/22 copied files")
     ]));
   });
 });
 
 const indexPath = ".tmp/handoff-index/seekr-handoff-index-internal-alpha-2026-05-09T20-00-00-000Z.json";
 const acceptancePath = ".tmp/acceptance-status.json";
+const apiProbePath = ".tmp/api-probe/seekr-api-probe-test.json";
 const demoPath = ".tmp/demo-readiness/seekr-demo-readiness-internal-alpha.json";
 const benchPath = ".tmp/bench-evidence-packet/seekr-bench-evidence-packet-jetson-bench.json";
 const workflowPath = ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json";
@@ -2028,7 +2060,59 @@ const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-star
 const operatorQuickstartPath = "docs/OPERATOR_QUICKSTART.md";
 
 async function seedBundleEvidence(root: string) {
-  const acceptance = JSON.stringify({ ok: true, generatedAt: Date.parse("2026-05-09T20:57:00.000Z"), commandUploadEnabled: false });
+  const acceptance = JSON.stringify({
+    ok: true,
+    generatedAt: Date.parse("2026-05-09T20:57:00.000Z"),
+    commandUploadEnabled: false,
+    completedCommands: ["typecheck", "test"],
+    strictLocalAi: {
+      ok: true,
+      provider: "ollama",
+      model: "llama3.2:latest",
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+    },
+    releaseChecksum: {
+      overallSha256: "a".repeat(64),
+      fileCount: 10,
+      totalBytes: 1000
+    },
+    commandBoundaryScan: {
+      status: "pass",
+      scannedFileCount: 128,
+      violationCount: 0,
+      allowedFindingCount: 36,
+      commandUploadEnabled: false
+    }
+  });
+  const apiProbe = JSON.stringify({
+    ok: true,
+    commandUploadEnabled: false,
+    sessionAcceptance: {
+      status: "pass",
+      generatedAt: Date.parse("2026-05-09T20:57:00.000Z"),
+      commandCount: 2,
+      commandUploadEnabled: false,
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+      },
+      releaseChecksum: {
+        overallSha256: "a".repeat(64),
+        fileCount: 10,
+        totalBytes: 1000
+      },
+      commandBoundaryScan: {
+        status: "pass",
+        scannedFileCount: 128,
+        violationCount: 0,
+        allowedFindingCount: 36
+      }
+    }
+  });
   const demo = JSON.stringify({ status: "ready-local-alpha", commandUploadEnabled: false });
   const bench = JSON.stringify({ status: "ready-for-bench-prep", commandUploadEnabled: false });
   const workflow = JSON.stringify({
@@ -2270,6 +2354,7 @@ async function seedBundleEvidence(root: string) {
     ]
   });
   await writeFile(path.join(root, acceptancePath), acceptance, "utf8");
+  await writeFile(path.join(root, apiProbePath), apiProbe, "utf8");
   await writeFile(path.join(root, demoPath), demo, "utf8");
   await writeFile(path.join(root, benchPath), bench, "utf8");
   await writeFile(path.join(root, workflowPath), workflow, "utf8");
@@ -2346,6 +2431,7 @@ async function seedBundleEvidence(root: string) {
     realWorldBlockers: ["No actual Jetson/Pi hardware evidence."],
     artifactDigests: [
       digest(acceptancePath, acceptance),
+      digest(apiProbePath, apiProbe),
       digest(demoPath, demo),
       digest(benchPath, bench)
     ]
