@@ -15,6 +15,7 @@ Primary commands:
 npm run acceptance
 npm run check
 npm run setup:local
+npm run ai:prepare
 npm run doctor
 npm run rehearsal:start
 npm run test:ai:local
@@ -42,6 +43,7 @@ npm run health:gstack
 npm run audit:gstack
 npm run audit:source-control
 npm run audit:todo
+npm run ai:prepare
 npm run doctor
 npm run handoff:bundle
 npm run handoff:bundle:verify

@@ -171,6 +171,7 @@ describe("acceptance script contract", () => {
       "npm run audit:source-control",
       "npm run audit:todo",
       "npm run setup:local",
+      "npm run ai:prepare",
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
@@ -193,6 +194,8 @@ describe("acceptance script contract", () => {
     for (const command of requiredMatrixCommands) {
       expect(testMatrix).toContain(command);
     }
+    expect(testMatrix.indexOf("npm run ai:prepare")).toBeGreaterThan(testMatrix.indexOf("npm run setup:local"));
+    expect(testMatrix.indexOf("npm run doctor")).toBeGreaterThan(testMatrix.indexOf("npm run ai:prepare"));
     expect(gcsTodo).toContain("real `/map`, pose, detection, LiDAR, and costmap topics");
   });
 
