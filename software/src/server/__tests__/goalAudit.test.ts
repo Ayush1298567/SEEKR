@@ -426,6 +426,12 @@ describe("goal audit", () => {
     readiness.reviewBundle.plugAndPlaySetupPath = ".tmp/plug-and-play-setup/stale-setup.json";
     readiness.reviewBundle.plugAndPlaySetupGeneratedAt = "2026-05-09T20:59:59.999Z";
     readiness.reviewBundle.plugAndPlaySetupStatus = "stale-local-setup";
+    readiness.reviewBundle.localAiPreparePath = ".tmp/local-ai-prepare/stale-local-ai-prepare.json";
+    readiness.reviewBundle.plugAndPlayDoctorPath = ".tmp/plug-and-play-doctor/stale-doctor.json";
+    readiness.reviewBundle.rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/stale-smoke.json";
+    readiness.reviewBundle.freshCloneSmokePath = ".tmp/fresh-clone-smoke/stale-fresh-clone.json";
+    readiness.reviewBundle.strictAiSmokeStatusPath = ".tmp/stale-ai-smoke-status.json";
+    readiness.reviewBundle.operatorQuickstartPath = "docs/STALE_OPERATOR_QUICKSTART.md";
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
     const manifest = await buildGoalAudit({
@@ -443,6 +449,12 @@ describe("goal audit", () => {
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle setup path summary must match");
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle setup generatedAt summary must match");
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle setup status summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle local AI prepare path summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle doctor path summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle rehearsal-start smoke path summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle fresh-clone smoke path summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle strict AI smoke path summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle operator quickstart path summary must match");
   });
 
   it("fails local alpha when plug-and-play readiness review-bundle local branch summary drifts from latest verification", async () => {
@@ -1699,6 +1711,7 @@ async function seedRoot(root: string) {
     freshCloneSmokeStatus: "pass",
     freshCloneSmokeCloneHeadSha: "abc1234567890",
     strictAiSmokeStatusPath: strictAiSmokePath,
+    operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md",
     copiedFileCount: 12,
     safetyBoundary: {
       realAircraftCommandUpload: false,
@@ -1750,6 +1763,7 @@ async function seedRoot(root: string) {
     rehearsalStartSmokePath,
     freshCloneSmokePath,
     strictAiSmokeStatusPath: strictAiSmokePath,
+    operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md",
     checkedFileCount: 12,
     safetyBoundary: {
       realAircraftCommandUpload: false,
@@ -2248,7 +2262,13 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffWorkingTreeStatusLineCount: 0,
       plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
       plugAndPlaySetupGeneratedAt: GENERATED_AT,
-      plugAndPlaySetupStatus: "ready-local-setup"
+      plugAndPlaySetupStatus: "ready-local-setup",
+      localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+      plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
+      rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+      freshCloneSmokePath: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+      strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
+      operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md"
     },
     remainingRealWorldBlockerIds,
     remainingRealWorldBlockers,
@@ -2544,6 +2564,7 @@ async function seedCompletedHandoffArtifacts(root: string) {
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
     rehearsalStartSmokeStatus: "pass",
     strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
+    operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md",
     copiedFileCount: 12,
     safetyBoundary: {
       realAircraftCommandUpload: false,

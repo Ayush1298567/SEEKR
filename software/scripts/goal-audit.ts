@@ -1179,6 +1179,24 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (stringOrUndefined(readinessReviewBundle.plugAndPlaySetupStatus) !== stringOrUndefined(bundleVerificationManifest.plugAndPlaySetupStatus)) {
       problems.push("plug-and-play readiness review-bundle setup status summary must match the latest bundle verification");
     }
+    if (normalizeArtifactPath(root, readinessReviewBundle.localAiPreparePath) !== normalizeArtifactPath(root, bundleVerificationManifest.localAiPreparePath)) {
+      problems.push("plug-and-play readiness review-bundle local AI prepare path summary must match the latest bundle verification");
+    }
+    if (normalizeArtifactPath(root, readinessReviewBundle.plugAndPlayDoctorPath) !== normalizeArtifactPath(root, bundleVerificationManifest.plugAndPlayDoctorPath)) {
+      problems.push("plug-and-play readiness review-bundle doctor path summary must match the latest bundle verification");
+    }
+    if (normalizeArtifactPath(root, readinessReviewBundle.rehearsalStartSmokePath) !== normalizeArtifactPath(root, bundleVerificationManifest.rehearsalStartSmokePath)) {
+      problems.push("plug-and-play readiness review-bundle rehearsal-start smoke path summary must match the latest bundle verification");
+    }
+    if (normalizeArtifactPath(root, readinessReviewBundle.freshCloneSmokePath) !== normalizeArtifactPath(root, bundleVerificationManifest.freshCloneSmokePath)) {
+      problems.push("plug-and-play readiness review-bundle fresh-clone smoke path summary must match the latest bundle verification");
+    }
+    if (normalizeArtifactPath(root, readinessReviewBundle.strictAiSmokeStatusPath) !== normalizeArtifactPath(root, bundleVerificationManifest.strictAiSmokeStatusPath)) {
+      problems.push("plug-and-play readiness review-bundle strict AI smoke path summary must match the latest bundle verification");
+    }
+    if (normalizeArtifactPath(root, readinessReviewBundle.operatorQuickstartPath) !== normalizeArtifactPath(root, bundleVerificationManifest.operatorQuickstartPath)) {
+      problems.push("plug-and-play readiness review-bundle operator quickstart path summary must match the latest bundle verification");
+    }
   }
 
   return {

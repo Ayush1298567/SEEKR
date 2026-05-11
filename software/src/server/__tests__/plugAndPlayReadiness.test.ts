@@ -114,7 +114,13 @@ describe("plug-and-play readiness audit", () => {
         sourceControlHandoffWorkingTreeStatusLineCount: 0,
         plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
         plugAndPlaySetupGeneratedAt: "2026-05-10T07:02:00.000Z",
-        plugAndPlaySetupStatus: "ready-local-setup"
+        plugAndPlaySetupStatus: "ready-local-setup",
+        localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+        plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
+        rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+        freshCloneSmokePath: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+        strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
+        operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md"
       },
       safetyBoundary: {
         realAircraftCommandUpload: false,

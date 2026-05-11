@@ -121,6 +121,12 @@ export interface PlugAndPlayReadinessManifest {
     plugAndPlaySetupPath?: string;
     plugAndPlaySetupGeneratedAt?: string;
     plugAndPlaySetupStatus?: string;
+    localAiPreparePath?: string;
+    plugAndPlayDoctorPath?: string;
+    rehearsalStartSmokePath?: string;
+    freshCloneSmokePath?: string;
+    strictAiSmokeStatusPath?: string;
+    operatorQuickstartPath?: string;
   };
   summary: {
     pass: number;
@@ -1296,6 +1302,12 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.reviewBundle.plugAndPlaySetupPath ? `- Plug-and-play setup: ${manifest.reviewBundle.plugAndPlaySetupPath}` : undefined,
     manifest.reviewBundle.plugAndPlaySetupGeneratedAt ? `- Plug-and-play setup generated at: ${manifest.reviewBundle.plugAndPlaySetupGeneratedAt}` : undefined,
     manifest.reviewBundle.plugAndPlaySetupStatus ? `- Plug-and-play setup status: ${manifest.reviewBundle.plugAndPlaySetupStatus}` : undefined,
+    manifest.reviewBundle.localAiPreparePath ? `- Local AI prepare: ${manifest.reviewBundle.localAiPreparePath}` : undefined,
+    manifest.reviewBundle.plugAndPlayDoctorPath ? `- Plug-and-play doctor: ${manifest.reviewBundle.plugAndPlayDoctorPath}` : undefined,
+    manifest.reviewBundle.rehearsalStartSmokePath ? `- Rehearsal-start smoke: ${manifest.reviewBundle.rehearsalStartSmokePath}` : undefined,
+    manifest.reviewBundle.freshCloneSmokePath ? `- Fresh-clone smoke: ${manifest.reviewBundle.freshCloneSmokePath}` : undefined,
+    manifest.reviewBundle.strictAiSmokeStatusPath ? `- Strict local AI smoke status: ${manifest.reviewBundle.strictAiSmokeStatusPath}` : undefined,
+    manifest.reviewBundle.operatorQuickstartPath ? `- Operator quickstart: ${manifest.reviewBundle.operatorQuickstartPath}` : undefined,
     "",
     "Checks:",
     "",
@@ -1489,7 +1501,13 @@ async function reviewBundleSummary(root: string): Promise<PlugAndPlayReadinessMa
     sourceControlHandoffWorkingTreeStatusLineCount: numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount),
     plugAndPlaySetupPath: normalizeArtifactPath(root, manifest.plugAndPlaySetupPath),
     plugAndPlaySetupGeneratedAt: stringOrUndefined(manifest.plugAndPlaySetupGeneratedAt),
-    plugAndPlaySetupStatus: stringOrUndefined(manifest.plugAndPlaySetupStatus)
+    plugAndPlaySetupStatus: stringOrUndefined(manifest.plugAndPlaySetupStatus),
+    localAiPreparePath: normalizeArtifactPath(root, manifest.localAiPreparePath),
+    plugAndPlayDoctorPath: normalizeArtifactPath(root, manifest.plugAndPlayDoctorPath),
+    rehearsalStartSmokePath: normalizeArtifactPath(root, manifest.rehearsalStartSmokePath),
+    freshCloneSmokePath: normalizeArtifactPath(root, manifest.freshCloneSmokePath),
+    strictAiSmokeStatusPath: normalizeArtifactPath(root, manifest.strictAiSmokeStatusPath),
+    operatorQuickstartPath: normalizeArtifactPath(root, manifest.operatorQuickstartPath)
   };
 }
 
