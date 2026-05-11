@@ -192,7 +192,7 @@ export async function buildHandoffBundleVerification(options: {
   if (!copiedAcceptance) {
     blockers.push("Handoff bundle does not include copied acceptance status JSON.");
   } else if (!acceptanceStrictLocalAiOk(copiedAcceptance)) {
-    blockers.push("Copied acceptance status must pass, keep commandUploadEnabled false, and include all required strict local AI scenario names.");
+    blockers.push("Copied acceptance status must pass, keep commandUploadEnabled false, and include the exact required strict local AI scenario names.");
   }
   const copiedApiProbeFile = manifestFiles
     .map((file) => String(file.sourcePath ?? ""))
@@ -824,8 +824,9 @@ function acceptanceStrictLocalAiOk(manifest: unknown) {
     strictLocalAi.ok === true &&
     strictLocalAi.provider === "ollama" &&
     typeof strictLocalAi.model === "string" &&
+    Number(strictLocalAi.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
     Number(strictLocalAi.caseCount) === caseNames.length &&
-    REQUIRED_STRICT_AI_SMOKE_CASES.every((name) => caseNames.includes(name));
+    arraysEqual(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]);
 }
 
 function apiProbeAcceptanceReadbackOk(apiProbe: unknown, acceptance: unknown) {

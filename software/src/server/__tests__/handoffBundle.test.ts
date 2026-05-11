@@ -1127,6 +1127,39 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("fails bundle verification when copied acceptance has extra strict AI scenarios", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedAcceptancePath = path.join(result.bundleDirectory, "artifacts", acceptancePath);
+    const copiedApiProbePath = path.join(result.bundleDirectory, "artifacts", apiProbePath);
+    const copiedAcceptance = JSON.parse(await readFile(copiedAcceptancePath, "utf8"));
+    const copiedApiProbe = JSON.parse(await readFile(copiedApiProbePath, "utf8"));
+    copiedAcceptance.strictLocalAi.caseNames = [...REQUIRED_STRICT_AI_SMOKE_CASES, "untracked-extra-ai-scenario"];
+    copiedAcceptance.strictLocalAi.caseCount = copiedAcceptance.strictLocalAi.caseNames.length;
+    copiedApiProbe.sessionAcceptance.strictLocalAi.caseNames = copiedAcceptance.strictLocalAi.caseNames;
+    copiedApiProbe.sessionAcceptance.strictLocalAi.caseCount = copiedAcceptance.strictLocalAi.caseCount;
+    const acceptanceContent = JSON.stringify(copiedAcceptance);
+    const apiProbeContent = JSON.stringify(copiedApiProbe);
+    await writeFile(copiedAcceptancePath, acceptanceContent, "utf8");
+    await writeFile(copiedApiProbePath, apiProbeContent, "utf8");
+    await updateBundleManifestDigest(result.jsonPath, acceptancePath, acceptanceContent);
+    await updateBundleManifestDigest(result.jsonPath, apiProbePath, apiProbeContent);
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied acceptance status must pass")
+    ]));
+  });
+
   it("fails bundle verification when copied plug-and-play setup is no longer valid", async () => {
     const result = await writeHandoffBundle({
       root,
