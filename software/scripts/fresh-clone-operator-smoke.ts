@@ -61,7 +61,8 @@ type ExecFileImpl = (
 const execFileAsync = promisify(execFile);
 const DEFAULT_OUT_DIR = ".tmp/fresh-clone-smoke";
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
-const INSTALL_COMMAND = ["npm", "ci", "--ignore-scripts", "--no-audit", "--fund=false", "--prefer-offline"];
+const INSTALL_COMMAND_TEXT = "npm ci --ignore-scripts --no-audit --fund=false --prefer-offline";
+const INSTALL_COMMAND = INSTALL_COMMAND_TEXT.split(" ");
 
 export const REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS = [
   "fresh-clone",
@@ -159,8 +160,8 @@ export async function buildFreshCloneOperatorSmoke(options: {
         maxBuffer: 8 * 1024 * 1024
       });
       return {
-        details: `${INSTALL_COMMAND.join(" ")} completed in the fresh clone.`,
-        evidence: [INSTALL_COMMAND.join(" "), "software/package-lock.json"]
+        details: `${INSTALL_COMMAND_TEXT} completed in the fresh clone.`,
+        evidence: [INSTALL_COMMAND_TEXT, "software/package-lock.json"]
       };
     }));
 
