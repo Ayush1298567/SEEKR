@@ -5,6 +5,7 @@ import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-p
 import { buildCompletionAudit, type CompletionAuditManifest } from "./completion-audit";
 import { EXPECTED_REPOSITORY_URL, validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { buildTodoAudit, type TodoAuditManifest } from "./todo-audit";
+import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type GoalAuditStatus = "pass" | "warn" | "fail" | "blocked";
@@ -850,6 +851,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
+  const localAiPrepareManifest = localAiPrepare ? await readJson(localAiPrepare.absolutePath) : undefined;
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const freshClone = await latestJson(root, ".tmp/fresh-clone-smoke", (name) => name.startsWith("seekr-fresh-clone-smoke-"));
   const freshCloneManifest = freshClone ? await readJson(freshClone.absolutePath) : undefined;
@@ -931,6 +933,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   }
   if (isRecord(manifest) && !readinessEvidence.has("docs/OPERATOR_QUICKSTART.md")) {
     problems.push("plug-and-play readiness must reference docs/OPERATOR_QUICKSTART.md");
+  }
+  if (localAiPrepare) {
+    if (!localAiPrepareManifestOk(localAiPrepareManifest)) {
+      problems.push("latest local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false");
+    } else if (!localAiPrepareMatchesAcceptanceModel(localAiPrepareManifest, acceptance)) {
+      problems.push("latest local AI prepare artifact must match the latest acceptance strict local AI model");
+    } else if (!localAiPrepareFreshForAcceptance(localAiPrepareManifest, acceptance)) {
+      problems.push("latest local AI prepare artifact must be newer than or equal to the latest acceptance record");
+    }
   }
   if (isRecord(manifest) && !readinessSourceControl) {
     problems.push("plug-and-play readiness must publish a source-control summary");
