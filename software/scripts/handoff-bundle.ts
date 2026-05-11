@@ -73,7 +73,10 @@ export interface HandoffBundleManifest {
   freshCloneSmokePath?: string;
   freshCloneSmokeGeneratedAt?: string;
   freshCloneSmokeStatus?: string;
+  freshCloneSmokeLocalHeadSha?: string;
   freshCloneSmokeCloneHeadSha?: string;
+  freshCloneSmokeSourceControlHandoffLocalHeadSha?: string;
+  freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha?: string;
   strictAiSmokeStatusPath?: string;
   strictAiSmokeGeneratedAt?: number;
   strictAiSmokeProvider?: string;
@@ -323,7 +326,10 @@ export async function writeHandoffBundle(options: {
     freshCloneSmokePath: freshCloneSmoke?.relativePath,
     freshCloneSmokeGeneratedAt: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.generatedAt) : undefined,
     freshCloneSmokeStatus: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.status) : undefined,
+    freshCloneSmokeLocalHeadSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.localHeadSha) : undefined,
     freshCloneSmokeCloneHeadSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.cloneHeadSha) : undefined,
+    freshCloneSmokeSourceControlHandoffLocalHeadSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.sourceControlHandoffLocalHeadSha) : undefined,
+    freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.sourceControlHandoffRemoteDefaultBranchSha) : undefined,
     strictAiSmokeStatusPath: strictAiSmokePath,
     strictAiSmokeGeneratedAt: isRecord(strictAiSmokeManifest) ? numberOrUndefined(strictAiSmokeManifest.generatedAt) : undefined,
     strictAiSmokeProvider: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.provider) : undefined,
@@ -549,7 +555,10 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.freshCloneSmokePath ? `Fresh-clone smoke: ${manifest.freshCloneSmokePath}` : undefined,
     manifest.freshCloneSmokeGeneratedAt ? `Fresh-clone smoke generated at: ${manifest.freshCloneSmokeGeneratedAt}` : undefined,
     manifest.freshCloneSmokeStatus ? `Fresh-clone smoke verdict: ${manifest.freshCloneSmokeStatus}` : undefined,
-    manifest.freshCloneSmokeCloneHeadSha ? `Fresh-clone smoke HEAD: ${manifest.freshCloneSmokeCloneHeadSha}` : undefined,
+    manifest.freshCloneSmokeLocalHeadSha ? `Fresh-clone local HEAD: ${manifest.freshCloneSmokeLocalHeadSha}` : undefined,
+    manifest.freshCloneSmokeCloneHeadSha ? `Fresh-clone clone HEAD: ${manifest.freshCloneSmokeCloneHeadSha}` : undefined,
+    manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha ? `Fresh-clone source-control local HEAD: ${manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha}` : undefined,
+    manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha ? `Fresh-clone source-control remote default SHA: ${manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha}` : undefined,
     manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
     typeof manifest.strictAiSmokeGeneratedAt === "number" ? `Strict AI smoke generated at: ${manifest.strictAiSmokeGeneratedAt}` : undefined,
     manifest.strictAiSmokeProvider ? `Strict AI smoke provider: ${manifest.strictAiSmokeProvider}` : undefined,
@@ -1025,7 +1034,10 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     rehearsalStartSmokeStatus: result.manifest.rehearsalStartSmokeStatus,
     freshCloneSmokePath: result.manifest.freshCloneSmokePath,
     freshCloneSmokeStatus: result.manifest.freshCloneSmokeStatus,
+    freshCloneSmokeLocalHeadSha: result.manifest.freshCloneSmokeLocalHeadSha,
     freshCloneSmokeCloneHeadSha: result.manifest.freshCloneSmokeCloneHeadSha,
+    freshCloneSmokeSourceControlHandoffLocalHeadSha: result.manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha,
+    freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: result.manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha,
     strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
     strictAiSmokeProvider: result.manifest.strictAiSmokeProvider,
     strictAiSmokeModel: result.manifest.strictAiSmokeModel,

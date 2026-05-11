@@ -72,7 +72,10 @@ describe("handoff bundle", () => {
       rehearsalStartSmokeStatus: "pass",
       freshCloneSmokePath,
       freshCloneSmokeStatus: "pass",
+      freshCloneSmokeLocalHeadSha: "a".repeat(40),
       freshCloneSmokeCloneHeadSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffLocalHeadSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
       strictAiSmokeStatusPath: strictAiSmokePath,
       strictAiSmokeProvider: "ollama",
       strictAiSmokeModel: "llama3.2:latest",
@@ -161,6 +164,8 @@ describe("handoff bundle", () => {
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Local AI prepare");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play doctor");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Rehearsal-start smoke");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Fresh-clone local HEAD");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Fresh-clone clone HEAD");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Strict AI smoke status");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Operator quickstart");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("does not validate Jetson/Pi hardware");
@@ -183,6 +188,11 @@ describe("handoff bundle", () => {
       localAiPreparePath,
       plugAndPlayDoctorPath: doctorPath,
       rehearsalStartSmokePath,
+      freshCloneSmokePath,
+      freshCloneSmokeLocalHeadSha: "a".repeat(40),
+      freshCloneSmokeCloneHeadSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffLocalHeadSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
       strictAiSmokeStatusPath: strictAiSmokePath,
       operatorQuickstartPath,
       checkedFileCount: 27,
@@ -831,6 +841,35 @@ describe("handoff bundle", () => {
       expect.stringContaining("local branch must match"),
       expect.stringContaining("remote default branch must match"),
       expect.stringContaining("clean-worktree flag must match")
+    ]));
+  });
+
+  it("fails bundle verification when the bundle fresh-clone HEAD summary disagrees with the copied artifact", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const bundleManifest = JSON.parse(await readFile(result.jsonPath, "utf8"));
+    bundleManifest.freshCloneSmokeLocalHeadSha = "b".repeat(40);
+    bundleManifest.freshCloneSmokeCloneHeadSha = "c".repeat(40);
+    bundleManifest.freshCloneSmokeSourceControlHandoffLocalHeadSha = "d".repeat(40);
+    bundleManifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha = "e".repeat(40);
+    await writeFile(result.jsonPath, JSON.stringify(bundleManifest), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("fresh-clone local HEAD must match"),
+      expect.stringContaining("fresh-clone clone HEAD must match"),
+      expect.stringContaining("fresh-clone source-control local HEAD must match"),
+      expect.stringContaining("fresh-clone source-control remote default SHA must match")
     ]));
   });
 
