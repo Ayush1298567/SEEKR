@@ -70,6 +70,7 @@ export async function writeRehearsalStartSmoke(options: {
       PORT: String(apiPort),
       SEEKR_API_PORT: String(apiPort),
       SEEKR_CLIENT_PORT: String(clientPort),
+      SEEKR_DOCTOR_PROFILE: "rehearsal-start-smoke",
       SEEKR_DATA_DIR: dataDirPath,
       SEEKR_EXPECTED_SOURCES: process.env.SEEKR_EXPECTED_SOURCES ?? [
         "mavlink:telemetry:drone-1",

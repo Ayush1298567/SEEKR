@@ -728,7 +728,43 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.localPlugAndPlayOk).toBe(false);
     expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
       status: "fail",
-      details: expect.stringContaining("latest plug-and-play doctor")
+      details: expect.stringContaining("latest operator-start plug-and-play doctor")
+    });
+  });
+
+  it("does not let a rehearsal-start smoke doctor supersede the operator-start doctor", async () => {
+    await writeFile(path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-zz-smoke.json"), JSON.stringify({
+      ok: true,
+      generatedAt: "2026-05-10T07:05:00.000Z",
+      profile: "rehearsal-start-smoke",
+      status: "ready-local-start",
+      commandUploadEnabled: false,
+      ai: {
+        provider: "ollama",
+        model: "llama3.2:latest",
+        status: "pass"
+      },
+      summary: {
+        pass: 10,
+        warn: 0,
+        fail: 0
+      },
+      checks: []
+    }), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
+      status: "pass",
+      evidence: expect.arrayContaining([
+        ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"
+      ])
+    });
+    expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
+      status: "pass"
     });
   });
 
@@ -1110,7 +1146,7 @@ async function seedDoctorFiles(root: string) {
   await writeFile(path.join(root, "scripts/plug-and-play-doctor.ts"), [
     "export async function buildPlugAndPlayDoctor() { return {}; }",
     "export async function writePlugAndPlayDoctor() { return {}; }",
-    "const checks = ['runtime-dependencies', 'repository-safety', 'source-control-handoff', 'packageManager', 'engines.node', '.npmrc', 'node_modules/.bin/concurrently', 'node_modules/.bin/vite', 'local-ai', 'local-ports'];",
+    "const checks = ['runtime-dependencies', 'repository-safety', 'source-control-handoff', 'packageManager', 'engines.node', '.npmrc', 'node_modules/.bin/concurrently', 'node_modules/.bin/vite', 'local-ai', 'local-ports', 'SEEKR_DOCTOR_PROFILE'];",
     "const disabled = process.env.SEEKR_COMMAND_UPLOAD_ENABLED;",
     ""
   ].join("\n"), "utf8");
@@ -1126,6 +1162,7 @@ async function seedDoctorFiles(root: string) {
   await writeFile(path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"), JSON.stringify({
     ok: true,
     generatedAt: "2026-05-10T07:01:00.000Z",
+    profile: "operator-start",
     status: "ready-local-start",
     commandUploadEnabled: false,
     ai: {

@@ -231,7 +231,7 @@ async function operatorSetupCheck(root: string): Promise<PlugAndPlayCheck> {
 }
 
 async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
-  const doctor = await latestJson(root, ".tmp/plug-and-play-doctor", (name) => name.startsWith("seekr-plug-and-play-doctor-"));
+  const doctor = await latestOperatorDoctorJson(root);
   const manifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const script = await readText(path.join(root, "scripts/plug-and-play-doctor.ts"));
@@ -252,6 +252,7 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     "node_modules/.bin/vite",
     "local-ai",
     "local-ports",
+    "SEEKR_DOCTOR_PROFILE",
     "SEEKR_COMMAND_UPLOAD_ENABLED"
   ]) {
     if (script && !script.includes(signal)) problems.push(`scripts/plug-and-play-doctor.ts missing ${signal}`);
@@ -260,7 +261,10 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
   for (const signal of ["local runtime dependencies have not been installed", "repository safety policy", "configured Ollama model is unavailable", "local start ports are already occupied", "unsafe local environment flags", "rehearsal start wrapper skips the doctor preflight"]) {
     if (test && !test.includes(signal)) problems.push(`plugAndPlayDoctor.test.ts missing ${signal}`);
   }
-  if (!isRecord(manifest)) problems.push("latest plug-and-play doctor artifact is missing or malformed");
+  if (!isRecord(manifest)) problems.push("latest operator-start plug-and-play doctor artifact is missing or malformed");
+  if (isRecord(manifest) && manifest.profile !== undefined && manifest.profile !== "operator-start") {
+    problems.push("latest plug-and-play doctor must be an operator-start artifact, not rehearsal-start-smoke");
+  }
   if (isRecord(manifest) && manifest.ok !== true) problems.push("latest plug-and-play doctor must pass");
   if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("latest plug-and-play doctor must keep commandUploadEnabled false");
   if (isRecord(manifest) && manifest.status !== "ready-local-start") problems.push("latest plug-and-play doctor must report ready-local-start");
@@ -289,7 +293,7 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "Latest plug-and-play doctor artifact proves repository safety, local startup prerequisites, start-wrapper safety, local Ollama, ports, data directory, and disabled command upload.",
+      : "Latest operator-start plug-and-play doctor artifact proves repository safety, local startup prerequisites, start-wrapper safety, local Ollama, ports, data directory, and disabled command upload.",
     evidence: [
       "scripts/plug-and-play-doctor.ts",
       "src/server/__tests__/plugAndPlayDoctor.test.ts",
@@ -649,7 +653,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const todoAudit = await latestJson(root, ".tmp/todo-audit", (name) => name.startsWith("seekr-todo-audit-"));
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
-  const doctor = await latestJson(root, ".tmp/plug-and-play-doctor", (name) => name.startsWith("seekr-plug-and-play-doctor-"));
+  const doctor = await latestOperatorDoctorJson(root);
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const sourceBundlePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.sourceBundlePath) : undefined;
   const gstackWorkflowStatusPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.gstackWorkflowStatusPath) : undefined;
@@ -670,7 +674,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!todoAudit || todoAuditPath !== todoAudit.relativePath) problems.push("review bundle verification must point at the latest TODO audit");
   if (!sourceControl || sourceControlHandoffPath !== sourceControl.relativePath) problems.push("review bundle verification must point at the latest source-control handoff");
   if (!setup || plugAndPlaySetupPath !== setup.relativePath) problems.push("review bundle verification must point at the latest plug-and-play setup");
-  if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest plug-and-play doctor");
+  if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest operator-start plug-and-play doctor");
   if (!rehearsalStartSmoke || rehearsalStartSmokePath !== rehearsalStartSmoke.relativePath) problems.push("review bundle verification must point at the latest rehearsal-start smoke");
   if (operatorQuickstartPath !== OPERATOR_QUICKSTART_PATH) problems.push("review bundle verification must include the operator quickstart");
   if (!latestQaReportPath || gstackQaReportPath !== latestQaReportPath) problems.push("review bundle verification must point at the latest gstack QA report");
@@ -788,6 +792,29 @@ async function latestJson(root: string, directory: string, predicate: (name: str
   } catch {
     return undefined;
   }
+}
+
+async function latestOperatorDoctorJson(root: string): Promise<LatestJson | undefined> {
+  const directory = ".tmp/plug-and-play-doctor";
+  const absoluteDir = path.join(root, directory);
+  try {
+    const names = (await readdir(absoluteDir))
+      .filter((name) => name.endsWith(".json") && name.startsWith("seekr-plug-and-play-doctor-"))
+      .sort()
+      .reverse();
+    for (const name of names) {
+      const absolutePath = path.join(absoluteDir, name);
+      const manifest = await readJson(absolutePath);
+      if (!isRecord(manifest) || manifest.profile === "rehearsal-start-smoke") continue;
+      return {
+        absolutePath,
+        relativePath: path.posix.join(directory, name)
+      };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 async function readJson(filePath: string): Promise<unknown> {

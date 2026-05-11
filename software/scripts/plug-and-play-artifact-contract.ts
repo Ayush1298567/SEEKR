@@ -58,6 +58,7 @@ export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unkn
   const acceptanceGeneratedAt = isRecord(acceptanceManifest) ? timeMs(acceptanceManifest.generatedAt) : undefined;
   return manifest.ok === true &&
     manifest.status === "ready-local-start" &&
+    (manifest.profile === undefined || manifest.profile === "operator-start") &&
     manifest.commandUploadEnabled === false &&
     ai.provider === "ollama" &&
     ai.status === "pass" &&

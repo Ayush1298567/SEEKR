@@ -18,6 +18,7 @@ export interface PlugAndPlayDoctorCheck {
 export interface PlugAndPlayDoctorManifest {
   schemaVersion: 1;
   generatedAt: string;
+  profile: "operator-start" | "rehearsal-start-smoke";
   ok: boolean;
   status: "ready-local-start" | "blocked-local-start";
   commandUploadEnabled: false;
@@ -76,6 +77,7 @@ export async function buildPlugAndPlayDoctor(options: {
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const env = options.env ?? process.env;
   const effectiveEnv = await buildEffectiveEnv(root, env);
+  const profile = env.SEEKR_DOCTOR_PROFILE === "rehearsal-start-smoke" ? "rehearsal-start-smoke" : "operator-start";
   const fetchImpl = options.fetchImpl ?? fetch;
   const portAvailable = options.portAvailable ?? isPortAvailable;
 
@@ -100,6 +102,7 @@ export async function buildPlugAndPlayDoctor(options: {
   return {
     schemaVersion: 1,
     generatedAt,
+    profile,
     ok,
     status: ok ? "ready-local-start" : "blocked-local-start",
     commandUploadEnabled: false,
@@ -583,6 +586,7 @@ function renderMarkdown(manifest: PlugAndPlayDoctorManifest) {
     "# SEEKR Plug-And-Play Doctor",
     "",
     `Generated at: ${manifest.generatedAt}`,
+    `Profile: ${manifest.profile}`,
     `Status: ${manifest.status}`,
     `OK: ${manifest.ok}`,
     "Command upload enabled: false",

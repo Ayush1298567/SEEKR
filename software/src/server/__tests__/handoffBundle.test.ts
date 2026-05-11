@@ -573,6 +573,33 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("does not package rehearsal-start smoke doctor artifacts as the operator doctor", async () => {
+    const smokeDoctor = JSON.parse(await readFile(path.join(root, doctorPath), "utf8"));
+    smokeDoctor.profile = "rehearsal-start-smoke";
+    smokeDoctor.generatedAt = "2026-05-09T21:02:00.000Z";
+    smokeDoctor.ports = {
+      api: 49111,
+      client: 49112
+    };
+    await writeFile(path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-zz-smoke.json"), JSON.stringify(smokeDoctor), "utf8");
+    await writeFile(path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-zz-smoke.md"), "# Smoke Doctor\n", "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:03:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("ready-local-alpha-review-bundle");
+    expect(result.manifest.plugAndPlayDoctorPath).toBe(doctorPath);
+    expect(result.manifest.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourcePath: doctorPath })
+    ]));
+    expect(result.manifest.files).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourcePath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-zz-smoke.json" })
+    ]));
+  });
+
   it("blocks bundling when plug-and-play setup has not been generated", async () => {
     await rm(path.join(root, ".tmp/plug-and-play-setup"), { recursive: true, force: true });
 
@@ -2070,6 +2097,7 @@ async function seedBundleEvidence(root: string) {
   const doctor = JSON.stringify({
     ok: true,
     generatedAt: "2026-05-09T20:58:00.000Z",
+    profile: "operator-start",
     status: "ready-local-start",
     commandUploadEnabled: false,
     ai: {

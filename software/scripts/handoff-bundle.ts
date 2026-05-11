@@ -124,7 +124,7 @@ export async function writeHandoffBundle(options: {
   const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const setup = await latestJson(root, PLUG_AND_PLAY_SETUP_DIR, (name) => name.startsWith("seekr-local-setup-"));
   const setupManifest = setup ? await readJson(setup.absolutePath) : undefined;
-  const doctor = await latestJson(root, PLUG_AND_PLAY_DOCTOR_DIR, (name) => name.startsWith("seekr-plug-and-play-doctor-"));
+  const doctor = await latestOperatorDoctorJson(root);
   const doctorManifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const rehearsalStartSmoke = await latestJson(root, REHEARSAL_START_SMOKE_DIR, (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const rehearsalStartSmokeManifest = rehearsalStartSmoke ? await readJson(rehearsalStartSmoke.absolutePath) : undefined;
@@ -165,7 +165,7 @@ export async function writeHandoffBundle(options: {
     blockers.push("Plug-and-play setup artifact must pass with local env/data preparation and commandUploadEnabled false before bundling.");
   }
   if (!doctor) {
-    blockers.push("No plug-and-play doctor artifact exists; run npm run doctor before bundling for final internal-alpha review.");
+    blockers.push("No operator-start plug-and-play doctor artifact exists; run npm run doctor before bundling for final internal-alpha review.");
   } else if (!plugAndPlayDoctorOk(doctorManifest, acceptanceManifest)) {
     blockers.push("Plug-and-play doctor artifact must pass with repository-safety, source-control handoff recording, start-wrapper validation, local Ollama, startup ports, data directory, commandUploadEnabled false, and freshness against acceptance before bundling.");
   }
@@ -345,6 +345,28 @@ async function latestJson(root: string, directory: string, predicate: (name: str
   } catch {
     return undefined;
   }
+}
+
+async function latestOperatorDoctorJson(root: string): Promise<LatestJson | undefined> {
+  const absoluteDir = path.join(root, PLUG_AND_PLAY_DOCTOR_DIR);
+  try {
+    const names = (await readdir(absoluteDir))
+      .filter((name) => name.endsWith(".json") && name.startsWith("seekr-plug-and-play-doctor-"))
+      .sort()
+      .reverse();
+    for (const name of names) {
+      const absolutePath = path.join(absoluteDir, name);
+      const manifest = await readJson(absolutePath);
+      if (!isRecord(manifest) || manifest.profile === "rehearsal-start-smoke") continue;
+      return {
+        absolutePath,
+        relativePath: path.posix.join(PLUG_AND_PLAY_DOCTOR_DIR, name)
+      };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 async function readJson(filePath: string): Promise<unknown> {

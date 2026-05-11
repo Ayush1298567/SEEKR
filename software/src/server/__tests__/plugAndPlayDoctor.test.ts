@@ -27,6 +27,7 @@ describe("plug-and-play doctor", () => {
 
     expect(manifest).toMatchObject({
       schemaVersion: 1,
+      profile: "operator-start",
       ok: true,
       status: "ready-local-start",
       commandUploadEnabled: false,
@@ -238,6 +239,28 @@ describe("plug-and-play doctor", () => {
     expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
       status: "warn",
       details: expect.stringContaining("5173")
+    });
+  });
+
+  it("marks rehearsal-start smoke doctor artifacts separately from operator-start doctor artifacts", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {
+        SEEKR_DOCTOR_PROFILE: "rehearsal-start-smoke",
+        SEEKR_API_PORT: "49111",
+        SEEKR_CLIENT_PORT: "49112",
+        SEEKR_DATA_DIR: ".tmp/rehearsal-start-smoke/run-test/data"
+      },
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest).toMatchObject({
+      profile: "rehearsal-start-smoke",
+      ports: {
+        api: 49111,
+        client: 49112
+      }
     });
   });
 

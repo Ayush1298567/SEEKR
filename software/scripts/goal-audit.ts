@@ -738,7 +738,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const apiProbe = await latestJson(root, ".tmp/api-probe", (name) => name.startsWith("seekr-api-probe-"));
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
-  const doctor = await latestJson(root, ".tmp/plug-and-play-doctor", (name) => name.startsWith("seekr-plug-and-play-doctor-"));
+  const doctor = await latestOperatorDoctorJson(root);
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
@@ -1067,6 +1067,29 @@ async function latestJson(root: string, directory: string, predicate: (name: str
   } catch {
     return undefined;
   }
+}
+
+async function latestOperatorDoctorJson(root: string) {
+  const directory = ".tmp/plug-and-play-doctor";
+  const absoluteDir = path.join(root, directory);
+  try {
+    const names = (await readdir(absoluteDir))
+      .filter((name) => name.endsWith(".json") && name.startsWith("seekr-plug-and-play-doctor-"))
+      .sort()
+      .reverse();
+    for (const name of names) {
+      const absolutePath = path.join(absoluteDir, name);
+      const manifest = await readJson(absolutePath);
+      if (!isRecord(manifest) || manifest.profile === "rehearsal-start-smoke") continue;
+      return {
+        absolutePath,
+        relativePath: path.join(directory, name).split(path.sep).join("/")
+      };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 async function readJson(filePath: string): Promise<unknown> {
