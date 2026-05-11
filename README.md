@@ -15,6 +15,8 @@ npm run doctor
 npm run rehearsal:start
 ```
 
+For day-to-day local startup, `npm run plug-and-play` is an alias for the same checked `npm run rehearsal:start` wrapper.
+
 Before final local plug-and-play review, run the bounded startup, strict local AI, and readiness proof commands:
 
 ```bash

@@ -37,6 +37,7 @@ describe("acceptance script contract", () => {
     expect(scripts["setup:local"]).toBe("tsx scripts/local-setup.ts");
     expect(scripts["ai:prepare"]).toBe("tsx scripts/local-ai-prepare.ts");
     expect(scripts["doctor"]).toBe("tsx scripts/plug-and-play-doctor.ts");
+    expect(scripts["plug-and-play"]).toBe("npm run rehearsal:start");
     expect(scripts["rehearsal:start"]).toBe("bash scripts/rehearsal-start.sh");
     expect(scripts["probe:preview"]).toBe("tsx scripts/preview-smoke.ts");
     expect(scripts["probe:api"]).toBe("tsx scripts/api-probe.ts");
@@ -129,6 +130,7 @@ describe("acceptance script contract", () => {
       "npm run setup:local",
       "npm run ai:prepare",
       "npm run doctor",
+      "npm run plug-and-play",
       "npm run rehearsal:start",
       "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
@@ -177,6 +179,7 @@ describe("acceptance script contract", () => {
       "npm run setup:local",
       "npm run ai:prepare",
       "npm run doctor",
+      "npm run plug-and-play",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
       "npm run smoke:fresh-clone",
@@ -212,6 +215,7 @@ describe("acceptance script contract", () => {
       "npm run setup:local",
       "npm run ai:prepare",
       "npm run doctor",
+      "npm run plug-and-play",
       "npm run rehearsal:start"
     ]);
     expectOrderedCommands(primaryCommands, [

@@ -18,6 +18,7 @@ npm run check
 npm run setup:local
 npm run ai:prepare
 npm run doctor
+npm run plug-and-play
 npm run rehearsal:start
 npm run test:ai:local
 npm run test:ui

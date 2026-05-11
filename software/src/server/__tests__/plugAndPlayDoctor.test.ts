@@ -46,7 +46,7 @@ describe("plug-and-play doctor", () => {
       }
     });
     expect(manifest.summary.fail).toBe(0);
-    expect(manifest.nextCommands).toContain("npm run rehearsal:start");
+    expect(manifest.nextCommands).toContain("npm run plug-and-play");
     expect(manifest.checks.find((check) => check.id === "runtime-dependencies")).toMatchObject({
       status: "pass",
       evidence: expect.arrayContaining(["package.json engines.node", "package.json packageManager"]),
@@ -584,6 +584,7 @@ async function seedDoctorProject(root: string) {
       "setup:local": "tsx scripts/local-setup.ts",
       "ai:prepare": "tsx scripts/local-ai-prepare.ts",
       dev: "concurrently -k -n server,client -c cyan,green \"npm:server\" \"npm:client\"",
+      "plug-and-play": "npm run rehearsal:start",
       "rehearsal:start": "bash scripts/rehearsal-start.sh",
       server: "tsx src/server/index.ts",
       client: "vite --host 127.0.0.1",

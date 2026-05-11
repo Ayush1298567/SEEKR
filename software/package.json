@@ -18,6 +18,7 @@
     "setup:local": "tsx scripts/local-setup.ts",
     "ai:prepare": "tsx scripts/local-ai-prepare.ts",
     "doctor": "tsx scripts/plug-and-play-doctor.ts",
+    "plug-and-play": "npm run rehearsal:start",
     "server": "tsx src/server/index.ts",
     "client": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",

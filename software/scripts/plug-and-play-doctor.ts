@@ -62,6 +62,7 @@ const REQUIRED_SCRIPTS = [
   "setup:local",
   "ai:prepare",
   "dev",
+  "plug-and-play",
   "rehearsal:start",
   "server",
   "client",
@@ -140,7 +141,7 @@ export async function buildPlugAndPlayDoctor(options: {
     summary,
     checks,
     nextCommands: ok
-      ? ["npm run rehearsal:start", "npm run audit:plug-and-play"]
+      ? ["npm run plug-and-play", "npm run audit:plug-and-play"]
       : ["Fix failed doctor checks, then rerun npm run doctor."],
     limitations: [
       "This doctor proves local laptop startup prerequisites only.",

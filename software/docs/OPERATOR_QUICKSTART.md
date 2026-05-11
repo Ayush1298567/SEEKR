@@ -26,10 +26,10 @@
 3. Start the local rehearsal wrapper:
 
    ```bash
-   npm run rehearsal:start
+   npm run plug-and-play
    ```
 
-   The wrapper prepares local files without overwriting `.env`, normalizes `PORT` and `SEEKR_API_PORT` so the server and Vite proxy agree, fails fast if both are explicitly set to different values, refreshes source-control handoff evidence, runs the startup doctor, then starts the local server and client.
+   `plug-and-play` delegates to `npm run rehearsal:start`, the checked wrapper used by the smoke tests and review evidence. The wrapper prepares local files without overwriting `.env`, normalizes `PORT` and `SEEKR_API_PORT` so the server and Vite proxy agree, fails fast if both are explicitly set to different values, refreshes source-control handoff evidence, runs the startup doctor, then starts the local server and client.
 
 4. For a bounded preflight proof of the same path, run:
 
