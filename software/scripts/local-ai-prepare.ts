@@ -184,7 +184,8 @@ function normalizePullModel(model: string) {
 
 function isOllamaCommand(command: string | undefined) {
   if (!command) return false;
-  return command === DEFAULT_OLLAMA_COMMAND || path.basename(command) === DEFAULT_OLLAMA_COMMAND;
+  return command === DEFAULT_OLLAMA_COMMAND ||
+    (path.isAbsolute(command) && path.basename(command) === DEFAULT_OLLAMA_COMMAND);
 }
 
 async function defaultExecFile(

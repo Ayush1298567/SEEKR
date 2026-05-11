@@ -106,6 +106,20 @@ describe("local AI model preparation", () => {
     expect(localAiPrepareMatchesAcceptanceModel(manifest, acceptance)).toBe(false);
   });
 
+  it("rejects relative lookalike Ollama executable paths in prepare evidence", async () => {
+    const manifest = await buildLocalAiPrepare({
+      root,
+      ollamaCommand: "./tools/ollama",
+      execFileImpl: async () => ({ stdout: "pretend model prepared", stderr: "" })
+    });
+
+    expect(manifest).toMatchObject({
+      ok: true,
+      prepareCommand: ["./tools/ollama", "pull", "llama3.2"]
+    });
+    expect(localAiPrepareManifestOk(manifest)).toBe(false);
+  });
+
   it("rejects local AI prepare evidence with extra pull arguments or missing command evidence", async () => {
     const manifest = await buildLocalAiPrepare({
       root,
