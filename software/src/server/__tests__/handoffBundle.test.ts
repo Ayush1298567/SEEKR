@@ -757,7 +757,7 @@ describe("handoff bundle", () => {
     await expect(readFile(verification.markdownPath, "utf8")).resolves.toContain("Source-control working tree status lines: 0");
   });
 
-  it("preserves warning-only source-control handoff summaries in bundle and verification manifests", async () => {
+  it("preserves warning-bearing source-control handoff summaries in bundle and verification manifests", async () => {
     const sourceControl = JSON.parse(await readFile(path.join(root, sourceControlPath), "utf8"));
     markSourceControlReadyWithRemoteWarnings(sourceControl);
     sourceControl.generatedAt = "2026-05-09T20:58:30.000Z";
