@@ -714,6 +714,7 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
     problems.push("warningCheckCount must be a non-negative integer");
   }
   if (!Array.isArray(manifest.configuredRemoteUrls)) problems.push("configuredRemoteUrls must be an array");
+  if (ready && !String(manifest.localBranch ?? "")) problems.push("ready source-control handoff must include localBranch");
   if (ready && typeof manifest.localHeadSha !== "string") problems.push("ready source-control handoff must include localHeadSha");
   if (ready && typeof manifest.remoteDefaultBranchSha !== "string") problems.push("ready source-control handoff must include remoteDefaultBranchSha");
   if (ready && typeof manifest.localHeadSha === "string" && typeof manifest.remoteDefaultBranchSha === "string" && manifest.localHeadSha !== manifest.remoteDefaultBranchSha) {

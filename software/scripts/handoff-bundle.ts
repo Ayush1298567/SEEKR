@@ -47,6 +47,7 @@ export interface HandoffBundleManifest {
   sourceControlHandoffRepositoryUrl?: string;
   sourceControlHandoffPackageRepositoryUrl?: string;
   sourceControlHandoffConfiguredRemoteUrls: string[];
+  sourceControlHandoffLocalBranch?: string;
   sourceControlHandoffRemoteDefaultBranch?: string;
   sourceControlHandoffRemoteRefCount?: number;
   sourceControlHandoffLocalHeadSha?: string;
@@ -273,6 +274,7 @@ export async function writeHandoffBundle(options: {
     sourceControlHandoffRepositoryUrl: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.repositoryUrl) : undefined,
     sourceControlHandoffPackageRepositoryUrl: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.packageRepositoryUrl) : undefined,
     sourceControlHandoffConfiguredRemoteUrls: isRecord(sourceControlManifest) ? stringArray(sourceControlManifest.configuredRemoteUrls) : [],
+    sourceControlHandoffLocalBranch: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.localBranch) : undefined,
     sourceControlHandoffRemoteDefaultBranch: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.remoteDefaultBranch) : undefined,
     sourceControlHandoffRemoteRefCount: isRecord(sourceControlManifest) ? numberOrUndefined(sourceControlManifest.remoteRefCount) : undefined,
     sourceControlHandoffLocalHeadSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.localHeadSha) : undefined,
@@ -492,6 +494,7 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.sourceControlHandoffRepositoryUrl ? `Source-control repository: ${manifest.sourceControlHandoffRepositoryUrl}` : undefined,
     manifest.sourceControlHandoffPackageRepositoryUrl ? `Source-control package repository: ${manifest.sourceControlHandoffPackageRepositoryUrl}` : undefined,
     manifest.sourceControlHandoffConfiguredRemoteUrls.length ? `Source-control configured remotes: ${manifest.sourceControlHandoffConfiguredRemoteUrls.join(", ")}` : undefined,
+    manifest.sourceControlHandoffLocalBranch ? `Source-control local branch: ${manifest.sourceControlHandoffLocalBranch}` : undefined,
     manifest.sourceControlHandoffRemoteDefaultBranch ? `Source-control remote default branch: ${manifest.sourceControlHandoffRemoteDefaultBranch}` : undefined,
     typeof manifest.sourceControlHandoffRemoteRefCount === "number" ? `Source-control remote ref count: ${manifest.sourceControlHandoffRemoteRefCount}` : undefined,
     manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
@@ -970,6 +973,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffRepositoryUrl: result.manifest.sourceControlHandoffRepositoryUrl,
     sourceControlHandoffPackageRepositoryUrl: result.manifest.sourceControlHandoffPackageRepositoryUrl,
     sourceControlHandoffConfiguredRemoteUrls: result.manifest.sourceControlHandoffConfiguredRemoteUrls,
+    sourceControlHandoffLocalBranch: result.manifest.sourceControlHandoffLocalBranch,
     sourceControlHandoffRemoteDefaultBranch: result.manifest.sourceControlHandoffRemoteDefaultBranch,
     sourceControlHandoffRemoteRefCount: result.manifest.sourceControlHandoffRemoteRefCount,
     sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,

@@ -51,6 +51,7 @@ describe("plug-and-play readiness audit", () => {
         repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
         packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
         configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
+        localBranch: "main",
         remoteDefaultBranch: "main",
         remoteRefCount: 1,
         localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -68,6 +69,7 @@ describe("plug-and-play readiness audit", () => {
         sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
         sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
         sourceControlHandoffConfiguredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
+        sourceControlHandoffLocalBranch: "main",
         sourceControlHandoffRemoteDefaultBranch: "main",
         sourceControlHandoffRemoteRefCount: 1,
         sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -99,6 +101,7 @@ describe("plug-and-play readiness audit", () => {
     const verificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
     const verification = JSON.parse(await readFile(verificationPath, "utf8"));
     verification.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
+    verification.sourceControlHandoffLocalBranch = "release";
     verification.sourceControlHandoffRemoteDefaultBranch = "release";
     verification.sourceControlHandoffWorkingTreeClean = false;
     await writeFile(verificationPath, JSON.stringify(verification), "utf8");
@@ -1598,6 +1601,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
     sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
     sourceControlHandoffConfiguredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
+    sourceControlHandoffLocalBranch: "main",
     sourceControlHandoffRemoteDefaultBranch: "main",
     sourceControlHandoffRemoteRefCount: 1,
     sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

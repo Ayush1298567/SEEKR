@@ -1030,6 +1030,12 @@ describe("source-control handoff audit", () => {
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,
+      localBranch: undefined
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("localBranch")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
       configuredRemoteUrls: ["https://github.com/example/not-seekr.git"]
     }).problems).toEqual(expect.arrayContaining([
       expect.stringContaining("configured remote pointing at Ayush1298567/SEEKR")

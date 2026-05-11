@@ -935,6 +935,9 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (!sameStringArray(stringArray(readinessSourceControl.configuredRemoteUrls), stringArray(sourceControlManifest.configuredRemoteUrls))) {
       problems.push("plug-and-play readiness source-control configured-remotes summary must match the latest source-control handoff");
     }
+    if (stringOrUndefined(readinessSourceControl.localBranch) !== stringOrUndefined(sourceControlManifest.localBranch)) {
+      problems.push("plug-and-play readiness source-control local branch summary must match the latest source-control handoff");
+    }
     if (stringOrUndefined(readinessSourceControl.remoteDefaultBranch) !== stringOrUndefined(sourceControlManifest.remoteDefaultBranch)) {
       problems.push("plug-and-play readiness source-control remote default branch summary must match the latest source-control handoff");
     }
@@ -984,6 +987,9 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     }
     if (!sameStringArray(stringArray(readinessReviewBundle.sourceControlHandoffConfiguredRemoteUrls), stringArray(bundleVerificationManifest.sourceControlHandoffConfiguredRemoteUrls))) {
       problems.push("plug-and-play readiness review-bundle source-control configured-remotes summary must match the latest bundle verification");
+    }
+    if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffLocalBranch) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffLocalBranch)) {
+      problems.push("plug-and-play readiness review-bundle source-control local branch summary must match the latest bundle verification");
     }
     if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffRemoteDefaultBranch) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffRemoteDefaultBranch)) {
       problems.push("plug-and-play readiness review-bundle source-control remote default branch summary must match the latest bundle verification");

@@ -323,6 +323,24 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness source-control local branch summary drifts from latest evidence", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.sourceControl.localBranch = "release";
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("source-control local branch summary must match")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness review-bundle summary drifts from latest verification", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
@@ -340,6 +358,24 @@ describe("goal audit", () => {
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("review-bundle source-control repository URL summary must match")
+    });
+  });
+
+  it("fails local alpha when plug-and-play readiness review-bundle local branch summary drifts from latest verification", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.reviewBundle.sourceControlHandoffLocalBranch = "release";
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("review-bundle source-control local branch summary must match")
     });
   });
 
@@ -1396,6 +1432,7 @@ async function seedRoot(root: string) {
     sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
     sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
     sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+    sourceControlHandoffLocalBranch: "main",
     sourceControlHandoffRemoteDefaultBranch: "main",
     sourceControlHandoffRemoteRefCount: 1,
     sourceControlHandoffLocalHeadSha: "abc1234567890",
@@ -1442,6 +1479,7 @@ async function seedRoot(root: string) {
     sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
     sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
     sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+    sourceControlHandoffLocalBranch: "main",
     sourceControlHandoffRemoteDefaultBranch: "main",
     sourceControlHandoffRemoteRefCount: 1,
     sourceControlHandoffLocalHeadSha: "abc1234567890",
@@ -1824,6 +1862,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
       configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      localBranch: "main",
       remoteDefaultBranch: "main",
       remoteRefCount: 1,
       localHeadSha: "abc1234567890",
@@ -1841,6 +1880,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
       sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      sourceControlHandoffLocalBranch: "main",
       sourceControlHandoffRemoteDefaultBranch: "main",
       sourceControlHandoffRemoteRefCount: 1,
       sourceControlHandoffLocalHeadSha: "abc1234567890",

@@ -51,6 +51,7 @@ export interface PlugAndPlayReadinessManifest {
     repositoryUrl?: string;
     packageRepositoryUrl?: string;
     configuredRemoteUrls?: string[];
+    localBranch?: string;
     remoteDefaultBranch?: string;
     remoteRefCount?: number;
     localHeadSha?: string;
@@ -68,6 +69,7 @@ export interface PlugAndPlayReadinessManifest {
     sourceControlHandoffRepositoryUrl?: string;
     sourceControlHandoffPackageRepositoryUrl?: string;
     sourceControlHandoffConfiguredRemoteUrls?: string[];
+    sourceControlHandoffLocalBranch?: string;
     sourceControlHandoffRemoteDefaultBranch?: string;
     sourceControlHandoffRemoteRefCount?: number;
     sourceControlHandoffLocalHeadSha?: string;
@@ -878,6 +880,9 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
     if (!sameStringArray(stringArray(manifest.sourceControlHandoffConfiguredRemoteUrls), stringArray(sourceControlManifest.configuredRemoteUrls))) {
       problems.push("review bundle source-control configured-remotes summary must match the latest source-control handoff");
     }
+    if (stringOrUndefined(manifest.sourceControlHandoffLocalBranch) !== stringOrUndefined(sourceControlManifest.localBranch)) {
+      problems.push("review bundle source-control local branch summary must match the latest source-control handoff");
+    }
     if (stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranch) !== stringOrUndefined(sourceControlManifest.remoteDefaultBranch)) {
       problems.push("review bundle source-control remote default branch summary must match the latest source-control handoff");
     }
@@ -998,6 +1003,7 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.sourceControl.repositoryUrl ? `- Repository: ${manifest.sourceControl.repositoryUrl}` : undefined,
     manifest.sourceControl.packageRepositoryUrl ? `- Package repository: ${manifest.sourceControl.packageRepositoryUrl}` : undefined,
     manifest.sourceControl.configuredRemoteUrls?.length ? `- Configured remotes: ${manifest.sourceControl.configuredRemoteUrls.join(", ")}` : undefined,
+    manifest.sourceControl.localBranch ? `- Local branch: ${manifest.sourceControl.localBranch}` : undefined,
     manifest.sourceControl.remoteDefaultBranch ? `- Remote default branch: ${manifest.sourceControl.remoteDefaultBranch}` : undefined,
     typeof manifest.sourceControl.remoteRefCount === "number" ? `- Remote ref count: ${manifest.sourceControl.remoteRefCount}` : undefined,
     manifest.sourceControl.localHeadSha ? `- Local HEAD: ${manifest.sourceControl.localHeadSha}` : undefined,
@@ -1016,6 +1022,7 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.reviewBundle.sourceControlHandoffRepositoryUrl ? `- Source-control repository: ${manifest.reviewBundle.sourceControlHandoffRepositoryUrl}` : undefined,
     manifest.reviewBundle.sourceControlHandoffPackageRepositoryUrl ? `- Source-control package repository: ${manifest.reviewBundle.sourceControlHandoffPackageRepositoryUrl}` : undefined,
     manifest.reviewBundle.sourceControlHandoffConfiguredRemoteUrls?.length ? `- Source-control configured remotes: ${manifest.reviewBundle.sourceControlHandoffConfiguredRemoteUrls.join(", ")}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffLocalBranch ? `- Source-control local branch: ${manifest.reviewBundle.sourceControlHandoffLocalBranch}` : undefined,
     manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranch ? `- Source-control remote default branch: ${manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranch}` : undefined,
     typeof manifest.reviewBundle.sourceControlHandoffRemoteRefCount === "number" ? `- Source-control remote ref count: ${manifest.reviewBundle.sourceControlHandoffRemoteRefCount}` : undefined,
     manifest.reviewBundle.sourceControlHandoffLocalHeadSha ? `- Source-control local HEAD: ${manifest.reviewBundle.sourceControlHandoffLocalHeadSha}` : undefined,
@@ -1113,6 +1120,7 @@ async function sourceControlSummary(root: string): Promise<PlugAndPlayReadinessM
     repositoryUrl: stringOrUndefined(manifest.repositoryUrl),
     packageRepositoryUrl: stringOrUndefined(manifest.packageRepositoryUrl),
     configuredRemoteUrls: stringArray(manifest.configuredRemoteUrls),
+    localBranch: stringOrUndefined(manifest.localBranch),
     remoteDefaultBranch: stringOrUndefined(manifest.remoteDefaultBranch),
     remoteRefCount: numberOrUndefined(manifest.remoteRefCount),
     localHeadSha: stringOrUndefined(manifest.localHeadSha),
@@ -1143,6 +1151,7 @@ async function reviewBundleSummary(root: string): Promise<PlugAndPlayReadinessMa
     sourceControlHandoffRepositoryUrl: stringOrUndefined(manifest.sourceControlHandoffRepositoryUrl),
     sourceControlHandoffPackageRepositoryUrl: stringOrUndefined(manifest.sourceControlHandoffPackageRepositoryUrl),
     sourceControlHandoffConfiguredRemoteUrls: stringArray(manifest.sourceControlHandoffConfiguredRemoteUrls),
+    sourceControlHandoffLocalBranch: stringOrUndefined(manifest.sourceControlHandoffLocalBranch),
     sourceControlHandoffRemoteDefaultBranch: stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranch),
     sourceControlHandoffRemoteRefCount: numberOrUndefined(manifest.sourceControlHandoffRemoteRefCount),
     sourceControlHandoffLocalHeadSha: stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha),
