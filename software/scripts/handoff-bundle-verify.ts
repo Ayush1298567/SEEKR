@@ -6,7 +6,7 @@ import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-p
 import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
-import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
+import { plugAndPlayDoctorOk, plugAndPlaySetupFreshForAcceptance, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
@@ -461,6 +461,8 @@ export async function buildHandoffBundleVerification(options: {
     const setup = await readCopiedJson(bundleDirectory, plugAndPlaySetupPath);
     if (!plugAndPlaySetupOk(setup)) {
       blockers.push("Copied plug-and-play setup must pass local env/data preparation and keep commandUploadEnabled false.");
+    } else if (!plugAndPlaySetupFreshForAcceptance(setup, copiedAcceptance)) {
+      blockers.push("Copied plug-and-play setup must be newer than or equal to the copied acceptance record.");
     }
   }
   if (!localAiPreparePath) {

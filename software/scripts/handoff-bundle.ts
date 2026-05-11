@@ -7,7 +7,7 @@ import { buildHandoffVerification } from "./handoff-verify";
 import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
-import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
+import { plugAndPlayDoctorOk, plugAndPlaySetupFreshForAcceptance, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
@@ -221,6 +221,8 @@ export async function writeHandoffBundle(options: {
     blockers.push("No plug-and-play setup artifact exists; run npm run setup:local before bundling for final internal-alpha review.");
   } else if (!plugAndPlaySetupOk(setupManifest)) {
     blockers.push("Plug-and-play setup artifact must pass with local env/data preparation and commandUploadEnabled false before bundling.");
+  } else if (!plugAndPlaySetupFreshForAcceptance(setupManifest, acceptanceManifest)) {
+    blockers.push("Plug-and-play setup artifact must be newer than or equal to the latest acceptance record before bundling.");
   }
   if (!localAiPrepare) {
     blockers.push("No local AI prepare artifact exists; run npm run ai:prepare before bundling for final internal-alpha review.");

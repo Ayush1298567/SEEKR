@@ -223,6 +223,7 @@ describe("goal audit", () => {
   it("fails local alpha when plug-and-play readiness does not reference the latest setup artifact", async () => {
     await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-zz-newer.json"), JSON.stringify({
       ok: true,
+      generatedAt: GENERATED_AT,
       status: "ready-local-setup",
       commandUploadEnabled: false,
       envFilePath: ".env",
@@ -244,6 +245,24 @@ describe("goal audit", () => {
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("latest plug-and-play setup")
+    });
+  });
+
+  it("fails local alpha when plug-and-play setup predates acceptance", async () => {
+    const setupPath = path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-test.json");
+    const setup = JSON.parse(await readFile(setupPath, "utf8"));
+    setup.generatedAt = "2026-05-09T19:59:59.999Z";
+    await writeFile(setupPath, JSON.stringify(setup), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest plug-and-play setup artifact must be newer than or equal to the latest acceptance record")
     });
   });
 
@@ -1867,6 +1886,7 @@ async function seedRoot(root: string) {
   }), "utf8");
   await writeFile(path.join(root, plugAndPlaySetupPath), JSON.stringify({
     ok: true,
+    generatedAt: GENERATED_AT,
     status: "ready-local-setup",
     commandUploadEnabled: false,
     envFilePath: ".env",

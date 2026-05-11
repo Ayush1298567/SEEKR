@@ -6,6 +6,7 @@ import { buildCompletionAudit, type CompletionAuditManifest } from "./completion
 import { EXPECTED_REPOSITORY_URL, validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { buildTodoAudit, type TodoAuditManifest } from "./todo-audit";
 import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
+import { plugAndPlaySetupFreshForAcceptance, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type GoalAuditStatus = "pass" | "warn" | "fail" | "blocked";
@@ -846,6 +847,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const apiProbe = await latestJson(root, ".tmp/api-probe", (name) => name.startsWith("seekr-api-probe-"));
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
+  const setupManifest = setup ? await readJson(setup.absolutePath) : undefined;
   const doctor = await latestOperatorDoctorJson(root);
   const doctorManifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
@@ -935,6 +937,13 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   }
   if (isRecord(manifest) && !readinessEvidence.has("docs/OPERATOR_QUICKSTART.md")) {
     problems.push("plug-and-play readiness must reference docs/OPERATOR_QUICKSTART.md");
+  }
+  if (setup) {
+    if (!plugAndPlaySetupOk(setupManifest)) {
+      problems.push("latest plug-and-play setup artifact must pass local env/data preparation with commandUploadEnabled false");
+    } else if (!plugAndPlaySetupFreshForAcceptance(setupManifest, acceptance)) {
+      problems.push("latest plug-and-play setup artifact must be newer than or equal to the latest acceptance record");
+    }
   }
   if (localAiPrepare) {
     if (!localAiPrepareManifestOk(localAiPrepareManifest)) {

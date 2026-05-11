@@ -11,6 +11,7 @@ import {
   doctorRuntimeDependencyEvidenceOk,
   doctorSourceControlEvidenceOk,
   plugAndPlayDoctorOk,
+  plugAndPlaySetupFreshForAcceptance,
   plugAndPlaySetupOk
 } from "./plug-and-play-artifact-contract";
 import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
@@ -320,7 +321,11 @@ async function operatorSetupCheck(root: string): Promise<PlugAndPlayCheck> {
   for (const signal of ["does not overwrite an existing env file", "blocks env output paths outside the project root", "blocks setup when env example defaults are missing"]) {
     if (test && !test.includes(signal)) problems.push(`localSetup.test.ts missing ${signal}`);
   }
-  if (!plugAndPlaySetupOk(manifest)) problems.push("latest plug-and-play setup artifact must pass local env/data preparation with commandUploadEnabled false");
+  if (!plugAndPlaySetupOk(manifest)) {
+    problems.push("latest plug-and-play setup artifact must pass local env/data preparation with commandUploadEnabled false");
+  } else if (!plugAndPlaySetupFreshForAcceptance(manifest, await readJson(path.join(root, ".tmp/acceptance-status.json")))) {
+    problems.push("latest plug-and-play setup artifact must be newer than or equal to the latest acceptance record");
+  }
 
   return {
     id: "operator-setup",

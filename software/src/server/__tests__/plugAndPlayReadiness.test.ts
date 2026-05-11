@@ -1043,6 +1043,25 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when the local setup artifact predates acceptance", async () => {
+    const setupPath = path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-test.json");
+    const setup = JSON.parse(await readFile(setupPath, "utf8"));
+    setup.generatedAt = "2026-05-10T06:59:59.999Z";
+    await writeFile(setupPath, JSON.stringify(setup), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "operator-setup")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("newer than or equal to the latest acceptance record")
+    });
+  });
+
   it("fails when the local AI prepare artifact has not been generated", async () => {
     await rm(path.join(root, ".tmp/local-ai-prepare"), { recursive: true, force: true });
 
@@ -1062,6 +1081,7 @@ describe("plug-and-play readiness audit", () => {
   it("fails when review bundle verification points at a stale plug-and-play setup", async () => {
     await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-zz-newer.json"), JSON.stringify({
       ok: true,
+      generatedAt: "2026-05-10T07:02:30.000Z",
       status: "ready-local-setup",
       commandUploadEnabled: false,
       envFilePath: ".env",
@@ -2110,6 +2130,7 @@ async function seedSetupFiles(root: string) {
   ].join("\n"), "utf8");
   await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-test.json"), JSON.stringify({
     ok: true,
+    generatedAt: "2026-05-10T07:02:00.000Z",
     status: "ready-local-setup",
     commandUploadEnabled: false,
     envFilePath: ".env",

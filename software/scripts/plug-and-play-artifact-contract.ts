@@ -47,6 +47,15 @@ export function plugAndPlaySetupOk(manifest: unknown) {
     checks.every((check) => check.status === "pass");
 }
 
+export function plugAndPlaySetupFreshForAcceptance(manifest: unknown, acceptanceManifest?: unknown) {
+  if (!isRecord(manifest) || !isRecord(acceptanceManifest)) return false;
+  const setupGeneratedAt = timeMs(manifest.generatedAt);
+  const acceptanceGeneratedAt = timeMs(acceptanceManifest.generatedAt);
+  return setupGeneratedAt !== undefined &&
+    acceptanceGeneratedAt !== undefined &&
+    setupGeneratedAt >= acceptanceGeneratedAt;
+}
+
 export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unknown, expectedSourceControlPath?: string) {
   if (!isRecord(manifest)) return false;
   const ai = isRecord(manifest.ai) ? manifest.ai : {};
