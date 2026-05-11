@@ -63,6 +63,7 @@ writeAcceptanceStatus({
     provider: strictAi.status.provider,
     model: strictAi.status.model,
     caseCount: strictAi.status.caseCount,
+    caseNames: strictAi.status.cases.map((testCase) => testCase.name),
     generatedAt: strictAi.status.generatedAt
   },
   releaseChecksum: {

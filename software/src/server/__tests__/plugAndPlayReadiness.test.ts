@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 import { buildPlugAndPlayReadiness, writePlugAndPlayReadiness } from "../../../scripts/plug-and-play-readiness";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 describe("plug-and-play readiness audit", () => {
   let root: string;
@@ -32,7 +33,8 @@ describe("plug-and-play readiness audit", () => {
         implemented: true,
         provider: "ollama",
         model: "llama3.2:latest",
-        caseCount: 4
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
       safetyBoundary: {
         realAircraftCommandUpload: false,
@@ -97,7 +99,7 @@ describe("plug-and-play readiness audit", () => {
       ok: true,
       generatedAt: Date.parse("2026-05-10T07:00:00.000Z"),
       commandUploadEnabled: false,
-      strictLocalAi: { ok: false, provider: "rules", model: "deterministic-v1", caseCount: 0 },
+      strictLocalAi: { ok: false, provider: "rules", model: "deterministic-v1", caseCount: 0, caseNames: [] },
       releaseChecksum: {
         jsonPath: ".tmp/release-evidence/seekr-release-test.json",
         overallSha256: "a".repeat(64),
@@ -126,6 +128,25 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "acceptance-ai")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("strict local AI evidence must pass")
+    });
+  });
+
+  it("fails when strict local AI scenario names are incomplete", async () => {
+    const acceptancePath = path.join(root, ".tmp/acceptance-status.json");
+    const acceptance = JSON.parse(await readFile(acceptancePath, "utf8"));
+    acceptance.strictLocalAi.caseNames = REQUIRED_STRICT_AI_SMOKE_CASES.filter((name) => name !== "prompt-injection-spatial-metadata");
+    await writeFile(acceptancePath, JSON.stringify(acceptance), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "acceptance-ai")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("prompt-injection-spatial-metadata")
     });
   });
 
@@ -1010,7 +1031,8 @@ async function seedPlugAndPlayEvidence(root: string) {
       ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: 4
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     releaseChecksum: {
       jsonPath: releasePath,
@@ -1041,7 +1063,8 @@ async function seedPlugAndPlayEvidence(root: string) {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
-        caseCount: 4
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
       releaseChecksum: {
         overallSha256: "a".repeat(64),

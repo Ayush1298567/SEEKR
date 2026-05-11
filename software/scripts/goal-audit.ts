@@ -348,6 +348,8 @@ async function apiProbeItem(root: string): Promise<GoalAuditItem> {
     const acceptanceAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
     const probeAi = isRecord(sessionAcceptance.strictLocalAi) ? sessionAcceptance.strictLocalAi : {};
     const acceptanceCommandCount = Array.isArray(acceptance.completedCommands) ? acceptance.completedCommands.length : undefined;
+    const acceptanceAiCaseNames = stringArray(acceptanceAi.caseNames);
+    const probeAiCaseNames = stringArray(probeAi.caseNames);
 
     if (sessionAcceptance.status !== "pass") problems.push("probe did not read back passing acceptance status");
     if (Number(sessionAcceptance.generatedAt) !== Number(acceptance.generatedAt)) {
@@ -360,7 +362,8 @@ async function apiProbeItem(root: string): Promise<GoalAuditItem> {
       probeAi.ok !== acceptanceAi.ok ||
       probeAi.provider !== acceptanceAi.provider ||
       probeAi.model !== acceptanceAi.model ||
-      Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount)
+      Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount) ||
+      !sameStringArray(probeAiCaseNames, acceptanceAiCaseNames)
     ) {
       problems.push("probe strict local AI summary does not match acceptance status");
     }
@@ -1213,6 +1216,10 @@ function categorySignaturesFromManifest(value: TodoAuditManifest["categories"]) 
 
 function sameStringArray(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

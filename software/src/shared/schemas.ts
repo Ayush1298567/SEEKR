@@ -456,7 +456,8 @@ export const SessionManifestSchema = z.object({
       ok: z.boolean(),
       provider: z.string(),
       model: z.string(),
-      caseCount: z.number().int().nonnegative()
+      caseCount: z.number().int().nonnegative(),
+      caseNames: z.array(z.string())
     }).optional(),
     releaseChecksum: z.object({
       overallSha256: z.string(),

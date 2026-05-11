@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runApiProbe } from "../../../scripts/api-probe";
 import { REQUIRED_ACCEPTANCE_COMMANDS, writeAcceptanceStatus } from "../acceptanceEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 import { SEEKR_SCHEMA_VERSION, SEEKR_SOFTWARE_VERSION } from "../../shared/constants";
 
 describe("api probe evidence", () => {
@@ -65,7 +66,8 @@ describe("api probe evidence", () => {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
-        caseCount: 4,
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
         generatedAt: Date.now()
       },
       releaseChecksum: {

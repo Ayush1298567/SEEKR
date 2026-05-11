@@ -10,6 +10,7 @@ import { jsonBodyErrorHandler } from "../api/errors";
 import { createApiRouter } from "../api/routes";
 import { attachWebSocket } from "../api/ws";
 import { REQUIRED_ACCEPTANCE_COMMANDS, writeAcceptanceStatus } from "../acceptanceEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 import { MissionPersistence } from "../persistence";
 import { MissionStore } from "../state";
 import { SEEKR_SCHEMA_VERSION, SEEKR_SOFTWARE_VERSION } from "../../shared/constants";
@@ -395,7 +396,8 @@ describe("HTTP and WebSocket API contracts", () => {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
-        caseCount: 4,
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
         generatedAt: Date.now()
       },
       releaseChecksum: {

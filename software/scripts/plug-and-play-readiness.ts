@@ -13,6 +13,7 @@ import {
 } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
 
 type PlugAndPlayCheckStatus = "pass" | "warn" | "fail" | "blocked";
 
@@ -36,6 +37,7 @@ export interface PlugAndPlayReadinessManifest {
     provider?: string;
     model?: string;
     caseCount?: number;
+    caseNames?: string[];
   };
   summary: {
     pass: number;
@@ -147,7 +149,8 @@ export async function buildPlugAndPlayReadiness(options: {
       implemented: Boolean(strictLocalAi?.ok),
       provider: stringOrUndefined(strictLocalAi?.provider),
       model: stringOrUndefined(strictLocalAi?.model),
-      caseCount: typeof strictLocalAi?.caseCount === "number" ? strictLocalAi.caseCount : undefined
+      caseCount: typeof strictLocalAi?.caseCount === "number" ? strictLocalAi.caseCount : undefined,
+      caseNames: stringArray(strictLocalAi?.caseNames)
     },
     summary,
     checks,
@@ -563,6 +566,8 @@ async function acceptanceAndAiCheck(root: string): Promise<PlugAndPlayCheck> {
   const release = await latestJson(root, ".tmp/release-evidence", (name) => name.startsWith("seekr-release-"));
   const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
   const releaseChecksum = isRecord(acceptance) && isRecord(acceptance.releaseChecksum) ? acceptance.releaseChecksum : {};
+  const strictCaseNames = stringArray(strictLocalAi.caseNames);
+  const missingStrictCases = REQUIRED_STRICT_AI_SMOKE_CASES.filter((name) => !strictCaseNames.includes(name));
   const problems: string[] = [];
 
   if (!isRecord(acceptance) || acceptance.ok !== true) problems.push("acceptance status must pass");
@@ -571,6 +576,11 @@ async function acceptanceAndAiCheck(root: string): Promise<PlugAndPlayCheck> {
   if (isRecord(strictLocalAi) && strictLocalAi.provider !== "ollama") problems.push("strict local AI should use the local Ollama provider for plug-and-play AI readiness");
   if (isRecord(strictLocalAi) && typeof strictLocalAi.model !== "string") problems.push("strict local AI must record the model");
   if (isRecord(strictLocalAi) && Number(strictLocalAi.caseCount) < 4) problems.push("strict local AI must cover the expected smoke cases");
+  if (strictCaseNames.length !== Number(strictLocalAi.caseCount) || missingStrictCases.length) {
+    problems.push(missingStrictCases.length
+      ? `strict local AI evidence is missing required scenario(s): ${missingStrictCases.join(", ")}`
+      : "strict local AI case names must match the recorded case count");
+  }
   if (!release || normalizeArtifactPath(root, releaseChecksum.jsonPath) !== release.relativePath) problems.push("acceptance must point at the latest release checksum");
 
   return {
@@ -610,6 +620,8 @@ async function apiProbeCheck(root: string): Promise<PlugAndPlayCheck> {
     const acceptanceAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
     const probeAi = isRecord(sessionAcceptance.strictLocalAi) ? sessionAcceptance.strictLocalAi : {};
     const acceptanceCommandCount = Array.isArray(acceptance.completedCommands) ? acceptance.completedCommands.length : undefined;
+    const acceptanceAiCaseNames = stringArray(acceptanceAi.caseNames);
+    const probeAiCaseNames = stringArray(probeAi.caseNames);
 
     if (sessionAcceptance.status !== "pass") problems.push("probe did not read back passing acceptance status");
     if (Number(sessionAcceptance.generatedAt) !== Number(acceptance.generatedAt)) {
@@ -622,7 +634,8 @@ async function apiProbeCheck(root: string): Promise<PlugAndPlayCheck> {
       probeAi.ok !== acceptanceAi.ok ||
       probeAi.provider !== acceptanceAi.provider ||
       probeAi.model !== acceptanceAi.model ||
-      Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount)
+      Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount) ||
+      !sameStringArray(probeAiCaseNames, acceptanceAiCaseNames)
     ) {
       problems.push("probe strict local AI summary does not match acceptance status");
     }
@@ -792,6 +805,7 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.ai.provider ? `- Provider: ${manifest.ai.provider}` : undefined,
     manifest.ai.model ? `- Model: ${manifest.ai.model}` : undefined,
     typeof manifest.ai.caseCount === "number" ? `- Smoke cases: ${manifest.ai.caseCount}` : undefined,
+    manifest.ai.caseNames?.length ? `- Smoke scenario names: ${manifest.ai.caseNames.join(", ")}` : undefined,
     "",
     "Checks:",
     "",
@@ -897,6 +911,14 @@ function timeMs(value: unknown) {
 
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function sameStringArray(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function isString(value: unknown): value is string {

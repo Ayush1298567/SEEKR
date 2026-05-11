@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildCompletionAudit } from "../../../scripts/completion-audit";
 import { buildGoalAudit, writeGoalAudit } from "../../../scripts/goal-audit";
 import { writeTodoAudit } from "../../../scripts/todo-audit";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 const GENERATED_AT = "2026-05-09T21:00:00.000Z";
 
@@ -132,6 +133,24 @@ describe("goal audit", () => {
     const probePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
     const probe = JSON.parse(await readFile(probePath, "utf8"));
     probe.sessionAcceptance.strictLocalAi.model = "stale-model:latest";
+    await writeFile(probePath, JSON.stringify(probe), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "api-readback")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("probe strict local AI summary does not match acceptance status")
+    });
+  });
+
+  it("fails local alpha when API probe AI scenario names do not match latest acceptance evidence", async () => {
+    const probePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const probe = JSON.parse(await readFile(probePath, "utf8"));
+    probe.sessionAcceptance.strictLocalAi.caseNames = REQUIRED_STRICT_AI_SMOKE_CASES.filter((name) => name !== "prompt-injection-spatial-metadata");
     await writeFile(probePath, JSON.stringify(probe), "utf8");
 
     const manifest = await buildGoalAudit({
@@ -940,7 +959,8 @@ async function seedRoot(root: string) {
       ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: 4
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     releaseChecksum: {
       jsonPath: releasePath,
@@ -999,7 +1019,8 @@ async function seedRoot(root: string) {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
-        caseCount: 4
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
       releaseChecksum: {
         overallSha256: releaseChecksum,
@@ -1441,7 +1462,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       implemented: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: 4
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     remainingRealWorldBlockers,
     remainingRealWorldBlockerCount: remainingRealWorldBlockers.length,

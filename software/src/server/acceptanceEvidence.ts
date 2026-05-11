@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "./ai/localAiEvidence";
 import { SEEKR_SCHEMA_VERSION, SEEKR_SOFTWARE_VERSION } from "../shared/constants";
 
 export const REQUIRED_ACCEPTANCE_COMMANDS = [
@@ -36,6 +37,7 @@ export interface AcceptanceRunStatus {
     provider: string;
     model: string;
     caseCount: number;
+    caseNames: string[];
     generatedAt: number;
   };
   releaseChecksum: {
@@ -77,6 +79,7 @@ export interface AcceptanceEvidence {
     provider: string;
     model: string;
     caseCount: number;
+    caseNames: string[];
   };
   releaseChecksum?: {
     overallSha256: string;
@@ -112,6 +115,10 @@ export function readAcceptanceEvidence(
     const ageMs = Math.max(0, nowMs - status.generatedAt);
     const currentBoot = status.generatedAt >= bootedAt;
     const missingCommands = REQUIRED_ACCEPTANCE_COMMANDS.filter((command) => !status.completedCommands.includes(command));
+    const strictAiCaseNames = Array.isArray(status.strictLocalAi?.caseNames)
+      ? status.strictLocalAi.caseNames.map(String)
+      : [];
+    const missingStrictAiCases = REQUIRED_STRICT_AI_SMOKE_CASES.filter((name) => !strictAiCaseNames.includes(name));
     const base = {
       currentBoot,
       ageMs,
@@ -123,7 +130,8 @@ export function readAcceptanceEvidence(
             ok: status.strictLocalAi.ok,
             provider: status.strictLocalAi.provider,
             model: status.strictLocalAi.model,
-            caseCount: status.strictLocalAi.caseCount
+            caseCount: status.strictLocalAi.caseCount,
+            caseNames: strictAiCaseNames
           }
         : undefined,
       releaseChecksum: status.releaseChecksum
@@ -164,6 +172,16 @@ export function readAcceptanceEvidence(
         status: "incomplete",
         ...base,
         reason: `Acceptance status is missing required commands: ${missingCommands.join(", ")}.`
+      };
+    }
+    if (strictAiCaseNames.length !== Number(status.strictLocalAi?.caseCount) || missingStrictAiCases.length) {
+      return {
+        ok: false,
+        status: "incomplete",
+        ...base,
+        reason: missingStrictAiCases.length
+          ? `Acceptance status is missing required strict local AI scenario(s): ${missingStrictAiCases.join(", ")}.`
+          : "Acceptance status strict local AI case names do not match the recorded case count."
       };
     }
     if (

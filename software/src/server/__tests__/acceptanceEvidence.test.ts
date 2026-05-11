@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readAcceptanceEvidence, REQUIRED_ACCEPTANCE_COMMANDS, writeAcceptanceStatus, type AcceptanceRunStatus } from "../acceptanceEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 import { SEEKR_SCHEMA_VERSION, SEEKR_SOFTWARE_VERSION } from "../../shared/constants";
 
 describe("acceptance evidence", () => {
@@ -36,7 +37,13 @@ describe("acceptance evidence", () => {
       currentBoot: true,
       commandCount: REQUIRED_ACCEPTANCE_COMMANDS.length,
       commandUploadEnabled: false,
-      strictLocalAi: { ok: true, provider: "ollama", model: "llama3.2:latest", caseCount: 4 },
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+      },
       releaseChecksum: { overallSha256: expect.stringMatching(/^[a-f0-9]{64}$/), fileCount: 10, totalBytes: 1024 },
       commandBoundaryScan: {
         status: "pass",
@@ -61,6 +68,18 @@ describe("acceptance evidence", () => {
 
     writeAcceptanceStatus(status({ completedCommands: REQUIRED_ACCEPTANCE_COMMANDS.slice(0, -1) }), statusPath);
     expect(readAcceptanceEvidence(1_800_000_001_000, 1_799_999_999_000, statusPath)).toMatchObject({ ok: false, status: "incomplete" });
+
+    writeAcceptanceStatus(status({
+      strictLocalAi: {
+        ...status({}).strictLocalAi,
+        caseNames: REQUIRED_STRICT_AI_SMOKE_CASES.filter((name) => name !== "prompt-injection-spatial-metadata")
+      }
+    }), statusPath);
+    expect(readAcceptanceEvidence(1_800_000_001_000, 1_799_999_999_000, statusPath)).toMatchObject({
+      ok: false,
+      status: "incomplete",
+      reason: expect.stringContaining("prompt-injection-spatial-metadata")
+    });
 
     writeAcceptanceStatus({
       ...status({}),
@@ -91,7 +110,8 @@ function status(overrides: Partial<AcceptanceRunStatus>): AcceptanceRunStatus {
       ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: 4,
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
       generatedAt: 1_800_000_000_000
     },
     releaseChecksum: {
