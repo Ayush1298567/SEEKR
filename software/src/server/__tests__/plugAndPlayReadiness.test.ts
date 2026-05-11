@@ -421,6 +421,25 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when local AI prepare evidence does not prove safe model preparation", async () => {
+    const preparePath = path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json");
+    const prepare = JSON.parse(await readFile(preparePath, "utf8"));
+    prepare.commandUploadEnabled = true;
+    await writeFile(preparePath, JSON.stringify(prepare), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "local-ai-prepare")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("passing Ollama model preparation run with commandUploadEnabled false")
+    });
+  });
+
   it("fails when strict local AI scenario names are incomplete", async () => {
     const acceptancePath = path.join(root, ".tmp/acceptance-status.json");
     const acceptance = JSON.parse(await readFile(acceptancePath, "utf8"));
