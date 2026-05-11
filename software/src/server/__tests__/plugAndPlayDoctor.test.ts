@@ -226,10 +226,34 @@ describe("plug-and-play doctor", () => {
     });
   });
 
-  it("warns when local start ports are already occupied", async () => {
+  it("passes when unconfigured default ports are occupied because rehearsal start can auto-select free ports", async () => {
     const manifest = await buildPlugAndPlayDoctor({
       root,
       env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async (port) => port !== 5173,
+      portInspector: async (port) => port === 5173
+        ? [{ command: "node", pid: 12345, cwd: "~/Ayush/Prophet/prophet-console" }]
+        : []
+    });
+
+    expect(manifest.ok).toBe(true);
+    expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
+      status: "pass",
+      details: expect.stringContaining("auto-selects free local API/client ports"),
+      evidence: expect.arrayContaining([
+        "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+        "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+      ])
+    });
+  });
+
+  it("warns when explicitly configured local start ports are already occupied", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {
+        SEEKR_CLIENT_PORT: "5173"
+      },
       fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
       portAvailable: async (port) => port !== 5173
     });
@@ -255,7 +279,7 @@ describe("plug-and-play doctor", () => {
 
     expect(manifest.ok).toBe(true);
     expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
-      status: "warn",
+      status: "pass",
       details: expect.stringContaining("node pid 12345 cwd ~/Ayush/Prophet/prophet-console"),
       evidence: expect.arrayContaining([
         "lsof -nP -iTCP:8787 -sTCP:LISTEN",

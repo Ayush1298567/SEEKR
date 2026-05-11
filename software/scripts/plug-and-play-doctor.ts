@@ -99,7 +99,14 @@ export async function buildPlugAndPlayDoctor(options: {
   const operatorStart = await operatorStartScriptCheck(root);
   const envCheck = await envSetupCheck(root, env, effectiveEnv);
   const aiCheck = await localAiCheck(effectiveEnv, fetchImpl);
-  const portCheck = await localPortCheck(effectiveEnv, portAvailable, fetchImpl, portInspector);
+  const portCheck = await localPortCheck(
+    effectiveEnv,
+    env,
+    portAvailable,
+    fetchImpl,
+    portInspector,
+    operatorStart.status === "pass"
+  );
   const dataDirCheck = await localDataDirCheck(root, effectiveEnv);
   const safetyCheck = safetyBoundaryCheck(effectiveEnv);
   const checks = [packageScripts, runtimeDependencies, repositorySafety, sourceControlHandoff, operatorStart, envCheck, aiCheck.check, portCheck.check, dataDirCheck, safetyCheck];
@@ -450,13 +457,17 @@ async function localAiCheck(effectiveEnv: Map<string, string>, fetchImpl: typeof
 
 async function localPortCheck(
   effectiveEnv: Map<string, string>,
+  rawEnv: NodeJS.ProcessEnv,
   portAvailable: (port: number, host: string) => Promise<boolean>,
   fetchImpl: typeof fetch,
-  portInspector: (port: number, host: string) => Promise<PortListenerDiagnostic[]>
+  portInspector: (port: number, host: string) => Promise<PortListenerDiagnostic[]>,
+  startWrapperAutoFallbackAvailable: boolean
 ) {
   const host = "127.0.0.1";
   const api = parsePort(effectiveEnv.get("SEEKR_API_PORT") ?? effectiveEnv.get("PORT"), 8787);
   const client = parsePort(effectiveEnv.get("SEEKR_CLIENT_PORT"), 5173);
+  const apiExplicit = Boolean(rawEnv.PORT || rawEnv.SEEKR_API_PORT);
+  const clientExplicit = Boolean(rawEnv.SEEKR_CLIENT_PORT);
   const occupied: Array<{ role: "api" | "client"; port: number; healthy: boolean; url: string; listeners: PortListenerDiagnostic[] }> = [];
   for (const candidate of [
     { role: "api" as const, port: api },
@@ -478,13 +489,19 @@ async function localPortCheck(
     `lsof -nP -iTCP:${item.port} -sTCP:LISTEN`,
     ...item.listeners.map((listener) => listener.cwd ? `listener ${listener.pid} cwd ${listener.cwd}` : `listener ${listener.pid} command ${listener.command}`)
   ]);
+  const autoRecoverableDefaults = startWrapperAutoFallbackAvailable && unknown.length > 0 && unknown.every((item) =>
+    (item.role === "api" && item.port === 8787 && !apiExplicit) ||
+    (item.role === "client" && item.port === 5173 && !clientExplicit)
+  );
   return {
     ports: { api, client },
     check: {
       id: "local-ports",
-      status: unknown.length ? "warn" as const : "pass" as const,
+      status: unknown.length && !autoRecoverableDefaults ? "warn" as const : "pass" as const,
       details: unknown.length
-        ? `Port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}Stop the existing process before starting a fresh npm run dev.`
+        ? autoRecoverableDefaults
+          ? `Default port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s).`
+          : `Port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}Stop the existing process or choose different explicit ports before starting SEEKR.`
         : occupied.length
           ? `Port(s) already have a healthy SEEKR local instance on ${host}: ${occupied.map((item) => `${item.role} ${item.port}`).join(", ")}. Keep using it or stop it before starting a fresh npm run dev.`
           : `API/client ports are available on ${host}: ${api}, ${client}.`,
@@ -492,6 +509,7 @@ async function localPortCheck(
         "PORT",
         "SEEKR_API_PORT",
         "SEEKR_CLIENT_PORT",
+        "scripts/rehearsal-start.sh auto-selected free local API/client ports",
         ...occupied.map((item) => item.url),
         ...listenerEvidence
       ]
