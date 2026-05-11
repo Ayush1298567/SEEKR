@@ -68,6 +68,10 @@ describe("operator quickstart contract", () => {
     ]));
   });
 
+  it("pins bounded rehearsal-start smoke proof guidance as a required signal", () => {
+    expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toContain("npm run smoke:rehearsal:start");
+  });
+
   it("rejects quickstarts that omit advisory AI command-safety guidance", () => {
     const content = validQuickstartContent().replace("AI output is advisory\n", "");
 
@@ -80,6 +84,13 @@ describe("operator quickstart contract", () => {
 
     expect(operatorQuickstartOk(content)).toBe(false);
     expect(operatorQuickstartProblems(content)).toContain("Listener diagnostics");
+  });
+
+  it("rejects quickstarts that omit bounded rehearsal-start smoke proof guidance", () => {
+    const content = validQuickstartContent().replace("npm run smoke:rehearsal:start\n", "");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toContain("npm run smoke:rehearsal:start");
   });
 
   it("rejects quickstarts that put source-control audit after startup", () => {

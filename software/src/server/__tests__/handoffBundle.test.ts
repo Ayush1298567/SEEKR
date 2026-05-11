@@ -130,6 +130,7 @@ describe("handoff bundle", () => {
     expect(copiedStrictAiSmoke.cases.some((testCase: { mutatedWhileThinking: boolean }) => testCase.mutatedWhileThinking)).toBe(false);
     const copiedQuickstart = await readFile(path.join(result.bundleDirectory, "artifacts", operatorQuickstartPath), "utf8");
     expect(copiedQuickstart).toContain("npm run rehearsal:start");
+    expect(copiedQuickstart).toContain("npm run smoke:rehearsal:start");
     expect(copiedQuickstart).toContain("command upload");
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("GStack workflow status");
@@ -2733,6 +2734,7 @@ async function seedBundleEvidence(root: string) {
     "npm run audit:source-control",
     "npm run doctor",
     "npm run rehearsal:start",
+    "npm run smoke:rehearsal:start",
     "```",
     "",
     "The runnable app lives under software/.",

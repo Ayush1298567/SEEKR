@@ -14,6 +14,7 @@ export const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
   "Stop the existing process",
   "free local API/client ports",
   "npm run rehearsal:start",
+  "npm run smoke:rehearsal:start",
   "Ollama",
   "llama3.2:latest",
   "npm run test:ai:local",
