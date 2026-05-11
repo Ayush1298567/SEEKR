@@ -36,7 +36,8 @@ describe("source-control handoff audit", () => {
           `${LOCAL_SHA}\trefs/heads/main`,
           ""
         ].join("\n")
-      })
+      }),
+      freshClone: freshCloneOk(LOCAL_SHA)
     });
 
     expect(manifest).toMatchObject({
@@ -82,7 +83,8 @@ describe("source-control handoff audit", () => {
           `${REMOTE_SHA}\trefs/heads/main`,
           ""
         ].join("\n")
-      })
+      }),
+      freshClone: freshCloneOk(REMOTE_SHA)
     });
 
     expect(manifest.ready).toBe(false);
@@ -120,7 +122,8 @@ describe("source-control handoff audit", () => {
     const manifest = await buildSourceControlHandoff({
       root,
       generatedAt: "2026-05-10T19:00:00.000Z",
-      lsRemote: async () => ({ ok: true, output: "" })
+      lsRemote: async () => ({ ok: true, output: "" }),
+      freshClone: freshCloneOk()
     });
 
     expect(manifest.ready).toBe(false);
@@ -181,7 +184,8 @@ describe("source-control handoff audit", () => {
           `${LOCAL_SHA}\trefs/heads/main`,
           ""
         ].join("\n")
-      })
+      }),
+      freshClone: freshCloneOk(LOCAL_SHA)
     });
 
     expect(manifest.ready).toBe(false);
@@ -213,12 +217,19 @@ describe("source-control handoff audit", () => {
         ok: false,
         output: "",
         error: "network unavailable"
+      }),
+      freshClone: async () => ({
+        ok: false,
+        cloneSucceeded: false,
+        checkedPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
+        missingPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
+        error: "network unavailable"
       })
     });
 
     expect(manifest.ready).toBe(true);
     expect(manifest.status).toBe("ready-source-control-handoff-with-warnings");
-    expect(manifest.warningCheckCount).toBe(2);
+    expect(manifest.warningCheckCount).toBe(3);
     expect(manifest.checks.find((check) => check.id === "github-remote-refs")).toMatchObject({
       status: "warn",
       details: expect.stringContaining("network unavailable")
@@ -227,6 +238,53 @@ describe("source-control handoff audit", () => {
       status: "warn",
       details: expect.stringContaining("could not be proven")
     });
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("network unavailable")
+    });
+  });
+
+  it("blocks when the published fresh clone is missing plug-and-play files", async () => {
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: async () => ({
+        ok: false,
+        cloneSucceeded: true,
+        headSha: LOCAL_SHA,
+        checkedPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
+        missingPaths: ["software/docs/OPERATOR_QUICKSTART.md"]
+      })
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("software/docs/OPERATOR_QUICKSTART.md")
+    });
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "repair-published-fresh-clone",
+        commands: expect.arrayContaining(["git push origin HEAD:main"]),
+        clearsCheckIds: expect.arrayContaining(["fresh-clone-smoke"])
+      })
+    ]));
   });
 
   it("writes JSON and Markdown evidence without enabling commands", async () => {
@@ -239,7 +297,8 @@ describe("source-control handoff audit", () => {
         headSha: LOCAL_SHA,
         status: ""
       }),
-      lsRemote: async () => ({ ok: true, output: "" })
+      lsRemote: async () => ({ ok: true, output: "" }),
+      freshClone: freshCloneOk()
     });
 
     expect(result.jsonPath).toContain(`${path.sep}.tmp${path.sep}source-control-handoff${path.sep}`);
@@ -265,7 +324,8 @@ describe("source-control handoff audit", () => {
           `${LOCAL_SHA}\trefs/heads/main`,
           ""
         ].join("\n")
-      })
+      }),
+      freshClone: freshCloneOk(LOCAL_SHA)
     });
 
     expect(validateSourceControlHandoffManifest(manifest)).toMatchObject({
@@ -356,4 +416,14 @@ function gitMock(state: { branch: string; headSha: string; status: string }) {
     if (key === "status --porcelain --untracked-files=normal") return { ok: true, stdout: state.status };
     return { ok: false, stdout: "", error: `unexpected git args: ${key}` };
   };
+}
+
+function freshCloneOk(headSha = LOCAL_SHA) {
+  return async () => ({
+    ok: true,
+    cloneSucceeded: true,
+    headSha,
+    checkedPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
+    missingPaths: []
+  });
 }

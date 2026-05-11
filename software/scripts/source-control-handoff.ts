@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
@@ -58,6 +59,15 @@ interface GitCommandResult {
   error?: string;
 }
 
+interface FreshCloneResult {
+  ok: boolean;
+  cloneSucceeded: boolean;
+  headSha?: string;
+  checkedPaths: string[];
+  missingPaths: string[];
+  error?: string;
+}
+
 interface LocalGitState {
   branch?: string;
   headSha?: string;
@@ -69,7 +79,7 @@ interface LocalGitState {
 
 const DEFAULT_OUT_DIR = ".tmp/source-control-handoff";
 export const EXPECTED_REPOSITORY_URL = "https://github.com/Ayush1298567/SEEKR";
-const REQUIRED_SOURCE_CONTROL_CHECK_IDS = ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"];
+const REQUIRED_SOURCE_CONTROL_CHECK_IDS = ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "fresh-clone-smoke", "local-head-published", "working-tree-clean"];
 const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "git clone https://github.com/Ayush1298567/SEEKR.git",
   "cd SEEKR/software",
@@ -86,11 +96,13 @@ export async function buildSourceControlHandoff(options: {
   root?: string;
   generatedAt?: string;
   lsRemote?: (repositoryUrl: string) => Promise<LsRemoteResult>;
+  freshClone?: (repositoryUrl: string) => Promise<FreshCloneResult>;
   git?: (args: string[], cwd: string) => Promise<GitCommandResult>;
 } = {}): Promise<SourceControlHandoffManifest> {
   const root = path.resolve(options.root ?? process.cwd());
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const lsRemote = options.lsRemote ?? gitLsRemote;
+  const freshClone = options.freshClone ?? gitFreshCloneProbe;
   const git = options.git ?? gitCommand;
   const packageJson = await readJson(path.join(root, "package.json"));
   const localReadme = await readText(path.join(root, "README.md"));
@@ -104,6 +116,7 @@ export async function buildSourceControlHandoff(options: {
   const localGit = gitMetadata ? await inspectLocalGit(root, git) : {};
   const remoteProbe = await lsRemote(EXPECTED_REPOSITORY_URL);
   const remoteState = parseLsRemote(remoteProbe.output);
+  const freshCloneProbe = await freshClone(EXPECTED_REPOSITORY_URL);
   const remoteDefaultBranchSha = remoteState.defaultBranch ? remoteState.refs.get(`refs/heads/${remoteState.defaultBranch}`) : undefined;
   const localHeadPublished = Boolean(localGit.headSha && remoteDefaultBranchSha && localGit.headSha === remoteDefaultBranchSha);
   const workingTreeStatusLineCount = localGit.statusLines?.length;
@@ -146,6 +159,7 @@ export async function buildSourceControlHandoff(options: {
         : `GitHub remote refs could not be inspected: ${remoteProbe.error ?? "unknown git ls-remote failure"}.`,
       evidence: [EXPECTED_REPOSITORY_URL, "git ls-remote --symref"]
     },
+    freshCloneSmokeCheck(freshCloneProbe),
     {
       id: "local-head-published",
       status: !gitMetadata || !remoteProbe.ok
@@ -300,6 +314,50 @@ async function gitCommand(args: string[], cwd: string): Promise<GitCommandResult
   }
 }
 
+async function gitFreshCloneProbe(repositoryUrl: string): Promise<FreshCloneResult> {
+  const requiredPaths = ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"];
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "seekr-fresh-clone-"));
+  const cloneDir = path.join(tempDir, "SEEKR");
+  try {
+    await execFileAsync("git", ["clone", "--depth", "1", repositoryUrl, cloneDir], {
+      encoding: "utf8",
+      timeout: 60000,
+      maxBuffer: 1024 * 1024
+    });
+    const head = await execFileAsync("git", ["rev-parse", "HEAD"], {
+      cwd: cloneDir,
+      encoding: "utf8",
+      timeout: 10000,
+      maxBuffer: 1024 * 1024
+    });
+    const missingPaths: string[] = [];
+    for (const relativePath of requiredPaths) {
+      if (!(await pathExists(path.join(cloneDir, relativePath)))) missingPaths.push(relativePath);
+    }
+    return {
+      ok: missingPaths.length === 0,
+      cloneSucceeded: true,
+      headSha: head.stdout.trim() || undefined,
+      checkedPaths: requiredPaths,
+      missingPaths
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      cloneSucceeded: false,
+      checkedPaths: requiredPaths,
+      missingPaths: requiredPaths,
+      error: [
+        String((error as { stdout?: unknown }).stdout ?? "").trim(),
+        String((error as { stderr?: unknown }).stderr ?? "").trim(),
+        String((error as { message?: unknown }).message ?? "").trim()
+      ].filter(Boolean).join(" ").slice(0, 500)
+    };
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function inspectLocalGit(root: string, git: (args: string[], cwd: string) => Promise<GitCommandResult>): Promise<LocalGitState> {
   const branch = await git(["branch", "--show-current"], root);
   const head = await git(["rev-parse", "HEAD"], root);
@@ -374,6 +432,39 @@ function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
       ? `The GitHub landing README is missing fresh-clone plug-and-play signal(s): ${missing.join(", ")}.`
       : "The GitHub landing README gives a fresh clone path into SEEKR/software, includes source-control audit before startup, and preserves disabled command/hardware authority.",
     evidence: ["../README.md"]
+  };
+}
+
+function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffCheck {
+  if (result.ok) {
+    return {
+      id: "fresh-clone-smoke",
+      status: "pass",
+      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)} and contains the landing README, software package, and operator quickstart.`,
+      evidence: [
+        EXPECTED_REPOSITORY_URL,
+        "git clone --depth 1",
+        ...result.checkedPaths.map((checkedPath) => `fresh-clone:${checkedPath}`)
+      ]
+    };
+  }
+  if (result.cloneSucceeded) {
+    return {
+      id: "fresh-clone-smoke",
+      status: "blocked",
+      details: `A shallow fresh clone succeeded but the published repository is missing required plug-and-play file(s): ${result.missingPaths.join(", ")}.`,
+      evidence: [
+        EXPECTED_REPOSITORY_URL,
+        "git clone --depth 1",
+        ...result.missingPaths.map((missingPath) => `missing:${missingPath}`)
+      ]
+    };
+  }
+  return {
+    id: "fresh-clone-smoke",
+    status: "warn",
+    details: `A shallow fresh clone could not be completed, so clone-readiness could not be proven in this run: ${result.error ?? "unknown clone failure"}.`,
+    evidence: [EXPECTED_REPOSITORY_URL, "git clone --depth 1"]
   };
 }
 
@@ -485,6 +576,9 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if (blockedCheckIds.includes("github-landing-readme") && !nextActions.some((action) => nextActionClearsWithCommand(action, "github-landing-readme", /README\.md|operatorQuickstartContract/i))) {
     problems.push("nextActionChecklist must include a GitHub landing README repair step when the clone path is missing");
   }
+  if (blockedCheckIds.includes("fresh-clone-smoke") && !nextActions.some((action) => nextActionClearsWithCommand(action, "fresh-clone-smoke", /git push|README\.md|package\.json/i))) {
+    problems.push("nextActionChecklist must include a fresh-clone repair/publish step when the published clone is incomplete");
+  }
   if (blockedCheckIds.includes("github-remote-refs") && !nextActions.some((action) => nextActionClearsWithCommand(action, "github-remote-refs", /git push/i))) {
     problems.push("nextActionChecklist must include a manual publish step when GitHub has no refs");
   }
@@ -523,6 +617,7 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
   const githubLandingReadmeMissing = statusFor("github-landing-readme") === "blocked";
   const remoteMissing = statusFor("configured-github-remote") === "blocked" || statusFor("configured-github-remote") === "warn";
   const remoteRefsMissing = statusFor("github-remote-refs") === "blocked";
+  const freshCloneIncomplete = statusFor("fresh-clone-smoke") === "blocked";
   const localHeadUnpublished = statusFor("local-head-published") === "blocked";
   const worktreeDirty = statusFor("working-tree-clean") === "blocked";
   const actions: SourceControlHandoffNextAction[] = [];
@@ -538,6 +633,21 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
         "npm run audit:source-control"
       ],
       clearsCheckIds: ["github-landing-readme"]
+    });
+  }
+
+  if (freshCloneIncomplete) {
+    actions.push({
+      id: "repair-published-fresh-clone",
+      status: "required",
+      details: "Repair the published repository contents so a fresh clone contains the landing README, software package, and operator quickstart.",
+      commands: [
+        "git status --short --branch",
+        "git diff -- README.md software/package.json software/docs/OPERATOR_QUICKSTART.md",
+        "git push origin HEAD:main",
+        "npm run audit:source-control"
+      ],
+      clearsCheckIds: ["fresh-clone-smoke"]
     });
   }
 

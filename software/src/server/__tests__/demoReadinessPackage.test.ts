@@ -445,6 +445,7 @@ async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-
       { id: "local-git-metadata", status: "pass", details: "Git metadata present.", evidence: ["../.git"] },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote configured.", evidence: ["origin"] },
       { id: "github-remote-refs", status: "pass", details: "GitHub refs available.", evidence: ["refs/heads/main"] },
+      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains the landing README, software package, and operator quickstart.", evidence: ["git clone --depth 1"] },
       { id: "local-head-published", status: "pass", details: "Local HEAD is published.", evidence: ["origin/main"] },
       { id: "working-tree-clean", status: "pass", details: "Working tree is clean.", evidence: ["git status --short"] }
     ],
@@ -454,7 +455,7 @@ async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-
         status: "verification",
         details: "Rerun source-control audit after future commits.",
         commands: ["npm run audit:source-control"],
-        clearsCheckIds: ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"]
+        clearsCheckIds: ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "fresh-clone-smoke", "local-head-published", "working-tree-clean"]
       }
     ],
     limitations: [
