@@ -385,6 +385,30 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when the operator doctor source contract omits healthy occupied-port recognition", async () => {
+    const scriptPath = path.join(root, "scripts/plug-and-play-doctor.ts");
+    const testPath = path.join(root, "src/server/__tests__/plugAndPlayDoctor.test.ts");
+    await writeFile(scriptPath, (await readFile(scriptPath, "utf8"))
+      .replace("function probeOccupiedSeekrPort() { return true; }\n", "")
+      .replace("const healthy = 'healthy SEEKR local instance';\n", ""), "utf8");
+    await writeFile(testPath, (await readFile(testPath, "utf8"))
+      .replace("it('passes when occupied local ports already serve a healthy SEEKR instance', () => {});\n", "")
+      .replace("const details = 'healthy SEEKR local instance';\n", ""), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("probeOccupiedSeekrPort")
+    });
+    expect(manifest.checks.find((check) => check.id === "operator-doctor")?.details).toContain("healthy SEEKR local instance");
+  });
+
   it("warns when source-control handoff evidence is not ready", async () => {
     await writeFile(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), JSON.stringify({
       schemaVersion: 1,
@@ -1151,6 +1175,8 @@ async function seedDoctorFiles(root: string) {
     "export async function buildPlugAndPlayDoctor() { return {}; }",
     "export async function writePlugAndPlayDoctor() { return {}; }",
     "const checks = ['runtime-dependencies', 'repository-safety', 'source-control-handoff', 'packageManager', 'engines.node', '.npmrc', 'node_modules/.bin/concurrently', 'node_modules/.bin/vite', 'local-ai', 'local-ports', 'SEEKR_DOCTOR_PROFILE'];",
+    "function probeOccupiedSeekrPort() { return true; }",
+    "const healthy = 'healthy SEEKR local instance';",
     "const disabled = process.env.SEEKR_COMMAND_UPLOAD_ENABLED;",
     ""
   ].join("\n"), "utf8");
@@ -1159,6 +1185,8 @@ async function seedDoctorFiles(root: string) {
     "it('fails when the repository safety policy is missing', () => {});",
     "it('fails when configured Ollama model is unavailable', () => {});",
     "it('warns when local start ports are already occupied', () => {});",
+    "it('passes when occupied local ports already serve a healthy SEEKR instance', () => {});",
+    "const details = 'healthy SEEKR local instance';",
     "it('fails when unsafe local environment flags are true', () => {});",
     "it('fails when the rehearsal start wrapper skips the doctor preflight', () => {});",
     ""

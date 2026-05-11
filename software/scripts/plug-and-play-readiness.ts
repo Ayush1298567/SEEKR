@@ -254,13 +254,24 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     "node_modules/.bin/vite",
     "local-ai",
     "local-ports",
+    "probeOccupiedSeekrPort",
+    "healthy SEEKR local instance",
     "SEEKR_DOCTOR_PROFILE",
     "SEEKR_COMMAND_UPLOAD_ENABLED"
   ]) {
     if (script && !script.includes(signal)) problems.push(`scripts/plug-and-play-doctor.ts missing ${signal}`);
   }
   if (!test) problems.push("src/server/__tests__/plugAndPlayDoctor.test.ts is missing");
-  for (const signal of ["local runtime dependencies have not been installed", "repository safety policy", "configured Ollama model is unavailable", "local start ports are already occupied", "unsafe local environment flags", "rehearsal start wrapper skips the doctor preflight"]) {
+  for (const signal of [
+    "local runtime dependencies have not been installed",
+    "repository safety policy",
+    "configured Ollama model is unavailable",
+    "local start ports are already occupied",
+    "occupied local ports already serve a healthy SEEKR instance",
+    "healthy SEEKR local instance",
+    "unsafe local environment flags",
+    "rehearsal start wrapper skips the doctor preflight"
+  ]) {
     if (test && !test.includes(signal)) problems.push(`plugAndPlayDoctor.test.ts missing ${signal}`);
   }
   if (!isRecord(manifest)) problems.push("latest operator-start plug-and-play doctor artifact is missing or malformed");
