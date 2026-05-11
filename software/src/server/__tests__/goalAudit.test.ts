@@ -529,6 +529,49 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when the latest local AI prepare artifact does not prove safe model preparation", async () => {
+    const preparePath = path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json");
+    const prepare = JSON.parse(await readFile(preparePath, "utf8"));
+    prepare.commandUploadEnabled = true;
+    await writeFile(preparePath, JSON.stringify(prepare), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false")
+    });
+  });
+
+  it("fails local alpha when the latest local AI prepare model does not match acceptance", async () => {
+    const preparePath = path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json");
+    const prepare = JSON.parse(await readFile(preparePath, "utf8"));
+    prepare.model = "mistral:latest";
+    prepare.pullModel = "mistral";
+    prepare.prepareCommand = ["ollama", "pull", "mistral"];
+    prepare.checks = prepare.checks.map((check: Record<string, unknown>) =>
+      check.id === "ollama-model-prep"
+        ? { ...check, evidence: ["package.json scripts.ai:prepare", "ollama pull mistral"] }
+        : check
+    );
+    await writeFile(preparePath, JSON.stringify(prepare), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest local AI prepare artifact must match the latest acceptance strict local AI model")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness omits the operator quickstart reference", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
