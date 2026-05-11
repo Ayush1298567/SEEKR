@@ -470,6 +470,24 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when review-bundle verification omits strict local AI smoke status", async () => {
+    const bundleVerificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
+    const verification = JSON.parse(await readFile(bundleVerificationPath, "utf8"));
+    delete verification.strictAiSmokeStatusPath;
+    await writeFile(bundleVerificationPath, JSON.stringify(verification), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "demo-handoff-chain")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("strict local AI smoke status")
+    });
+  });
+
   it("fails local alpha when the review bundle does not include the latest gstack workflow status", async () => {
     await writeFile(path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-zz-newer.json"), JSON.stringify({
       schemaVersion: 1,
@@ -983,6 +1001,7 @@ async function seedRoot(root: string) {
   const plugAndPlaySetupPath = ".tmp/plug-and-play-setup/seekr-local-setup-test.json";
   const plugAndPlayDoctorPath = ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json";
   const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json";
+  const strictAiSmokePath = ".tmp/ai-smoke-status.json";
   const releaseChecksum = "a".repeat(64);
   const releaseFileCount = 42;
   const releaseTotalBytes = 123456;
@@ -1222,7 +1241,8 @@ async function seedRoot(root: string) {
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath,
     rehearsalStartSmokeStatus: "pass",
-    copiedFileCount: 11,
+    strictAiSmokeStatusPath: strictAiSmokePath,
+    copiedFileCount: 12,
     safetyBoundary: {
       realAircraftCommandUpload: false,
       hardwareActuationEnabled: false,
@@ -1252,7 +1272,8 @@ async function seedRoot(root: string) {
     plugAndPlaySetupPath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
-    checkedFileCount: 11,
+    strictAiSmokeStatusPath: strictAiSmokePath,
+    checkedFileCount: 12,
     safetyBoundary: {
       realAircraftCommandUpload: false,
       hardwareActuationEnabled: false,
@@ -1260,8 +1281,8 @@ async function seedRoot(root: string) {
     },
     secretScan: {
       status: "pass",
-      expectedFileCount: 11,
-      scannedFileCount: 11,
+      expectedFileCount: 12,
+      scannedFileCount: 12,
       findingCount: 0,
       findings: []
     },
@@ -1831,7 +1852,8 @@ async function seedCompletedHandoffArtifacts(root: string) {
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
     rehearsalStartSmokeStatus: "pass",
-    copiedFileCount: 11,
+    strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
+    copiedFileCount: 12,
     safetyBoundary: {
       realAircraftCommandUpload: false,
       hardwareActuationEnabled: false,

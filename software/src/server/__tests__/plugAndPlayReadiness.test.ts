@@ -1071,6 +1071,24 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when review bundle verification omits the strict local AI smoke status", async () => {
+    const verificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
+    const verification = JSON.parse(await readFile(verificationPath, "utf8"));
+    delete verification.strictAiSmokeStatusPath;
+    await writeFile(verificationPath, JSON.stringify(verification), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("strict local AI smoke status")
+    });
+  });
+
   it("writes JSON and Markdown readiness artifacts", async () => {
     const result = await writePlugAndPlayReadiness({
       root,
@@ -1351,6 +1369,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+    strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
     operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md",
     checkedFileCount: 6,
     secretScan: {

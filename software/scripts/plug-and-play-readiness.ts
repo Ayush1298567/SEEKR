@@ -59,6 +59,7 @@ export interface PlugAndPlayReadinessManifest {
 }
 
 const DEFAULT_OUT_DIR = ".tmp/plug-and-play-readiness";
+const STRICT_AI_SMOKE_STATUS_PATH = ".tmp/ai-smoke-status.json";
 
 const REQUIRED_COMMANDS = [
   "setup:local",
@@ -759,6 +760,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const plugAndPlaySetupPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlaySetupPath) : undefined;
   const plugAndPlayDoctorPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlayDoctorPath) : undefined;
   const rehearsalStartSmokePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.rehearsalStartSmokePath) : undefined;
+  const strictAiSmokeStatusPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.strictAiSmokeStatusPath) : undefined;
   const operatorQuickstartPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.operatorQuickstartPath) : undefined;
   const latestQaReportPath = isRecord(qaReport) ? normalizeArtifactPath(root, qaReport.path) : undefined;
   const problems: string[] = [];
@@ -772,6 +774,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!setup || plugAndPlaySetupPath !== setup.relativePath) problems.push("review bundle verification must point at the latest plug-and-play setup");
   if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest operator-start plug-and-play doctor");
   if (!rehearsalStartSmoke || rehearsalStartSmokePath !== rehearsalStartSmoke.relativePath) problems.push("review bundle verification must point at the latest rehearsal-start smoke");
+  if (strictAiSmokeStatusPath !== STRICT_AI_SMOKE_STATUS_PATH) problems.push("review bundle verification must include the strict local AI smoke status");
   if (operatorQuickstartPath !== OPERATOR_QUICKSTART_PATH) problems.push("review bundle verification must include the operator quickstart");
   if (!latestQaReportPath || gstackQaReportPath !== latestQaReportPath) problems.push("review bundle verification must point at the latest gstack QA report");
   if (!Number.isFinite(checkedFileCount) || checkedFileCount <= 0) problems.push("review bundle verification must check copied files");
@@ -782,11 +785,11 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
 
   return {
     id: "review-bundle",
-    requirement: "A copied local review bundle has passed digest, semantic, QA, TODO, source-control, setup, doctor, operator quickstart, and secret-scan verification.",
+    requirement: "A copied local review bundle has passed digest, strict-AI smoke, semantic, QA, TODO, source-control, setup, doctor, operator quickstart, and secret-scan verification.",
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : `Latest review bundle verification passed with ${checkedFileCount} copied files checked/scanned, current gstack/QA/TODO/source-control/setup/doctor/operator-quickstart evidence, and zero secret findings.`,
+      : `Latest review bundle verification passed with ${checkedFileCount} copied files checked/scanned, current strict-AI/gstack/QA/TODO/source-control/setup/doctor/operator-quickstart evidence, and zero secret findings.`,
     evidence: [
       verification?.relativePath ?? ".tmp/handoff-bundles",
       bundle?.relativePath,
@@ -797,6 +800,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
       setup?.relativePath,
       doctor?.relativePath,
       rehearsalStartSmoke?.relativePath,
+      STRICT_AI_SMOKE_STATUS_PATH,
       OPERATOR_QUICKSTART_PATH
     ].filter(isString)
   };

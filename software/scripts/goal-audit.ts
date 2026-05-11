@@ -42,6 +42,7 @@ export interface GoalAuditManifest {
 }
 
 const DEFAULT_OUT_DIR = ".tmp/goal-audit";
+const STRICT_AI_SMOKE_STATUS_PATH = ".tmp/ai-smoke-status.json";
 
 const OBJECTIVE =
   "Finish SEEKR as a plug-and-play serious internal alpha: local-first GCS, implemented local AI, simulator/SITL, replay/evidence, and read-only drone integration platform without real aircraft command upload or hardware actuation.";
@@ -595,6 +596,10 @@ async function demoAndHandoffItem(root: string, expectedComplete: boolean): Prom
   if (bundle && rehearsalStartSmoke && bundleRehearsalStartSmoke !== rehearsalStartSmoke.relativePath) {
     problems.push("handoff bundle must include the latest rehearsal-start smoke artifact");
   }
+  const bundleStrictAiSmoke = isRecord(bundleManifest) ? normalizeArtifactPath(root, bundleManifest.strictAiSmokeStatusPath) : undefined;
+  if (bundle && bundleStrictAiSmoke !== STRICT_AI_SMOKE_STATUS_PATH) {
+    problems.push("handoff bundle must include the strict local AI smoke status artifact");
+  }
   const verifiedBundle = isRecord(bundleVerifyManifest) ? normalizeArtifactPath(root, bundleVerifyManifest.sourceBundlePath) : undefined;
   if (bundleVerify && bundle && verifiedBundle !== bundle.relativePath) {
     problems.push("handoff bundle verification must point at the latest handoff bundle");
@@ -623,15 +628,19 @@ async function demoAndHandoffItem(root: string, expectedComplete: boolean): Prom
   if (bundleVerify && rehearsalStartSmoke && verifiedRehearsalStartSmoke !== rehearsalStartSmoke.relativePath) {
     problems.push("handoff bundle verification must point at the bundled latest rehearsal-start smoke artifact");
   }
+  const verifiedStrictAiSmoke = isRecord(bundleVerifyManifest) ? normalizeArtifactPath(root, bundleVerifyManifest.strictAiSmokeStatusPath) : undefined;
+  if (bundleVerify && verifiedStrictAiSmoke !== STRICT_AI_SMOKE_STATUS_PATH) {
+    problems.push("handoff bundle verification must point at the bundled strict local AI smoke status artifact");
+  }
 
   return {
     id: "demo-handoff-chain",
-    requirement: "Demo, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, rehearsal-start smoke, review bundle, and bundle verification form a current handoff chain.",
+    requirement: "Demo, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, rehearsal-start smoke, strict local AI smoke status, review bundle, and bundle verification form a current handoff chain.",
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "Demo readiness, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, rehearsal-start smoke, review bundle, and bundle verification are current and local-alpha ready with zero bundle secret findings.",
-    evidence: [demo?.relativePath, bench?.relativePath, handoff?.relativePath, verify?.relativePath, gstackWorkflow?.relativePath, todoAudit?.relativePath, sourceControl?.relativePath, rehearsalStartSmoke?.relativePath, bundle?.relativePath, bundleVerify?.relativePath].filter(isString)
+      : "Demo readiness, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, rehearsal-start smoke, strict local AI smoke status, review bundle, and bundle verification are current and local-alpha ready with zero bundle secret findings.",
+    evidence: [demo?.relativePath, bench?.relativePath, handoff?.relativePath, verify?.relativePath, gstackWorkflow?.relativePath, todoAudit?.relativePath, sourceControl?.relativePath, rehearsalStartSmoke?.relativePath, STRICT_AI_SMOKE_STATUS_PATH, bundle?.relativePath, bundleVerify?.relativePath].filter(isString)
   };
 }
 
