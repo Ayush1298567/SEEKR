@@ -722,6 +722,11 @@ async function workflowQaCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!isRecord(manifest)) problems.push("gstack workflow status is missing");
   if (isRecord(manifest) && !["pass", "pass-with-limitations"].includes(String(manifest.status))) problems.push("gstack workflow status must pass or pass-with-limitations");
   if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("gstack workflow status must keep commandUploadEnabled false");
+  if (isRecord(manifest) && manifest.gstackAvailable !== true) problems.push("gstack workflow status must record installed gstack skill/tool availability");
+  if (isRecord(manifest) && typeof manifest.gstackCliAvailable !== "boolean") problems.push("gstack workflow status must record gstack CLI availability");
+  if (isRecord(manifest) && !gstackHelperToolEvidenceOk(manifest)) {
+    problems.push("gstack workflow status must preserve helper-tool evidence when the umbrella CLI is unavailable");
+  }
   if (isRecord(manifest) && !artifactIdsAreExact(workflows, REQUIRED_GSTACK_WORKFLOW_IDS)) {
     problems.push(`gstack workflow rows must exactly match ${REQUIRED_GSTACK_WORKFLOW_IDS.join(", ")} in order`);
   }
@@ -965,6 +970,29 @@ function timeMs(value: unknown) {
 
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function gstackHelperToolEvidenceOk(manifest: Record<string, unknown>) {
+  if (manifest.gstackCliAvailable === true) return true;
+  const toolRoot = stringOrUndefined(manifest.gstackToolRoot);
+  const toolCount = Number(manifest.gstackToolCount);
+  const toolNames = Array.isArray(manifest.gstackToolNames)
+    ? manifest.gstackToolNames.filter((item): item is string => typeof item === "string" && item.startsWith("gstack-"))
+    : [];
+  const evidence = Array.isArray(manifest.evidence)
+    ? manifest.evidence.filter((item): item is string => typeof item === "string")
+    : [];
+  const limitations = Array.isArray(manifest.limitations)
+    ? manifest.limitations.filter((item): item is string => typeof item === "string")
+    : [];
+  const evidenceText = evidence.concat(limitations).join(" ");
+  return typeof toolRoot === "string" &&
+    /gstack/i.test(toolRoot) &&
+    Number.isInteger(toolCount) &&
+    toolCount > 0 &&
+    toolNames.length === toolCount &&
+    /helper tool/i.test(evidenceText) &&
+    evidenceText.includes(String(toolCount));
 }
 
 function stringArray(value: unknown) {

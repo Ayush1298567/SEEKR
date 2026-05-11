@@ -6,6 +6,12 @@ import { buildPlugAndPlayReadiness, writePlugAndPlayReadiness } from "../../../s
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
+const GSTACK_TOOL_ROOT = "~/.gstack/repos/gstack/bin";
+const GSTACK_TOOL_COUNT = 2;
+const GSTACK_TOOL_NAMES = ["gstack-brain-sync", "gstack-slug"];
+const GSTACK_HELPER_TOOL_EVIDENCE = `${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} gstack helper tools)`;
+const GSTACK_CLI_UNAVAILABLE_LIMITATION = `gstack CLI is not available on PATH; local gstack helper tools are installed under ${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} executable helper(s)), so workflow status is recorded from installed skill/tool files and local package-script evidence instead of claiming umbrella CLI execution.`;
+
 describe("plug-and-play readiness audit", () => {
   let root: string;
 
@@ -909,6 +915,24 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when current gstack workflow drops unavailable CLI helper-tool evidence", async () => {
+    const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
+    const workflow = JSON.parse(await readFile(workflowPath, "utf8"));
+    delete workflow.gstackToolNames;
+    await writeFile(workflowPath, JSON.stringify(workflow), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "workflow-qa")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("helper-tool evidence")
+    });
+  });
+
   it("fails when current gstack perspective rows include an extra row", async () => {
     const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
     const workflow = JSON.parse(await readFile(workflowPath, "utf8"));
@@ -1363,6 +1387,11 @@ async function seedPlugAndPlayEvidence(root: string) {
   await writeFile(path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json"), JSON.stringify({
     status: "pass-with-limitations",
     commandUploadEnabled: false,
+    gstackAvailable: true,
+    gstackCliAvailable: false,
+    gstackToolRoot: GSTACK_TOOL_ROOT,
+    gstackToolCount: GSTACK_TOOL_COUNT,
+    gstackToolNames: GSTACK_TOOL_NAMES,
     workflows: [
       { id: "health", status: "pass" },
       { id: "review", status: "blocked-by-workspace" },
@@ -1384,7 +1413,12 @@ async function seedPlugAndPlayEvidence(root: string) {
         ".gstack/qa-reports/screenshots/seekr-qa-test-home.png",
         ".gstack/qa-reports/screenshots/seekr-qa-test-mobile.png"
       ]
-    }
+    },
+    evidence: ["docs/goal.md", GSTACK_HELPER_TOOL_EVIDENCE, ".gstack/qa-reports/seekr-qa-test.md"],
+    limitations: [
+      GSTACK_CLI_UNAVAILABLE_LIMITATION,
+      "No .git metadata is present in this workspace."
+    ]
   }), "utf8");
   await writeFile(path.join(root, ".gstack/qa-reports/seekr-qa-test.md"), "# QA\n\nPass for local internal-alpha browser/API QA.\n", "utf8");
   await writeFile(path.join(root, ".gstack/qa-reports/screenshots/seekr-qa-test-home.png"), "home", "utf8");
