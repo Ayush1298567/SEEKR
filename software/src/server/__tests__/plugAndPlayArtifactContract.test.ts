@@ -32,6 +32,22 @@ describe("plug-and-play artifact contract", () => {
     expect(plugAndPlaySetupOk(manifest)).toBe(false);
   });
 
+  it("rejects setup artifacts with extra or reordered checks", () => {
+    expect(plugAndPlaySetupOk(setupManifest({
+      checks: [
+        ...setupManifest().checks,
+        { id: "unreviewed-extra-setup-check", status: "pass", details: "Unexpected setup row." }
+      ]
+    }))).toBe(false);
+    expect(plugAndPlaySetupOk(setupManifest({
+      checks: [
+        setupManifest().checks[1],
+        setupManifest().checks[0],
+        ...setupManifest().checks.slice(2)
+      ]
+    }))).toBe(false);
+  });
+
   it("accepts a doctor artifact with only soft warnings and current acceptance evidence", () => {
     const manifest = doctorManifest({
       summary: { pass: 7, warn: 3, fail: 0 },
@@ -77,6 +93,22 @@ describe("plug-and-play artifact contract", () => {
 
     expect(doctorCheckStatusOk(checks, "local-ai")).toBe(false);
     expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
+  });
+
+  it("rejects doctor artifacts with extra or reordered checks", () => {
+    expect(plugAndPlayDoctorOk(doctorManifest({
+      checks: [
+        ...doctorChecks(),
+        { id: "unreviewed-extra-doctor-check", status: "pass", details: "Unexpected doctor row." }
+      ]
+    }))).toBe(false);
+    expect(plugAndPlayDoctorOk(doctorManifest({
+      checks: [
+        doctorChecks()[1],
+        doctorChecks()[0],
+        ...doctorChecks().slice(2)
+      ]
+    }))).toBe(false);
   });
 });
 

@@ -38,13 +38,12 @@ export const REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE = [
 export function plugAndPlaySetupOk(manifest: unknown) {
   if (!isRecord(manifest)) return false;
   const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
-  const checkIds = new Set(checks.map((check) => String(check.id ?? "")));
   return manifest.ok === true &&
     manifest.status === "ready-local-setup" &&
     manifest.commandUploadEnabled === false &&
     typeof manifest.envFilePath === "string" &&
     typeof manifest.dataDirPath === "string" &&
-    REQUIRED_PLUG_AND_PLAY_SETUP_CHECK_IDS.every((id) => checkIds.has(id)) &&
+    checkIdsAreExact(checks, REQUIRED_PLUG_AND_PLAY_SETUP_CHECK_IDS) &&
     checks.every((check) => check.status === "pass");
 }
 
@@ -53,7 +52,6 @@ export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unkn
   const ai = isRecord(manifest.ai) ? manifest.ai : {};
   const summary = isRecord(manifest.summary) ? manifest.summary : {};
   const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
-  const checkIds = new Set(checks.map((check) => String(check.id ?? "")));
   const doctorGeneratedAt = timeMs(manifest.generatedAt);
   const acceptanceGeneratedAt = isRecord(acceptanceManifest) ? timeMs(acceptanceManifest.generatedAt) : undefined;
   return manifest.ok === true &&
@@ -63,7 +61,7 @@ export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unkn
     ai.provider === "ollama" &&
     ai.status === "pass" &&
     Number(summary.fail) === 0 &&
-    REQUIRED_DOCTOR_CHECK_IDS.every((id) => checkIds.has(id)) &&
+    checkIdsAreExact(checks, REQUIRED_DOCTOR_CHECK_IDS) &&
     REQUIRED_DOCTOR_CHECK_IDS.every((id) => doctorCheckStatusOk(checks, id)) &&
     doctorRuntimeDependencyEvidenceOk(checks) &&
     doctorSourceControlEvidenceOk(checks, expectedSourceControlPath) &&
@@ -100,6 +98,11 @@ function timeMs(value: unknown) {
   if (typeof value !== "string" || !value.trim()) return undefined;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function checkIdsAreExact(checks: Record<string, unknown>[], requiredIds: readonly string[]) {
+  return checks.length === requiredIds.length &&
+    checks.every((check, index) => check.id === requiredIds[index]);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
