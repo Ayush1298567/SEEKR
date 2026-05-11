@@ -42,6 +42,8 @@ export interface HandoffBundleVerificationManifest {
   sourceControlHandoffLocalBranch?: string;
   sourceControlHandoffRemoteDefaultBranch?: string;
   sourceControlHandoffRemoteRefCount?: number;
+  sourceControlHandoffBlockedCheckCount?: number;
+  sourceControlHandoffWarningCheckCount?: number;
   sourceControlHandoffLocalHeadSha?: string;
   sourceControlHandoffRemoteDefaultBranchSha?: string;
   sourceControlHandoffWorkingTreeClean?: boolean;
@@ -296,6 +298,8 @@ export async function buildHandoffBundleVerification(options: {
   const manifestSourceControlLocalBranch = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffLocalBranch) : undefined;
   const manifestSourceControlRemoteDefaultBranch = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranch) : undefined;
   const manifestSourceControlRemoteRefCount = isRecord(manifest) ? numberOrUndefined(manifest.sourceControlHandoffRemoteRefCount) : undefined;
+  const manifestSourceControlBlockedCheckCount = isRecord(manifest) ? numberOrUndefined(manifest.sourceControlHandoffBlockedCheckCount) : undefined;
+  const manifestSourceControlWarningCheckCount = isRecord(manifest) ? numberOrUndefined(manifest.sourceControlHandoffWarningCheckCount) : undefined;
   const manifestSourceControlLocalHeadSha = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha) : undefined;
   const manifestSourceControlRemoteDefaultBranchSha = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha) : undefined;
   const manifestSourceControlWorkingTreeClean = isRecord(manifest) ? booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean) : undefined;
@@ -306,6 +310,8 @@ export async function buildHandoffBundleVerification(options: {
   let sourceControlHandoffLocalBranch = manifestSourceControlLocalBranch;
   let sourceControlHandoffRemoteDefaultBranch = manifestSourceControlRemoteDefaultBranch;
   let sourceControlHandoffRemoteRefCount = manifestSourceControlRemoteRefCount;
+  let sourceControlHandoffBlockedCheckCount = manifestSourceControlBlockedCheckCount;
+  let sourceControlHandoffWarningCheckCount = manifestSourceControlWarningCheckCount;
   let sourceControlHandoffLocalHeadSha = manifestSourceControlLocalHeadSha;
   let sourceControlHandoffRemoteDefaultBranchSha = manifestSourceControlRemoteDefaultBranchSha;
   let sourceControlHandoffWorkingTreeClean = manifestSourceControlWorkingTreeClean;
@@ -323,6 +329,8 @@ export async function buildHandoffBundleVerification(options: {
     const copiedLocalBranch = isRecord(sourceControl) ? stringOrUndefined(sourceControl.localBranch) : undefined;
     const copiedRemoteDefaultBranch = isRecord(sourceControl) ? stringOrUndefined(sourceControl.remoteDefaultBranch) : undefined;
     const copiedRemoteRefCount = isRecord(sourceControl) ? numberOrUndefined(sourceControl.remoteRefCount) : undefined;
+    const copiedBlockedCheckCount = isRecord(sourceControl) ? numberOrUndefined(sourceControl.blockedCheckCount) : undefined;
+    const copiedWarningCheckCount = isRecord(sourceControl) ? numberOrUndefined(sourceControl.warningCheckCount) : undefined;
     const copiedLocalHeadSha = isRecord(sourceControl) ? stringOrUndefined(sourceControl.localHeadSha) : undefined;
     const copiedRemoteDefaultBranchSha = isRecord(sourceControl) ? stringOrUndefined(sourceControl.remoteDefaultBranchSha) : undefined;
     const copiedWorkingTreeClean = isRecord(sourceControl) ? booleanOrUndefined(sourceControl.workingTreeClean) : undefined;
@@ -333,16 +341,24 @@ export async function buildHandoffBundleVerification(options: {
     sourceControlHandoffLocalBranch = copiedLocalBranch ?? sourceControlHandoffLocalBranch;
     sourceControlHandoffRemoteDefaultBranch = copiedRemoteDefaultBranch ?? sourceControlHandoffRemoteDefaultBranch;
     sourceControlHandoffRemoteRefCount = copiedRemoteRefCount ?? sourceControlHandoffRemoteRefCount;
+    sourceControlHandoffBlockedCheckCount = copiedBlockedCheckCount ?? sourceControlHandoffBlockedCheckCount;
+    sourceControlHandoffWarningCheckCount = copiedWarningCheckCount ?? sourceControlHandoffWarningCheckCount;
     sourceControlHandoffLocalHeadSha = copiedLocalHeadSha ?? sourceControlHandoffLocalHeadSha;
     sourceControlHandoffRemoteDefaultBranchSha = copiedRemoteDefaultBranchSha ?? sourceControlHandoffRemoteDefaultBranchSha;
     sourceControlHandoffWorkingTreeClean = copiedWorkingTreeClean ?? sourceControlHandoffWorkingTreeClean;
     sourceControlHandoffWorkingTreeStatusLineCount = copiedWorkingTreeStatusLineCount ?? sourceControlHandoffWorkingTreeStatusLineCount;
-    if (!sourceControlHandoffOk(sourceControl)) {
+    const sourceControlValidation = validateSourceControlHandoffManifest(sourceControl);
+    if (!sourceControlValidation.ok) {
       blockers.push("Copied source-control handoff must be read-only, name the SEEKR GitHub repository, include local Git, remote-ref, published-HEAD, and clean-worktree checks, and keep commandUploadEnabled false.");
     } else if (!sourceControlHandoffFreshForAcceptance(sourceControl, copiedAcceptance)) {
       blockers.push("Copied ready source-control handoff must be newer than or equal to the copied acceptance record.");
-    } else if (isRecord(sourceControl) && sourceControl.ready !== true) {
-      warnings.push("Copied source-control handoff remains not ready for publication; local Git/GitHub limitation is preserved for review.");
+    } else {
+      if (isRecord(sourceControl) && sourceControl.ready !== true) {
+        warnings.push("Copied source-control handoff remains not ready for publication; local Git/GitHub limitation is preserved for review.");
+      }
+      if (sourceControlValidation.warningCheckIds.length) {
+        warnings.push(`Copied source-control handoff has warning check(s): ${sourceControlValidation.warningCheckIds.join(", ")}.`);
+      }
     }
     if (isRecord(sourceControl) && sourceControl.ready === true) {
       if (manifestSourceControlRepositoryUrl !== copiedRepositoryUrl) {
@@ -362,6 +378,12 @@ export async function buildHandoffBundleVerification(options: {
       }
       if (manifestSourceControlRemoteRefCount !== copiedRemoteRefCount) {
         blockers.push("Handoff bundle source-control remote ref count must match the copied source-control handoff artifact.");
+      }
+      if (manifestSourceControlBlockedCheckCount !== copiedBlockedCheckCount) {
+        blockers.push("Handoff bundle source-control blocked-check count must match the copied source-control handoff artifact.");
+      }
+      if (manifestSourceControlWarningCheckCount !== copiedWarningCheckCount) {
+        blockers.push("Handoff bundle source-control warning-check count must match the copied source-control handoff artifact.");
       }
       if (manifestSourceControlLocalHeadSha !== copiedLocalHeadSha) {
         blockers.push("Handoff bundle source-control local HEAD must match the copied source-control handoff artifact.");
@@ -459,6 +481,8 @@ export async function buildHandoffBundleVerification(options: {
     sourceControlHandoffLocalBranch,
     sourceControlHandoffRemoteDefaultBranch,
     sourceControlHandoffRemoteRefCount,
+    sourceControlHandoffBlockedCheckCount,
+    sourceControlHandoffWarningCheckCount,
     sourceControlHandoffLocalHeadSha,
     sourceControlHandoffRemoteDefaultBranchSha,
     sourceControlHandoffWorkingTreeClean,
@@ -712,6 +736,8 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     manifest.sourceControlHandoffLocalBranch ? `Source-control local branch: ${manifest.sourceControlHandoffLocalBranch}` : undefined,
     manifest.sourceControlHandoffRemoteDefaultBranch ? `Source-control remote default branch: ${manifest.sourceControlHandoffRemoteDefaultBranch}` : undefined,
     typeof manifest.sourceControlHandoffRemoteRefCount === "number" ? `Source-control remote ref count: ${manifest.sourceControlHandoffRemoteRefCount}` : undefined,
+    typeof manifest.sourceControlHandoffBlockedCheckCount === "number" ? `Source-control blocked checks: ${manifest.sourceControlHandoffBlockedCheckCount}` : undefined,
+    typeof manifest.sourceControlHandoffWarningCheckCount === "number" ? `Source-control warning checks: ${manifest.sourceControlHandoffWarningCheckCount}` : undefined,
     manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.sourceControlHandoffRemoteDefaultBranchSha ? `Source-control remote default SHA: ${manifest.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
     typeof manifest.sourceControlHandoffWorkingTreeClean === "boolean" ? `Source-control working tree clean: ${manifest.sourceControlHandoffWorkingTreeClean}` : undefined,
@@ -1130,10 +1156,6 @@ function todoAuditTodoMatchOk(match: unknown) {
     match.text.length > 0;
 }
 
-function sourceControlHandoffOk(manifest: unknown) {
-  return validateSourceControlHandoffManifest(manifest).ok;
-}
-
 function sourceControlHandoffFreshForAcceptance(manifest: unknown, acceptance: unknown) {
   if (!isRecord(manifest) || manifest.ready !== true) return true;
   if (!isRecord(acceptance)) return false;
@@ -1241,6 +1263,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffLocalBranch: result.manifest.sourceControlHandoffLocalBranch,
     sourceControlHandoffRemoteDefaultBranch: result.manifest.sourceControlHandoffRemoteDefaultBranch,
     sourceControlHandoffRemoteRefCount: result.manifest.sourceControlHandoffRemoteRefCount,
+    sourceControlHandoffBlockedCheckCount: result.manifest.sourceControlHandoffBlockedCheckCount,
+    sourceControlHandoffWarningCheckCount: result.manifest.sourceControlHandoffWarningCheckCount,
     sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,
     sourceControlHandoffRemoteDefaultBranchSha: result.manifest.sourceControlHandoffRemoteDefaultBranchSha,
     sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,

@@ -695,6 +695,8 @@ describe("handoff bundle", () => {
       sourceControlHandoffLocalBranch: "main",
       sourceControlHandoffRemoteDefaultBranch: "main",
       sourceControlHandoffRemoteRefCount: 1,
+      sourceControlHandoffBlockedCheckCount: 0,
+      sourceControlHandoffWarningCheckCount: 0,
       sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffWorkingTreeClean: true,
@@ -717,12 +719,77 @@ describe("handoff bundle", () => {
       sourceControlHandoffLocalBranch: "main",
       sourceControlHandoffRemoteDefaultBranch: "main",
       sourceControlHandoffRemoteRefCount: 1,
+      sourceControlHandoffBlockedCheckCount: 0,
+      sourceControlHandoffWarningCheckCount: 0,
       sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffWorkingTreeClean: true,
       sourceControlHandoffWorkingTreeStatusLineCount: 0
     });
     await expect(readFile(verification.markdownPath, "utf8")).resolves.toContain("Source-control working tree status lines: 0");
+  });
+
+  it("preserves warning-only source-control handoff summaries in bundle and verification manifests", async () => {
+    const sourceControl = JSON.parse(await readFile(path.join(root, sourceControlPath), "utf8"));
+    markSourceControlReadyWithRemoteWarnings(sourceControl);
+    sourceControl.generatedAt = "2026-05-09T20:58:30.000Z";
+    await writeFile(path.join(root, sourceControlPath), JSON.stringify(sourceControl), "utf8");
+    const doctor = JSON.parse(await readFile(path.join(root, doctorPath), "utf8"));
+    doctor.summary.pass = 9;
+    doctor.summary.warn = 1;
+    const sourceControlCheck = doctor.checks.find((check: { id: string }) => check.id === "source-control-handoff");
+    sourceControlCheck.status = "warn";
+    sourceControlCheck.details = `Source-control handoff artifact ${sourceControlPath} has warning checks: github-remote-refs, fresh-clone-smoke, local-head-published.`;
+    sourceControlCheck.evidence = [sourceControlPath];
+    await writeFile(path.join(root, doctorPath), JSON.stringify(doctor), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest).toMatchObject({
+      status: "ready-local-alpha-review-bundle",
+      commandUploadEnabled: false,
+      sourceControlHandoffStatus: "ready-source-control-handoff-with-warnings",
+      sourceControlHandoffReady: true,
+      sourceControlHandoffRemoteRefCount: 0,
+      sourceControlHandoffBlockedCheckCount: 0,
+      sourceControlHandoffWarningCheckCount: 3,
+      sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
+      sourceControlHandoffWorkingTreeClean: true,
+      sourceControlHandoffWorkingTreeStatusLineCount: 0
+    });
+    expect(result.manifest.sourceControlHandoffRemoteDefaultBranch).toBeUndefined();
+    expect(result.manifest.sourceControlHandoffRemoteDefaultBranchSha).toBeUndefined();
+    expect(result.manifest.validation.warnings).toEqual(expect.arrayContaining([
+      expect.stringContaining("github-remote-refs, fresh-clone-smoke, local-head-published")
+    ]));
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control warning checks: 3");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest).toMatchObject({
+      status: "pass",
+      sourceControlHandoffPath: sourceControlPath,
+      sourceControlHandoffRemoteRefCount: 0,
+      sourceControlHandoffBlockedCheckCount: 0,
+      sourceControlHandoffWarningCheckCount: 3,
+      sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
+      sourceControlHandoffWorkingTreeClean: true,
+      sourceControlHandoffWorkingTreeStatusLineCount: 0
+    });
+    expect(verification.manifest.sourceControlHandoffRemoteDefaultBranch).toBeUndefined();
+    expect(verification.manifest.sourceControlHandoffRemoteDefaultBranchSha).toBeUndefined();
+    expect(verification.manifest.validation.warnings).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied source-control handoff has warning check(s): github-remote-refs, fresh-clone-smoke, local-head-published")
+    ]));
+    await expect(readFile(verification.markdownPath, "utf8")).resolves.toContain("Source-control warning checks: 3");
   });
 
   it("fails bundle verification when the bundle source-control summary disagrees with the copied artifact", async () => {
@@ -3081,6 +3148,7 @@ function markSourceControlReady(manifest: {
   remoteDefaultBranch?: string;
   workingTreeClean?: boolean;
   workingTreeStatusLineCount?: number;
+  nextActionChecklist?: Array<{ id: string; status: string; details: string; commands: string[]; clearsCheckIds: string[] }>;
 }) {
   manifest.status = "ready-source-control-handoff";
   manifest.ready = true;
@@ -3100,6 +3168,32 @@ function markSourceControlReady(manifest: {
     details: `${check.id} passed for a published clean source-control handoff.`,
     evidence: check.id === "fresh-clone-smoke" ? freshCloneSmokeEvidence() : check.evidence
   }));
+}
+
+function markSourceControlReadyWithRemoteWarnings(manifest: Parameters<typeof markSourceControlReady>[0]) {
+  markSourceControlReady(manifest);
+  manifest.status = "ready-source-control-handoff-with-warnings";
+  manifest.remoteRefCount = 0;
+  manifest.warningCheckCount = 3;
+  delete manifest.remoteDefaultBranch;
+  delete manifest.remoteDefaultBranchSha;
+  const warningIds = new Set(["github-remote-refs", "fresh-clone-smoke", "local-head-published"]);
+  manifest.checks = manifest.checks.map((check) => warningIds.has(check.id)
+    ? {
+        ...check,
+        status: "warn",
+        details: `${check.id} could not be inspected during transient network failure.`
+      }
+    : check);
+  manifest.nextActionChecklist = [
+    {
+      id: "rerun-source-control-audit",
+      status: "verification",
+      details: "Rerun the read-only audit after manual source-control recovery so the handoff can prove Git metadata, origin, and remote refs are current.",
+      commands: ["npm run audit:source-control"],
+      clearsCheckIds: ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "fresh-clone-smoke", "local-head-published", "working-tree-clean"]
+    }
+  ];
 }
 
 function freshCloneSmokeEvidence() {
