@@ -34,6 +34,7 @@ describe("acceptance script contract", () => {
     expect(scripts["smoke:preview"]).toBe("npm run build && npm run probe:preview");
     expect(scripts["smoke:rehearsal:start"]).toBe("tsx scripts/rehearsal-start-smoke.ts");
     expect(scripts["setup:local"]).toBe("tsx scripts/local-setup.ts");
+    expect(scripts["ai:prepare"]).toBe("tsx scripts/local-ai-prepare.ts");
     expect(scripts["doctor"]).toBe("tsx scripts/plug-and-play-doctor.ts");
     expect(scripts["rehearsal:start"]).toBe("bash scripts/rehearsal-start.sh");
     expect(scripts["probe:preview"]).toBe("tsx scripts/preview-smoke.ts");
@@ -125,6 +126,7 @@ describe("acceptance script contract", () => {
       "npm run audit:source-control",
       "npm run audit:todo",
       "npm run setup:local",
+      "npm run ai:prepare",
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run audit:plug-and-play",

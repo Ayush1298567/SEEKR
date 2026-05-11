@@ -430,6 +430,7 @@ function freshCloneSmokeEvidence() {
     "fresh-clone:software/package.json",
     "fresh-clone:software/package-lock.json",
     "fresh-clone:software/.env.example",
+    "fresh-clone:software/scripts/local-ai-prepare.ts",
     "fresh-clone:software/scripts/rehearsal-start.sh",
     "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
   ];

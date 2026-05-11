@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { localAiPrepareManifestOk } from "./local-ai-prepare";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -36,6 +37,7 @@ export interface HandoffBundleVerificationManifest {
   todoAuditPath?: string;
   sourceControlHandoffPath?: string;
   plugAndPlaySetupPath?: string;
+  localAiPreparePath?: string;
   plugAndPlayDoctorPath?: string;
   rehearsalStartSmokePath?: string;
   strictAiSmokeStatusPath?: string;
@@ -295,6 +297,7 @@ export async function buildHandoffBundleVerification(options: {
   }
   const plugAndPlayDoctorPath = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlayDoctorPath) : undefined;
   const plugAndPlaySetupPath = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlaySetupPath) : undefined;
+  const localAiPreparePath = isRecord(manifest) ? stringOrUndefined(manifest.localAiPreparePath) : undefined;
   const rehearsalStartSmokePath = isRecord(manifest) ? stringOrUndefined(manifest.rehearsalStartSmokePath) : undefined;
   const operatorQuickstartPath = isRecord(manifest) ? stringOrUndefined(manifest.operatorQuickstartPath) : undefined;
   if (!plugAndPlaySetupPath) {
@@ -306,6 +309,17 @@ export async function buildHandoffBundleVerification(options: {
     const setup = await readCopiedJson(bundleDirectory, plugAndPlaySetupPath);
     if (!plugAndPlaySetupOk(setup)) {
       blockers.push("Copied plug-and-play setup must pass local env/data preparation and keep commandUploadEnabled false.");
+    }
+  }
+  if (!localAiPreparePath) {
+    blockers.push("Handoff bundle must name the source local AI prepare JSON.");
+  } else if (!manifestFiles.some((file) => file.sourcePath === localAiPreparePath)) {
+    blockers.push("Handoff bundle does not include the source local AI prepare JSON.");
+  }
+  if (bundleDirectory && bundleDirectoryOk && localAiPreparePath) {
+    const localAiPrepare = await readCopiedJson(bundleDirectory, localAiPreparePath);
+    if (!localAiPrepareManifestOk(localAiPrepare)) {
+      blockers.push("Copied local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false.");
     }
   }
   if (!plugAndPlayDoctorPath) {
@@ -358,6 +372,7 @@ export async function buildHandoffBundleVerification(options: {
     todoAuditPath,
     sourceControlHandoffPath,
     plugAndPlaySetupPath,
+    localAiPreparePath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
     strictAiSmokeStatusPath,
@@ -599,6 +614,7 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     manifest.todoAuditPath ? `TODO audit: ${manifest.todoAuditPath}` : undefined,
     manifest.sourceControlHandoffPath ? `Source-control handoff: ${manifest.sourceControlHandoffPath}` : undefined,
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
+    manifest.localAiPreparePath ? `Local AI prepare: ${manifest.localAiPreparePath}` : undefined,
     manifest.plugAndPlayDoctorPath ? `Plug-and-play doctor: ${manifest.plugAndPlayDoctorPath}` : undefined,
     manifest.rehearsalStartSmokePath ? `Rehearsal-start smoke: ${manifest.rehearsalStartSmokePath}` : undefined,
     manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
@@ -1104,6 +1120,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     todoAuditPath: result.manifest.todoAuditPath,
     sourceControlHandoffPath: result.manifest.sourceControlHandoffPath,
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
+    localAiPreparePath: result.manifest.localAiPreparePath,
     plugAndPlayDoctorPath: result.manifest.plugAndPlayDoctorPath,
     rehearsalStartSmokePath: result.manifest.rehearsalStartSmokePath,
     strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,

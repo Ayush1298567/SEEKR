@@ -93,6 +93,7 @@ const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "git pull --ff-only",
   "npm ci",
   "npm run setup:local",
+  "npm run ai:prepare",
   "npm run audit:source-control",
   "npm run doctor",
   "npm run rehearsal:start",
@@ -121,6 +122,7 @@ const REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER = [
   "cd SEEKR/software",
   "npm ci",
   "npm run setup:local",
+  "npm run ai:prepare",
   "npm run audit:source-control",
   "npm run doctor",
   "npm run rehearsal:start",
@@ -133,6 +135,7 @@ const REQUIRED_FRESH_CLONE_PATHS = [
   "software/package.json",
   "software/package-lock.json",
   "software/.env.example",
+  "software/scripts/local-ai-prepare.ts",
   "software/scripts/rehearsal-start.sh",
   "software/docs/OPERATOR_QUICKSTART.md"
 ];
@@ -838,10 +841,10 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
     actions.push({
       id: "repair-published-fresh-clone",
       status: "required",
-      details: "Repair the published repository contents so a fresh clone contains the landing README, package manifest and lockfile, env template, rehearsal start wrapper, and landing README/operator quickstart documents satisfying their shared contracts.",
+      details: "Repair the published repository contents so a fresh clone contains the landing README, package manifest and lockfile, env template, local AI preparation script, rehearsal start wrapper, and landing README/operator quickstart documents satisfying their shared contracts.",
       commands: [
         "git status --short --branch",
-        "git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md",
+        "git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/local-ai-prepare.ts software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md",
         "npm run test -- operatorQuickstartContract sourceControlHandoff acceptanceScripts",
         "git push origin HEAD:main",
         "npm run audit:source-control"

@@ -1095,6 +1095,7 @@ async function seedRoot(root: string) {
   const todoAuditPath = ".tmp/todo-audit/seekr-todo-audit-2026-05-09T21-00-00-000Z.json";
   const sourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-test.json";
   const plugAndPlaySetupPath = ".tmp/plug-and-play-setup/seekr-local-setup-test.json";
+  const localAiPreparePath = ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json";
   const plugAndPlayDoctorPath = ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json";
   const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json";
   const strictAiSmokePath = ".tmp/ai-smoke-status.json";
@@ -1119,6 +1120,7 @@ async function seedRoot(root: string) {
   await mkdir(path.join(root, ".tmp/gstack-workflow-status"), { recursive: true });
   await mkdir(path.join(root, ".tmp/source-control-handoff"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-setup"), { recursive: true });
+  await mkdir(path.join(root, ".tmp/local-ai-prepare"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true });
   await mkdir(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-readiness"), { recursive: true });
@@ -1335,6 +1337,9 @@ async function seedRoot(root: string) {
     sourceControlHandoffReady: true,
     plugAndPlaySetupPath,
     plugAndPlaySetupStatus: "ready-local-setup",
+    localAiPreparePath,
+    localAiPrepareStatus: "ready-local-ai-model",
+    localAiPrepareModel: "llama3.2:latest",
     plugAndPlayDoctorPath,
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath,
@@ -1368,6 +1373,7 @@ async function seedRoot(root: string) {
     todoAuditPath,
     sourceControlHandoffPath: sourceControlPath,
     plugAndPlaySetupPath,
+    localAiPreparePath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
     strictAiSmokeStatusPath: strictAiSmokePath,
@@ -1491,6 +1497,7 @@ async function seedRoot(root: string) {
           "fresh-clone:software/package.json",
           "fresh-clone:software/package-lock.json",
           "fresh-clone:software/.env.example",
+          "fresh-clone:software/scripts/local-ai-prepare.ts",
           "fresh-clone:software/scripts/rehearsal-start.sh",
           "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
         ]
@@ -1519,6 +1526,28 @@ async function seedRoot(root: string) {
       { id: "rehearsal-data-dir", status: "pass" },
       { id: "safety-boundary", status: "pass" }
     ]
+  }), "utf8");
+  await writeFile(path.join(root, localAiPreparePath), JSON.stringify({
+    schemaVersion: 1,
+    generatedAt: GENERATED_AT,
+    ok: true,
+    status: "ready-local-ai-model",
+    commandUploadEnabled: false,
+    provider: "ollama",
+    model: "llama3.2:latest",
+    pullModel: "llama3.2",
+    pullAttempted: true,
+    prepareCommand: ["ollama", "pull", "llama3.2"],
+    checks: [
+      {
+        id: "ollama-model-prep",
+        status: "pass",
+        details: "ollama pull llama3.2 completed successfully.",
+        evidence: ["package.json scripts.ai:prepare", "ollama pull llama3.2"]
+      }
+    ],
+    nextCommands: ["npm run doctor", "npm run test:ai:local", "npm run rehearsal:start"],
+    limitations: ["Real command upload and hardware actuation remain disabled."]
   }), "utf8");
   await writeFile(path.join(root, plugAndPlayDoctorPath), JSON.stringify({
     ok: true,
@@ -1576,6 +1605,7 @@ async function writePackageJson(root: string) {
       dev: "concurrently -k -n server,client -c cyan,green \"npm:server\" \"npm:client\"",
       acceptance: "npm run check",
       "setup:local": "tsx scripts/local-setup.ts",
+      "ai:prepare": "tsx scripts/local-ai-prepare.ts",
       doctor: "tsx scripts/plug-and-play-doctor.ts",
       "rehearsal:start": "bash scripts/rehearsal-start.sh",
       "smoke:rehearsal:start": "tsx scripts/rehearsal-start-smoke.ts",
@@ -1761,6 +1791,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
           ".tmp/todo-audit/seekr-todo-audit-2026-05-09T21-00-00-000Z.json",
           ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
           ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+          ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
           ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
           ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
           "docs/OPERATOR_QUICKSTART.md"
@@ -1986,6 +2017,9 @@ async function seedCompletedHandoffArtifacts(root: string) {
     sourceControlHandoffReady: true,
     plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
     plugAndPlaySetupStatus: "ready-local-setup",
+    localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+    localAiPrepareStatus: "ready-local-ai-model",
+    localAiPrepareModel: "llama3.2:latest",
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",

@@ -43,6 +43,7 @@ describe("operator quickstart contract", () => {
 
   it("pins strict local AI smoke proof guidance as required signals", () => {
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
+      "npm run ai:prepare",
       "ollama pull llama3.2",
       "npm run test:ai:local",
       ".tmp/ai-smoke-status.json",
@@ -117,6 +118,13 @@ describe("operator quickstart contract", () => {
     expect(operatorQuickstartProblems(content)).toContain("ollama pull llama3.2");
   });
 
+  it("rejects quickstarts that omit packaged AI preparation evidence", () => {
+    const content = validQuickstartContent().replace("npm run ai:prepare\n", "");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toContain("npm run ai:prepare");
+  });
+
   it("rejects quickstarts that omit occupied-port recovery guidance", () => {
     const content = validQuickstartContent().replace("Listener diagnostics\n", "");
 
@@ -139,6 +147,7 @@ describe("operator quickstart contract", () => {
       "software/",
       "npm ci",
       "npm run setup:local",
+      "npm run ai:prepare",
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
@@ -159,6 +168,7 @@ describe("operator quickstart contract", () => {
       "git pull --ff-only",
       "software/",
       "npm run setup:local",
+      "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -181,6 +191,7 @@ describe("operator quickstart contract", () => {
       "software/",
       "npm ci",
       "npm run setup:local",
+      "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run smoke:rehearsal:start",

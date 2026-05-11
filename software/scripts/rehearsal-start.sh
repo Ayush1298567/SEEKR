@@ -72,6 +72,9 @@ fi
 echo "Preparing SEEKR local setup..."
 npm run setup:local
 
+echo "Preparing SEEKR local AI model..."
+npm run ai:prepare
+
 echo "Refreshing SEEKR source-control handoff..."
 npm run audit:source-control
 

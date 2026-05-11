@@ -73,6 +73,7 @@ const REQUIRED_COMMANDS = [
   "check",
   "acceptance",
   "setup:local",
+  "ai:prepare",
   "doctor",
   "rehearsal:start",
   "smoke:rehearsal:start",
@@ -513,6 +514,7 @@ async function demoAndHandoffItem(root: string, expectedComplete: boolean): Prom
   const gstackWorkflow = await latestJson(root, ".tmp/gstack-workflow-status", (name) => name.startsWith("seekr-gstack-workflow-status-"));
   const todoAudit = await latestJson(root, ".tmp/todo-audit", (name) => name.startsWith("seekr-todo-audit-"));
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const demoManifest = demo ? await readJson(demo.absolutePath) : undefined;
   const benchManifest = bench ? await readJson(bench.absolutePath) : undefined;
@@ -641,6 +643,10 @@ async function demoAndHandoffItem(root: string, expectedComplete: boolean): Prom
   if (bundle && sourceControl && bundleSourceControl !== sourceControl.relativePath) {
     problems.push("handoff bundle must include the latest source-control handoff artifact");
   }
+  const bundleLocalAiPrepare = isRecord(bundleManifest) ? normalizeArtifactPath(root, bundleManifest.localAiPreparePath) : undefined;
+  if (bundle && localAiPrepare && bundleLocalAiPrepare !== localAiPrepare.relativePath) {
+    problems.push("handoff bundle must include the latest local AI prepare artifact");
+  }
   const bundleRehearsalStartSmoke = isRecord(bundleManifest) ? normalizeArtifactPath(root, bundleManifest.rehearsalStartSmokePath) : undefined;
   if (bundle && rehearsalStartSmoke && bundleRehearsalStartSmoke !== rehearsalStartSmoke.relativePath) {
     problems.push("handoff bundle must include the latest rehearsal-start smoke artifact");
@@ -673,6 +679,10 @@ async function demoAndHandoffItem(root: string, expectedComplete: boolean): Prom
   if (bundleVerify && sourceControl && verifiedSourceControl !== sourceControl.relativePath) {
     problems.push("handoff bundle verification must point at the bundled latest source-control handoff artifact");
   }
+  const verifiedLocalAiPrepare = isRecord(bundleVerifyManifest) ? normalizeArtifactPath(root, bundleVerifyManifest.localAiPreparePath) : undefined;
+  if (bundleVerify && localAiPrepare && verifiedLocalAiPrepare !== localAiPrepare.relativePath) {
+    problems.push("handoff bundle verification must point at the bundled latest local AI prepare artifact");
+  }
   const verifiedRehearsalStartSmoke = isRecord(bundleVerifyManifest) ? normalizeArtifactPath(root, bundleVerifyManifest.rehearsalStartSmokePath) : undefined;
   if (bundleVerify && rehearsalStartSmoke && verifiedRehearsalStartSmoke !== rehearsalStartSmoke.relativePath) {
     problems.push("handoff bundle verification must point at the bundled latest rehearsal-start smoke artifact");
@@ -684,12 +694,12 @@ async function demoAndHandoffItem(root: string, expectedComplete: boolean): Prom
 
   return {
     id: "demo-handoff-chain",
-    requirement: "Demo, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, rehearsal-start smoke, strict local AI smoke status, review bundle, and bundle verification form a current handoff chain.",
+    requirement: "Demo, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, local AI prepare, rehearsal-start smoke, strict local AI smoke status, review bundle, and bundle verification form a current handoff chain.",
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "Demo readiness, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, rehearsal-start smoke, strict local AI smoke status, review bundle, and bundle verification are current and local-alpha ready with zero bundle secret findings.",
-    evidence: [demo?.relativePath, bench?.relativePath, handoff?.relativePath, verify?.relativePath, gstackWorkflow?.relativePath, todoAudit?.relativePath, sourceControl?.relativePath, rehearsalStartSmoke?.relativePath, STRICT_AI_SMOKE_STATUS_PATH, bundle?.relativePath, bundleVerify?.relativePath].filter(isString)
+      : "Demo readiness, bench packet, handoff index, digest verification, gstack workflow status, TODO audit, source-control handoff, local AI prepare, rehearsal-start smoke, strict local AI smoke status, review bundle, and bundle verification are current and local-alpha ready with zero bundle secret findings.",
+    evidence: [demo?.relativePath, bench?.relativePath, handoff?.relativePath, verify?.relativePath, gstackWorkflow?.relativePath, todoAudit?.relativePath, sourceControl?.relativePath, localAiPrepare?.relativePath, rehearsalStartSmoke?.relativePath, STRICT_AI_SMOKE_STATUS_PATH, bundle?.relativePath, bundleVerify?.relativePath].filter(isString)
   };
 }
 
@@ -830,6 +840,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
   const doctor = await latestOperatorDoctorJson(root);
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
   const bundleVerification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
@@ -878,6 +889,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     ["latest plug-and-play setup", setup],
     ["latest plug-and-play doctor", doctor],
     ["latest source-control handoff", sourceControl],
+    ["latest local AI prepare", localAiPrepare],
     ["latest rehearsal-start smoke", rehearsalStartSmoke],
     ["latest handoff bundle", bundle],
     ["latest handoff bundle verification", bundleVerification],
@@ -901,14 +913,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     details: problems.length
       ? problems.join("; ")
       : readinessWarnings.length
-        ? `Plug-and-play readiness confirms local app, AI, API, QA, setup, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence with warning(s): ${readinessWarnings.join("; ")}.`
-      : "Plug-and-play readiness confirms local app, AI, API, QA, setup, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence while preserving real-world blockers.",
+        ? `Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence with warning(s): ${readinessWarnings.join("; ")}.`
+      : "Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence while preserving real-world blockers.",
     evidence: [
       readiness?.relativePath,
       apiProbe?.relativePath,
       setup?.relativePath,
       doctor?.relativePath,
       sourceControl?.relativePath,
+      localAiPrepare?.relativePath,
       rehearsalStartSmoke?.relativePath,
       bundle?.relativePath,
       bundleVerification?.relativePath,

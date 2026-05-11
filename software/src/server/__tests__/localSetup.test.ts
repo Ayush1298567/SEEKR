@@ -48,7 +48,11 @@ describe("local plug-and-play setup", () => {
     expect(result.manifest.checks.find((check) => check.id === "safety-boundary")).toMatchObject({
       status: "pass"
     });
-    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("npm run rehearsal:start");
+    expect(result.manifest.nextCommands).toEqual(expect.arrayContaining([
+      "npm run ai:prepare",
+      "npm run rehearsal:start"
+    ]));
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("npm run ai:prepare");
   });
 
   it("does not overwrite an existing env file", async () => {

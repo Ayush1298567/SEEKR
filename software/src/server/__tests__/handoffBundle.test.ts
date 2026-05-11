@@ -22,6 +22,7 @@ describe("handoff bundle", () => {
     await mkdir(path.join(root, ".tmp/todo-audit"), { recursive: true });
     await mkdir(path.join(root, ".tmp/source-control-handoff"), { recursive: true });
     await mkdir(path.join(root, ".tmp/plug-and-play-setup"), { recursive: true });
+    await mkdir(path.join(root, ".tmp/local-ai-prepare"), { recursive: true });
     await mkdir(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true });
     await mkdir(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true });
     await mkdir(path.join(root, "docs"), { recursive: true });
@@ -57,6 +58,9 @@ describe("handoff bundle", () => {
       sourceControlHandoffReady: false,
       plugAndPlaySetupPath: setupPath,
       plugAndPlaySetupStatus: "ready-local-setup",
+      localAiPreparePath,
+      localAiPrepareStatus: "ready-local-ai-model",
+      localAiPrepareModel: "llama3.2:latest",
       plugAndPlayDoctorPath: doctorPath,
       plugAndPlayDoctorStatus: "ready-local-start",
       rehearsalStartSmokePath: rehearsalStartSmokePath,
@@ -66,7 +70,7 @@ describe("handoff bundle", () => {
       strictAiSmokeModel: "llama3.2:latest",
       strictAiSmokeCaseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       operatorQuickstartPath,
-      copiedFileCount: 23,
+      copiedFileCount: 25,
       safetyBoundary: {
         realAircraftCommandUpload: false,
         hardwareActuationEnabled: false,
@@ -97,6 +101,8 @@ describe("handoff bundle", () => {
       expect.objectContaining({ sourcePath: sourceControlPath.replace(/\.json$/, ".md") }),
       expect.objectContaining({ sourcePath: setupPath }),
       expect.objectContaining({ sourcePath: setupPath.replace(/\.json$/, ".md") }),
+      expect.objectContaining({ sourcePath: localAiPreparePath }),
+      expect.objectContaining({ sourcePath: localAiPreparePath.replace(/\.json$/, ".md") }),
       expect.objectContaining({ sourcePath: doctorPath }),
       expect.objectContaining({ sourcePath: doctorPath.replace(/\.json$/, ".md") }),
       expect.objectContaining({ sourcePath: rehearsalStartSmokePath }),
@@ -118,6 +124,9 @@ describe("handoff bundle", () => {
     expect(copiedSourceControl.repositoryUrl).toBe("https://github.com/Ayush1298567/SEEKR");
     const copiedSetup = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", setupPath), "utf8"));
     expect(copiedSetup.commandUploadEnabled).toBe(false);
+    const copiedLocalAiPrepare = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", localAiPreparePath), "utf8"));
+    expect(copiedLocalAiPrepare.commandUploadEnabled).toBe(false);
+    expect(copiedLocalAiPrepare.status).toBe("ready-local-ai-model");
     const copiedDoctor = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", doctorPath), "utf8"));
     expect(copiedDoctor.commandUploadEnabled).toBe(false);
     const copiedRehearsalStartSmoke = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", rehearsalStartSmokePath), "utf8"));
@@ -137,6 +146,7 @@ describe("handoff bundle", () => {
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("TODO audit");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control handoff");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play setup");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Local AI prepare");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play doctor");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Rehearsal-start smoke");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Strict AI smoke status");
@@ -158,11 +168,12 @@ describe("handoff bundle", () => {
       todoAuditPath: todoPath,
       sourceControlHandoffPath: sourceControlPath,
       plugAndPlaySetupPath: setupPath,
+      localAiPreparePath,
       plugAndPlayDoctorPath: doctorPath,
       rehearsalStartSmokePath,
       strictAiSmokeStatusPath: strictAiSmokePath,
       operatorQuickstartPath,
-      checkedFileCount: 23,
+      checkedFileCount: 25,
       validation: {
         ok: true,
         blockers: []
@@ -740,6 +751,42 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when local AI prepare has not been generated", async () => {
+    await rm(path.join(root, ".tmp/local-ai-prepare"), { recursive: true, force: true });
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("run npm run ai:prepare")
+    ]));
+  });
+
+  it("blocks bundling when local AI prepare did not actually pull the model", async () => {
+    const localAiPrepare = JSON.parse(await readFile(path.join(root, localAiPreparePath), "utf8"));
+    localAiPrepare.pullAttempted = false;
+    await writeFile(path.join(root, localAiPreparePath), JSON.stringify(localAiPrepare), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Local AI prepare artifact must prove")
+    ]));
+  });
+
   it("blocks bundling when rehearsal-start smoke has not been generated", async () => {
     await rm(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true, force: true });
 
@@ -1274,8 +1321,8 @@ describe("handoff bundle", () => {
     });
     expect(verification.manifest.secretScan).toMatchObject({
       status: "pass",
-      expectedFileCount: 23,
-      scannedFileCount: 23,
+      expectedFileCount: 25,
+      scannedFileCount: 25,
       findingCount: 0
     });
   });
@@ -1385,6 +1432,30 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
       expect.stringContaining("Copied plug-and-play setup must pass")
+    ]));
+  });
+
+  it("fails bundle verification when copied local AI prepare is no longer valid", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedLocalAiPreparePath = path.join(result.bundleDirectory, "artifacts", localAiPreparePath);
+    const copiedLocalAiPrepare = JSON.parse(await readFile(copiedLocalAiPreparePath, "utf8"));
+    copiedLocalAiPrepare.checks[0].status = "fail";
+    await writeFile(copiedLocalAiPreparePath, JSON.stringify(copiedLocalAiPrepare), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied local AI prepare artifact must prove")
     ]));
   });
 
@@ -2391,12 +2462,12 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.secretScan).toMatchObject({
       status: "fail",
-      expectedFileCount: 23,
-      scannedFileCount: 22,
+      expectedFileCount: 25,
+      scannedFileCount: 24,
       findingCount: 0
     });
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("Handoff bundle secret scan covered 22/23 copied files")
+      expect.stringContaining("Handoff bundle secret scan covered 24/25 copied files")
     ]));
   });
 });
@@ -2413,6 +2484,7 @@ const qaMobileScreenshotPath = ".gstack/qa-reports/screenshots/seekr-qa-2026-05-
 const todoPath = ".tmp/todo-audit/seekr-todo-audit-test.json";
 const sourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-test.json";
 const setupPath = ".tmp/plug-and-play-setup/seekr-local-setup-test.json";
+const localAiPreparePath = ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json";
 const doctorPath = ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json";
 const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json";
 const strictAiSmokePath = ".tmp/ai-smoke-status.json";
@@ -2683,6 +2755,28 @@ async function seedBundleEvidence(root: string) {
       { id: "safety-boundary", status: "pass" }
     ]
   });
+  const localAiPrepare = JSON.stringify({
+    schemaVersion: 1,
+    generatedAt: "2026-05-09T20:58:05.000Z",
+    ok: true,
+    status: "ready-local-ai-model",
+    commandUploadEnabled: false,
+    provider: "ollama",
+    model: "llama3.2:latest",
+    pullModel: "llama3.2",
+    pullAttempted: true,
+    prepareCommand: ["ollama", "pull", "llama3.2"],
+    checks: [
+      {
+        id: "ollama-model-prep",
+        status: "pass",
+        details: "ollama pull llama3.2 completed successfully.",
+        evidence: ["package.json scripts.ai:prepare", "ollama pull llama3.2"]
+      }
+    ],
+    nextCommands: ["npm run doctor", "npm run test:ai:local", "npm run rehearsal:start"],
+    limitations: ["Real command upload and hardware actuation remain disabled."]
+  });
   const doctor = JSON.stringify({
     ok: true,
     generatedAt: "2026-05-09T20:58:00.000Z",
@@ -2793,6 +2887,8 @@ async function seedBundleEvidence(root: string) {
   await writeFile(path.join(root, sourceControlPath.replace(/\.json$/, ".md")), "# SEEKR Source-Control Handoff\n", "utf8");
   await writeFile(path.join(root, setupPath), setup, "utf8");
   await writeFile(path.join(root, setupPath.replace(/\.json$/, ".md")), "# SEEKR Local Setup\n", "utf8");
+  await writeFile(path.join(root, localAiPreparePath), localAiPrepare, "utf8");
+  await writeFile(path.join(root, localAiPreparePath.replace(/\.json$/, ".md")), "# SEEKR Local AI Prepare\n", "utf8");
   await writeFile(path.join(root, doctorPath), doctor, "utf8");
   await writeFile(path.join(root, doctorPath.replace(/\.json$/, ".md")), "# SEEKR Plug-And-Play Doctor\n", "utf8");
   await writeFile(path.join(root, rehearsalStartSmokePath), rehearsalStartSmoke, "utf8");
@@ -2808,6 +2904,7 @@ async function seedBundleEvidence(root: string) {
     "git pull --ff-only",
     "npm ci",
     "npm run setup:local",
+    "npm run ai:prepare",
     "npm run audit:source-control",
     "npm run doctor",
     "npm run rehearsal:start",
@@ -2923,6 +3020,7 @@ function freshCloneSmokeEvidence() {
     "fresh-clone:software/package.json",
     "fresh-clone:software/package-lock.json",
     "fresh-clone:software/.env.example",
+    "fresh-clone:software/scripts/local-ai-prepare.ts",
     "fresh-clone:software/scripts/rehearsal-start.sh",
     "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
   ];

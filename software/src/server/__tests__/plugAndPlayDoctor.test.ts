@@ -379,6 +379,7 @@ describe("plug-and-play doctor", () => {
       "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
       "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run doctor",
       "exec npm run dev",
       ""
@@ -406,6 +407,7 @@ describe("plug-and-play doctor", () => {
       "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
       "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "exec npm run dev",
       ""
@@ -422,7 +424,7 @@ describe("plug-and-play doctor", () => {
     expect(manifest.status).toBe("blocked-local-start");
     expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
       status: "fail",
-      details: expect.stringContaining("must run npm run setup:local before npm run audit:source-control before npm run doctor before exec npm run dev")
+      details: expect.stringContaining("must run npm run setup:local before npm run ai:prepare before npm run audit:source-control before npm run doctor before exec npm run dev")
     });
   });
 
@@ -433,6 +435,7 @@ describe("plug-and-play doctor", () => {
       "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
       "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "exec npm run dev",
@@ -524,6 +527,7 @@ async function seedDoctorProject(root: string) {
     scripts: {
       doctor: "tsx scripts/plug-and-play-doctor.ts",
       "setup:local": "tsx scripts/local-setup.ts",
+      "ai:prepare": "tsx scripts/local-ai-prepare.ts",
       dev: "concurrently -k -n server,client -c cyan,green \"npm:server\" \"npm:client\"",
       "rehearsal:start": "bash scripts/rehearsal-start.sh",
       server: "tsx src/server/index.ts",
@@ -601,6 +605,7 @@ async function seedDoctorProject(root: string) {
     "echo \"Default SEEKR API port 8787 is busy; auto-selected free local API port $SEEKR_API_PORT.\"",
     "echo \"Default SEEKR client port 5173 is busy; auto-selected free local client port $SEEKR_CLIENT_PORT.\"",
     "npm run setup:local",
+    "npm run ai:prepare",
     "npm run audit:source-control",
     "npm run doctor",
     "exec npm run dev",
@@ -619,6 +624,7 @@ function freshCloneSmokeEvidence() {
     "fresh-clone:software/package.json",
     "fresh-clone:software/package-lock.json",
     "fresh-clone:software/.env.example",
+    "fresh-clone:software/scripts/local-ai-prepare.ts",
     "fresh-clone:software/scripts/rehearsal-start.sh",
     "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
   ];

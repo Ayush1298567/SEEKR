@@ -297,6 +297,7 @@ describe("plug-and-play readiness audit", () => {
       "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
       "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "exec npm run dev",
       ""
@@ -310,7 +311,7 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.localPlugAndPlayOk).toBe(false);
     expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
       status: "fail",
-      details: expect.stringContaining("must run npm run setup:local before npm run audit:source-control before npm run doctor before exec npm run dev")
+      details: expect.stringContaining("must run npm run setup:local before npm run ai:prepare before npm run audit:source-control before npm run doctor before exec npm run dev")
     });
   });
 
@@ -433,6 +434,7 @@ describe("plug-and-play readiness audit", () => {
       "```bash",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run doctor",
       "npm run rehearsal:start",
       "```",
@@ -473,6 +475,7 @@ describe("plug-and-play readiness audit", () => {
       "```bash",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -641,6 +644,22 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when the local AI prepare artifact has not been generated", async () => {
+    await rm(path.join(root, ".tmp/local-ai-prepare"), { recursive: true, force: true });
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "local-ai-prepare")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("local AI prepare artifact")
+    });
+  });
+
   it("fails when review bundle verification points at a stale plug-and-play setup", async () => {
     await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-zz-newer.json"), JSON.stringify({
       ok: true,
@@ -665,6 +684,42 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("latest plug-and-play setup")
+    });
+  });
+
+  it("fails when review bundle verification points at a stale local AI prepare artifact", async () => {
+    await writeFile(path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-zz-newer.json"), JSON.stringify({
+      schemaVersion: 1,
+      generatedAt: "2026-05-10T07:02:30.000Z",
+      ok: true,
+      status: "ready-local-ai-model",
+      commandUploadEnabled: false,
+      provider: "ollama",
+      model: "llama3.2:latest",
+      pullModel: "llama3.2",
+      pullAttempted: true,
+      prepareCommand: ["ollama", "pull", "llama3.2"],
+      checks: [
+        {
+          id: "ollama-model-prep",
+          status: "pass",
+          details: "ollama pull llama3.2 completed successfully.",
+          evidence: ["package.json scripts.ai:prepare", "ollama pull llama3.2"]
+        }
+      ],
+      nextCommands: ["npm run doctor", "npm run test:ai:local", "npm run rehearsal:start"],
+      limitations: ["Real command upload and hardware actuation remain disabled."]
+    }), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest local AI prepare artifact")
     });
   });
 
@@ -1165,6 +1220,7 @@ async function seedPlugAndPlayEvidence(root: string) {
   await mkdir(path.join(root, ".tmp/api-probe"), { recursive: true });
   await mkdir(path.join(root, ".tmp/completion-audit"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-setup"), { recursive: true });
+  await mkdir(path.join(root, ".tmp/local-ai-prepare"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true });
   await mkdir(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true });
   await mkdir(path.join(root, ".tmp/source-control-handoff"), { recursive: true });
@@ -1182,6 +1238,7 @@ async function seedPlugAndPlayEvidence(root: string) {
 
   const scripts = Object.fromEntries([
       "setup:local",
+      "ai:prepare",
       "doctor",
       "dev",
       "rehearsal:start",
@@ -1234,6 +1291,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     "git pull --ff-only",
     "npm ci",
     "npm run setup:local",
+    "npm run ai:prepare",
     "npm run audit:source-control",
     "npm run doctor",
     "npm run rehearsal:start",
@@ -1273,6 +1331,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     "echo \"Default SEEKR API port 8787 is busy; auto-selected free local API port $SEEKR_API_PORT.\"",
     "echo \"Default SEEKR client port 5173 is busy; auto-selected free local client port $SEEKR_CLIENT_PORT.\"",
     "npm run setup:local",
+    "npm run ai:prepare",
     "npm run audit:source-control",
     "npm run doctor",
     "exec npm run dev",
@@ -1286,6 +1345,7 @@ async function seedPlugAndPlayEvidence(root: string) {
   ].join("\n"), "utf8");
   await seedEnvLoaderFiles(root);
   await seedSetupFiles(root);
+  await seedLocalAiPrepareFiles(root);
   await seedDoctorFiles(root);
 
   const releasePath = ".tmp/release-evidence/seekr-release-test.json";
@@ -1441,15 +1501,16 @@ async function seedPlugAndPlayEvidence(root: string) {
     todoAuditPath: ".tmp/todo-audit/seekr-todo-audit-test.json",
     sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
     plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+    localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
     strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
     operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md",
-    checkedFileCount: 6,
+    checkedFileCount: 8,
     secretScan: {
       status: "pass",
-      expectedFileCount: 6,
-      scannedFileCount: 6,
+      expectedFileCount: 8,
+      scannedFileCount: 8,
       findingCount: 0
     }
   }), "utf8");
@@ -1476,6 +1537,46 @@ async function seedPlugAndPlayEvidence(root: string) {
       runtimePolicyInstalled: false
     }
   }), "utf8");
+}
+
+async function seedLocalAiPrepareFiles(root: string) {
+  await writeFile(path.join(root, "scripts/local-ai-prepare.ts"), [
+    "export async function buildLocalAiPrepare() { return true; }",
+    "export async function writeLocalAiPrepare() { return true; }",
+    "const manifest = { commandUploadEnabled: false };",
+    "const provider = 'ollama';",
+    "const action = 'pull';",
+    ""
+  ].join("\n"), "utf8");
+  await writeFile(path.join(root, "src/server/__tests__/localAiPrepare.test.ts"), [
+    "it('runs ollama pull llama3.2', () => {});",
+    "it('supports check-only mode', () => {});",
+    "it('fails closed when ollama prep fails closed', () => {});",
+    ""
+  ].join("\n"), "utf8");
+  await writeFile(path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json"), JSON.stringify({
+    schemaVersion: 1,
+    generatedAt: "2026-05-10T07:01:00.000Z",
+    ok: true,
+    status: "ready-local-ai-model",
+    commandUploadEnabled: false,
+    provider: "ollama",
+    model: "llama3.2:latest",
+    pullModel: "llama3.2",
+    pullAttempted: true,
+    prepareCommand: ["ollama", "pull", "llama3.2"],
+    checks: [
+      {
+        id: "ollama-model-prep",
+        status: "pass",
+        details: "ollama pull llama3.2 completed successfully.",
+        evidence: ["package.json scripts.ai:prepare", "ollama pull llama3.2"]
+      }
+    ],
+    nextCommands: ["npm run doctor", "npm run test:ai:local", "npm run rehearsal:start"],
+    limitations: ["Real command upload and hardware actuation remain disabled."]
+  }), "utf8");
+  await writeFile(path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.md"), "# SEEKR Local AI Prepare\n", "utf8");
 }
 
 async function seedSetupFiles(root: string) {
@@ -1631,6 +1732,7 @@ function freshCloneSmokeEvidence() {
     "fresh-clone:software/package.json",
     "fresh-clone:software/package-lock.json",
     "fresh-clone:software/.env.example",
+    "fresh-clone:software/scripts/local-ai-prepare.ts",
     "fresh-clone:software/scripts/rehearsal-start.sh",
     "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
   ];

@@ -9,6 +9,7 @@ git clone https://github.com/Ayush1298567/SEEKR.git
 cd SEEKR/software
 npm ci
 npm run setup:local
+npm run ai:prepare
 npm run audit:source-control
 npm run doctor
 npm run rehearsal:start

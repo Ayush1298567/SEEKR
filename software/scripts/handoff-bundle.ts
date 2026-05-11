@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
 import { buildHandoffVerification } from "./handoff-verify";
+import { localAiPrepareManifestOk } from "./local-ai-prepare";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -46,6 +47,10 @@ export interface HandoffBundleManifest {
   plugAndPlaySetupPath?: string;
   plugAndPlaySetupGeneratedAt?: string;
   plugAndPlaySetupStatus?: string;
+  localAiPreparePath?: string;
+  localAiPrepareGeneratedAt?: string;
+  localAiPrepareStatus?: string;
+  localAiPrepareModel?: string;
   plugAndPlayDoctorPath?: string;
   plugAndPlayDoctorGeneratedAt?: string;
   plugAndPlayDoctorStatus?: string;
@@ -91,6 +96,7 @@ const GSTACK_WORKFLOW_STATUS_DIR = ".tmp/gstack-workflow-status";
 const TODO_AUDIT_DIR = ".tmp/todo-audit";
 const SOURCE_CONTROL_HANDOFF_DIR = ".tmp/source-control-handoff";
 const PLUG_AND_PLAY_SETUP_DIR = ".tmp/plug-and-play-setup";
+const LOCAL_AI_PREPARE_DIR = ".tmp/local-ai-prepare";
 const PLUG_AND_PLAY_DOCTOR_DIR = ".tmp/plug-and-play-doctor";
 const REHEARSAL_START_SMOKE_DIR = ".tmp/rehearsal-start-smoke";
 const STRICT_AI_SMOKE_STATUS_PATH = ".tmp/ai-smoke-status.json";
@@ -133,6 +139,8 @@ export async function writeHandoffBundle(options: {
   const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const setup = await latestJson(root, PLUG_AND_PLAY_SETUP_DIR, (name) => name.startsWith("seekr-local-setup-"));
   const setupManifest = setup ? await readJson(setup.absolutePath) : undefined;
+  const localAiPrepare = await latestJson(root, LOCAL_AI_PREPARE_DIR, (name) => name.startsWith("seekr-local-ai-prepare-"));
+  const localAiPrepareManifest = localAiPrepare ? await readJson(localAiPrepare.absolutePath) : undefined;
   const doctor = await latestOperatorDoctorJson(root);
   const doctorManifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const rehearsalStartSmoke = await latestJson(root, REHEARSAL_START_SMOKE_DIR, (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
@@ -179,6 +187,11 @@ export async function writeHandoffBundle(options: {
   } else if (!plugAndPlaySetupOk(setupManifest)) {
     blockers.push("Plug-and-play setup artifact must pass with local env/data preparation and commandUploadEnabled false before bundling.");
   }
+  if (!localAiPrepare) {
+    blockers.push("No local AI prepare artifact exists; run npm run ai:prepare before bundling for final internal-alpha review.");
+  } else if (!localAiPrepareManifestOk(localAiPrepareManifest)) {
+    blockers.push("Local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false before bundling.");
+  }
   if (!doctor) {
     blockers.push("No operator-start plug-and-play doctor artifact exists; run npm run doctor before bundling for final internal-alpha review.");
   } else if (!plugAndPlayDoctorOk(doctorManifest, acceptanceManifest, sourceControl?.relativePath)) {
@@ -209,6 +222,7 @@ export async function writeHandoffBundle(options: {
         ...(todoAudit ? [todoAudit.relativePath, replaceExtension(todoAudit.relativePath, ".md")] : []),
         ...(sourceControl ? [sourceControl.relativePath, replaceExtension(sourceControl.relativePath, ".md")] : []),
         ...(setup ? [setup.relativePath, replaceExtension(setup.relativePath, ".md")] : []),
+        ...(localAiPrepare ? [localAiPrepare.relativePath, replaceExtension(localAiPrepare.relativePath, ".md")] : []),
         ...(doctor ? [doctor.relativePath, replaceExtension(doctor.relativePath, ".md")] : []),
         ...(rehearsalStartSmoke ? [rehearsalStartSmoke.relativePath, replaceExtension(rehearsalStartSmoke.relativePath, ".md")] : []),
         ...(strictAiSmokePath ? [strictAiSmokePath] : []),
@@ -250,6 +264,10 @@ export async function writeHandoffBundle(options: {
     plugAndPlaySetupPath: setup?.relativePath,
     plugAndPlaySetupGeneratedAt: isRecord(setupManifest) ? stringOrUndefined(setupManifest.generatedAt) : undefined,
     plugAndPlaySetupStatus: isRecord(setupManifest) ? stringOrUndefined(setupManifest.status) : undefined,
+    localAiPreparePath: localAiPrepare?.relativePath,
+    localAiPrepareGeneratedAt: isRecord(localAiPrepareManifest) ? stringOrUndefined(localAiPrepareManifest.generatedAt) : undefined,
+    localAiPrepareStatus: isRecord(localAiPrepareManifest) ? stringOrUndefined(localAiPrepareManifest.status) : undefined,
+    localAiPrepareModel: isRecord(localAiPrepareManifest) ? stringOrUndefined(localAiPrepareManifest.model) : undefined,
     plugAndPlayDoctorPath: doctor?.relativePath,
     plugAndPlayDoctorGeneratedAt: isRecord(doctorManifest) ? stringOrUndefined(doctorManifest.generatedAt) : undefined,
     plugAndPlayDoctorStatus: isRecord(doctorManifest) ? stringOrUndefined(doctorManifest.status) : undefined,
@@ -291,7 +309,7 @@ export async function writeHandoffBundle(options: {
       "When the workflow-status artifact names a local gstack browser QA report, the bundle also copies that report and its named screenshots for review.",
       "It also copies the latest TODO audit artifact so reviewers can inspect TODO/blocker consistency with the handoff packet.",
       "It also copies the latest source-control handoff artifact so reviewers can inspect local Git metadata and GitHub publication readiness separately from hardware readiness.",
-      "It also copies the latest plug-and-play setup, doctor, and rehearsal-start smoke artifacts so reviewers can inspect local env/data preparation, start-wrapper, AI, port, data-directory, startup, source-health, readiness, shutdown, and safety preflight evidence.",
+      "It also copies the latest plug-and-play setup, local AI prepare, doctor, and rehearsal-start smoke artifacts so reviewers can inspect local env/data preparation, Ollama model preparation, start-wrapper, AI, port, data-directory, startup, source-health, readiness, shutdown, and safety preflight evidence.",
       "It also copies the strict local AI smoke status so reviewers can inspect per-scenario Ollama plan-kind, validator, unsafe-text, and mutation safety proof.",
       "It also copies the operator quickstart that the plug-and-play readiness audit checks for local setup, source-control audit, start, advisory-only AI, API evidence, source-health, and safety-boundary instructions.",
       "It does not regenerate acceptance, completion-audit, demo, bench, hardware, policy, safety, API, or overnight evidence.",
@@ -456,6 +474,10 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
     manifest.plugAndPlaySetupGeneratedAt ? `Plug-and-play setup generated at: ${manifest.plugAndPlaySetupGeneratedAt}` : undefined,
     manifest.plugAndPlaySetupStatus ? `Plug-and-play setup verdict: ${manifest.plugAndPlaySetupStatus}` : undefined,
+    manifest.localAiPreparePath ? `Local AI prepare: ${manifest.localAiPreparePath}` : undefined,
+    manifest.localAiPrepareGeneratedAt ? `Local AI prepare generated at: ${manifest.localAiPrepareGeneratedAt}` : undefined,
+    manifest.localAiPrepareStatus ? `Local AI prepare verdict: ${manifest.localAiPrepareStatus}` : undefined,
+    manifest.localAiPrepareModel ? `Local AI prepare model: ${manifest.localAiPrepareModel}` : undefined,
     manifest.plugAndPlayDoctorPath ? `Plug-and-play doctor: ${manifest.plugAndPlayDoctorPath}` : undefined,
     manifest.plugAndPlayDoctorGeneratedAt ? `Plug-and-play doctor generated at: ${manifest.plugAndPlayDoctorGeneratedAt}` : undefined,
     manifest.plugAndPlayDoctorStatus ? `Plug-and-play doctor verdict: ${manifest.plugAndPlayDoctorStatus}` : undefined,
@@ -916,6 +938,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffReady: result.manifest.sourceControlHandoffReady,
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
     plugAndPlaySetupStatus: result.manifest.plugAndPlaySetupStatus,
+    localAiPreparePath: result.manifest.localAiPreparePath,
+    localAiPrepareStatus: result.manifest.localAiPrepareStatus,
+    localAiPrepareModel: result.manifest.localAiPrepareModel,
     plugAndPlayDoctorPath: result.manifest.plugAndPlayDoctorPath,
     plugAndPlayDoctorStatus: result.manifest.plugAndPlayDoctorStatus,
     rehearsalStartSmokePath: result.manifest.rehearsalStartSmokePath,

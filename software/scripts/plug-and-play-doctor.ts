@@ -58,6 +58,7 @@ const DEFAULT_OLLAMA_MODEL = "llama3.2:latest";
 const REQUIRED_SCRIPTS = [
   "doctor",
   "setup:local",
+  "ai:prepare",
   "dev",
   "rehearsal:start",
   "server",
@@ -342,6 +343,7 @@ async function operatorStartScriptCheck(root: string): Promise<PlugAndPlayDoctor
       "lidar-slam:lidar",
       "isaac-nvblox:costmap",
       "npm run setup:local",
+      "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "exec npm run dev"
@@ -349,19 +351,22 @@ async function operatorStartScriptCheck(root: string): Promise<PlugAndPlayDoctor
       if (!startScript.includes(signal)) problems.push(`scripts/rehearsal-start.sh missing ${signal}`);
     }
     const setupIndex = startScript.indexOf("npm run setup:local");
+    const aiPrepareIndex = startScript.indexOf("npm run ai:prepare");
     const sourceControlIndex = startScript.indexOf("npm run audit:source-control");
     const doctorIndex = startScript.indexOf("npm run doctor");
     const devIndex = startScript.indexOf("exec npm run dev");
     if (
       setupIndex === -1 ||
+      aiPrepareIndex === -1 ||
       sourceControlIndex === -1 ||
       doctorIndex === -1 ||
       devIndex === -1 ||
-      setupIndex > sourceControlIndex ||
+      setupIndex > aiPrepareIndex ||
+      aiPrepareIndex > sourceControlIndex ||
       sourceControlIndex > doctorIndex ||
       doctorIndex > devIndex
     ) {
-      problems.push("scripts/rehearsal-start.sh must run npm run setup:local before npm run audit:source-control before npm run doctor before exec npm run dev");
+      problems.push("scripts/rehearsal-start.sh must run npm run setup:local before npm run ai:prepare before npm run audit:source-control before npm run doctor before exec npm run dev");
     }
   }
 

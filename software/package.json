@@ -16,6 +16,7 @@
   "scripts": {
     "dev": "concurrently -k -n server,client -c cyan,green \"npm:server\" \"npm:client\"",
     "setup:local": "tsx scripts/local-setup.ts",
+    "ai:prepare": "tsx scripts/local-ai-prepare.ts",
     "doctor": "tsx scripts/plug-and-play-doctor.ts",
     "server": "tsx src/server/index.ts",
     "client": "vite --host 127.0.0.1",

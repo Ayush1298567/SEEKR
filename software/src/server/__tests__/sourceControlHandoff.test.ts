@@ -11,6 +11,7 @@ const FRESH_CLONE_PATHS = [
   "software/package.json",
   "software/package-lock.json",
   "software/.env.example",
+  "software/scripts/local-ai-prepare.ts",
   "software/scripts/rehearsal-start.sh",
   "software/docs/OPERATOR_QUICKSTART.md"
 ];
@@ -231,6 +232,7 @@ describe("source-control handoff audit", () => {
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run test:ai:local",
@@ -287,6 +289,7 @@ describe("source-control handoff audit", () => {
       "cd SEEKR/software",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -337,6 +340,7 @@ describe("source-control handoff audit", () => {
       "cd SEEKR/software",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -389,6 +393,7 @@ describe("source-control handoff audit", () => {
       "cd SEEKR/software",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -441,6 +446,7 @@ describe("source-control handoff audit", () => {
       "cd SEEKR/software",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -494,6 +500,7 @@ describe("source-control handoff audit", () => {
       "cd SEEKR/software",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -548,6 +555,7 @@ describe("source-control handoff audit", () => {
       "cd SEEKR/software",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -601,6 +609,7 @@ describe("source-control handoff audit", () => {
       "cd SEEKR/software",
       "npm ci",
       "npm run setup:local",
+    "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "npm run rehearsal:start",
@@ -860,7 +869,7 @@ describe("source-control handoff audit", () => {
     expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "repair-published-fresh-clone",
-        commands: expect.arrayContaining(["git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md"]),
+        commands: expect.arrayContaining(["git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/local-ai-prepare.ts software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md"]),
         clearsCheckIds: expect.arrayContaining(["fresh-clone-smoke"])
       })
     ]));
@@ -1051,6 +1060,7 @@ async function seedSourceControlProject(root: string) {
     "cd SEEKR/software",
     "npm ci",
     "npm run setup:local",
+    "npm run ai:prepare",
     "npm run audit:source-control",
     "npm run doctor",
     "npm run rehearsal:start",

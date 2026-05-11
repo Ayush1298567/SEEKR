@@ -16,11 +16,12 @@
    ```bash
    npm ci
    npm run setup:local
+   npm run ai:prepare
    npm run audit:source-control
    npm run doctor
    ```
 
-   `setup:local` creates `.env` only when missing and prepares project-local rehearsal data. `audit:source-control` records the current GitHub handoff state, including local HEAD publication and clean-worktree status, plus manual publication next steps without initializing Git, committing, or pushing. `doctor` checks package/runtime metadata, local Ollama, ports, data directory, source-control handoff state, and safety flags without starting the app; if the default ports are already occupied by a healthy SEEKR API/client, the port check passes and records those probe URLs. If default ports are occupied by a non-SEEKR or unhealthy listener and no port variables are explicitly set, the port check also passes because `npm run rehearsal:start` auto-selects free local API/client ports and prints the URLs it chose. Use the Listener diagnostics line to identify the process ID and working directory when you want to free the default ports. Stop the existing process or choose different explicit ports when explicitly configured occupied ports remain warnings. For final review packaging, rerun `doctor` after the bounded smoke proof so the operator-start doctor references the latest source-control handoff artifact.
+   `setup:local` creates `.env` only when missing and prepares project-local rehearsal data. `ai:prepare` runs the bounded local Ollama model preparation step and writes evidence before strict AI smoke. `audit:source-control` records the current GitHub handoff state, including local HEAD publication and clean-worktree status, plus manual publication next steps without initializing Git, committing, or pushing. `doctor` checks package/runtime metadata, local Ollama, ports, data directory, source-control handoff state, and safety flags without starting the app; if the default ports are already occupied by a healthy SEEKR API/client, the port check passes and records those probe URLs. If default ports are occupied by a non-SEEKR or unhealthy listener and no port variables are explicitly set, the port check also passes because `npm run rehearsal:start` auto-selects free local API/client ports and prints the URLs it chose. Use the Listener diagnostics line to identify the process ID and working directory when you want to free the default ports. Stop the existing process or choose different explicit ports when explicitly configured occupied ports remain warnings. For final review packaging, rerun `doctor` after the bounded smoke proof so the operator-start doctor references the latest source-control handoff artifact.
 
 3. Start the local rehearsal wrapper:
 
@@ -55,6 +56,7 @@
 
   ```bash
   ollama pull llama3.2
+  npm run ai:prepare
   ```
 
 - The default model is `llama3.2:latest`; change it with `SEEKR_OLLAMA_MODEL` only after installing the replacement model locally.

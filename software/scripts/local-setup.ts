@@ -150,10 +150,10 @@ export async function writeLocalSetup(options: {
     dataDirPath: dataTarget.ok ? dataTarget.relativePath : dataDir,
     checks,
     nextCommands: ok
-      ? ["npm run doctor", "npm run rehearsal:start"]
+      ? ["npm run ai:prepare", "npm run doctor", "npm run rehearsal:start"]
       : ["Fix failed local setup checks, then rerun npm run setup:local."],
     limitations: [
-      "This setup command prepares local files only; it does not install system packages or Ollama models.",
+      "This setup command prepares local files only; use npm run ai:prepare to prepare the local Ollama model.",
       "It does not validate actual Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim capture, or hardware-actuation policy approval.",
       "Real command upload and hardware actuation remain disabled."
     ]

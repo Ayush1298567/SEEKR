@@ -13,6 +13,7 @@ import {
   plugAndPlayDoctorOk,
   plugAndPlaySetupOk
 } from "./plug-and-play-artifact-contract";
+import { localAiPrepareManifestOk } from "./local-ai-prepare";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
@@ -64,6 +65,7 @@ const STRICT_AI_SMOKE_STATUS_PATH = ".tmp/ai-smoke-status.json";
 
 const REQUIRED_COMMANDS = [
   "setup:local",
+  "ai:prepare",
   "doctor",
   "dev",
   "rehearsal:start",
@@ -115,6 +117,7 @@ export async function buildPlugAndPlayReadiness(options: {
   const checks = [
     await commandSurfaceCheck(root),
     await operatorSetupCheck(root),
+    await localAiPrepareCheck(root),
     await operatorDoctorCheck(root),
     await sourceControlHandoffCheck(root),
     await operatorStartCheck(root),
@@ -238,6 +241,40 @@ async function operatorSetupCheck(root: string): Promise<PlugAndPlayCheck> {
       "scripts/local-setup.ts",
       "src/server/__tests__/localSetup.test.ts",
       setup?.relativePath ?? ".tmp/plug-and-play-setup"
+    ].filter(isString)
+  };
+}
+
+async function localAiPrepareCheck(root: string): Promise<PlugAndPlayCheck> {
+  const artifact = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
+  const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  const script = await readText(path.join(root, "scripts/local-ai-prepare.ts"));
+  const test = await readText(path.join(root, "src/server/__tests__/localAiPrepare.test.ts"));
+  const problems: string[] = [];
+
+  if (!script) problems.push("scripts/local-ai-prepare.ts is missing");
+  for (const signal of ["buildLocalAiPrepare", "writeLocalAiPrepare", "ollama", "pull", "commandUploadEnabled: false"]) {
+    if (script && !script.includes(signal)) problems.push(`scripts/local-ai-prepare.ts missing ${signal}`);
+  }
+  if (!test) problems.push("src/server/__tests__/localAiPrepare.test.ts is missing");
+  for (const signal of ["ollama pull llama3.2", "check-only", "fails closed"]) {
+    if (test && !test.includes(signal)) problems.push(`localAiPrepare.test.ts missing ${signal}`);
+  }
+  if (!localAiPrepareManifestOk(manifest)) {
+    problems.push("latest local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false");
+  }
+
+  return {
+    id: "local-ai-prepare",
+    requirement: "The local Ollama model is prepared through a repeatable package command before startup and strict AI smoke.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : "Latest local AI prepare artifact proves the Ollama model preparation command passed while command upload stayed disabled.",
+    evidence: [
+      "scripts/local-ai-prepare.ts",
+      "src/server/__tests__/localAiPrepare.test.ts",
+      artifact?.relativePath ?? ".tmp/local-ai-prepare"
     ].filter(isString)
   };
 }
@@ -433,6 +470,7 @@ async function operatorStartCheck(root: string): Promise<PlugAndPlayCheck> {
       "lidar-slam:lidar",
       "isaac-nvblox:costmap",
       "npm run setup:local",
+      "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
       "exec npm run dev"
@@ -440,19 +478,22 @@ async function operatorStartCheck(root: string): Promise<PlugAndPlayCheck> {
       if (!startScript.includes(signal)) problems.push(`scripts/rehearsal-start.sh missing ${signal}`);
     }
     const setupIndex = startScript.indexOf("npm run setup:local");
+    const aiPrepareIndex = startScript.indexOf("npm run ai:prepare");
     const sourceControlIndex = startScript.indexOf("npm run audit:source-control");
     const doctorIndex = startScript.indexOf("npm run doctor");
     const devIndex = startScript.indexOf("exec npm run dev");
     if (
       setupIndex === -1 ||
+      aiPrepareIndex === -1 ||
       sourceControlIndex === -1 ||
       doctorIndex === -1 ||
       devIndex === -1 ||
-      setupIndex > sourceControlIndex ||
+      setupIndex > aiPrepareIndex ||
+      aiPrepareIndex > sourceControlIndex ||
       sourceControlIndex > doctorIndex ||
       doctorIndex > devIndex
     ) {
-      problems.push("scripts/rehearsal-start.sh must run npm run setup:local before npm run audit:source-control before npm run doctor before exec npm run dev");
+      problems.push("scripts/rehearsal-start.sh must run npm run setup:local before npm run ai:prepare before npm run audit:source-control before npm run doctor before exec npm run dev");
     }
   }
 
@@ -462,7 +503,7 @@ async function operatorStartCheck(root: string): Promise<PlugAndPlayCheck> {
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "npm run rehearsal:start sets a project-local data directory, declares expected read-only sources, normalizes API/client port environment, auto-selects free local ports when unconfigured defaults are busy, runs npm run setup:local, refreshes source-control handoff evidence, runs npm run doctor, and launches npm run dev.",
+      : "npm run rehearsal:start sets a project-local data directory, declares expected read-only sources, normalizes API/client port environment, auto-selects free local ports when unconfigured defaults are busy, runs npm run setup:local, prepares the local Ollama model with npm run ai:prepare, refreshes source-control handoff evidence, runs npm run doctor, and launches npm run dev.",
     evidence: ["package.json scripts.rehearsal:start", "scripts/rehearsal-start.sh"]
   };
 }
@@ -760,6 +801,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const todoAudit = await latestJson(root, ".tmp/todo-audit", (name) => name.startsWith("seekr-todo-audit-"));
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
+  const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const doctor = await latestOperatorDoctorJson(root);
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const sourceBundlePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.sourceBundlePath) : undefined;
@@ -768,6 +810,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const todoAuditPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.todoAuditPath) : undefined;
   const sourceControlHandoffPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.sourceControlHandoffPath) : undefined;
   const plugAndPlaySetupPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlaySetupPath) : undefined;
+  const localAiPreparePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.localAiPreparePath) : undefined;
   const plugAndPlayDoctorPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlayDoctorPath) : undefined;
   const rehearsalStartSmokePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.rehearsalStartSmokePath) : undefined;
   const strictAiSmokeStatusPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.strictAiSmokeStatusPath) : undefined;
@@ -782,6 +825,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!todoAudit || todoAuditPath !== todoAudit.relativePath) problems.push("review bundle verification must point at the latest TODO audit");
   if (!sourceControl || sourceControlHandoffPath !== sourceControl.relativePath) problems.push("review bundle verification must point at the latest source-control handoff");
   if (!setup || plugAndPlaySetupPath !== setup.relativePath) problems.push("review bundle verification must point at the latest plug-and-play setup");
+  if (!localAiPrepare || localAiPreparePath !== localAiPrepare.relativePath) problems.push("review bundle verification must point at the latest local AI prepare artifact");
   if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest operator-start plug-and-play doctor");
   if (!rehearsalStartSmoke || rehearsalStartSmokePath !== rehearsalStartSmoke.relativePath) problems.push("review bundle verification must point at the latest rehearsal-start smoke");
   if (strictAiSmokeStatusPath !== STRICT_AI_SMOKE_STATUS_PATH) problems.push("review bundle verification must include the strict local AI smoke status");
@@ -799,7 +843,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : `Latest review bundle verification passed with ${checkedFileCount} copied files checked/scanned, current strict-AI/gstack/QA/TODO/source-control/setup/doctor/operator-quickstart evidence, and zero secret findings.`,
+      : `Latest review bundle verification passed with ${checkedFileCount} copied files checked/scanned, current strict-AI/gstack/QA/TODO/source-control/setup/local-AI-prep/doctor/operator-quickstart evidence, and zero secret findings.`,
     evidence: [
       verification?.relativePath ?? ".tmp/handoff-bundles",
       bundle?.relativePath,
@@ -808,6 +852,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
       todoAudit?.relativePath,
       sourceControl?.relativePath,
       setup?.relativePath,
+      localAiPrepare?.relativePath,
       doctor?.relativePath,
       rehearsalStartSmoke?.relativePath,
       STRICT_AI_SMOKE_STATUS_PATH,
