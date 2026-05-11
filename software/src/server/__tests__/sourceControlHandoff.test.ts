@@ -545,6 +545,17 @@ describe("source-control handoff audit", () => {
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,
+      checks: manifest.checks.map((check) => check.id === "github-landing-readme"
+        ? {
+          ...check,
+          evidence: ["../README.md"]
+        }
+        : check)
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("github-landing-readme pass")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
       checks: manifest.checks.map((check) => check.id === "fresh-clone-smoke"
         ? {
           ...check,

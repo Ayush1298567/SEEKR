@@ -1365,7 +1365,7 @@ async function seedRoot(root: string) {
     warningCheckCount: 4,
     checks: [
       { id: "repository-reference", status: "pass", details: "Package metadata or README names the repository." },
-      { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path." },
+      { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order"] },
       { id: "local-git-metadata", status: "blocked", details: "This workspace is not a Git worktree." },
       { id: "configured-github-remote", status: "warn", details: "No local Git metadata exists." },
       { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs/default branch." },

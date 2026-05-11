@@ -456,7 +456,7 @@ async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-
     warningCheckCount: 0,
     checks: [
       { id: "repository-reference", status: "pass", details: "Repository reference present.", evidence: ["package.json"] },
-      { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md"] },
+      { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order"] },
       { id: "local-git-metadata", status: "pass", details: "Git metadata present.", evidence: ["../.git"] },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote configured.", evidence: ["origin"] },
       { id: "github-remote-refs", status: "pass", details: "GitHub refs available.", evidence: ["refs/heads/main"] },

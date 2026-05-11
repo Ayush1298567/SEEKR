@@ -669,6 +669,10 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
     problems.push("checks must use pass/warn/blocked statuses and include details");
   }
   const freshCloneCheck = checks.find((check) => check.id === "fresh-clone-smoke");
+  const githubLandingCheck = checks.find((check) => check.id === "github-landing-readme");
+  if (githubLandingCheck?.status === "pass" && !githubLandingPassEvidenceOk(githubLandingCheck)) {
+    problems.push("github-landing-readme pass must include ordered landing README command proof");
+  }
   if (freshCloneCheck?.status === "pass" && !freshClonePassEvidenceOk(freshCloneCheck)) {
     problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, operator quickstart contract proof, and all required startup-file evidence");
   }
@@ -732,6 +736,11 @@ function freshClonePassEvidenceOk(check: Record<string, unknown>) {
     evidence.includes(NPM_CI_DRY_RUN_COMMAND) &&
     evidence.includes("fresh-clone-operator-quickstart-contract") &&
     REQUIRED_FRESH_CLONE_PATHS.every((relativePath) => evidence.includes(`fresh-clone:${relativePath}`));
+}
+
+function githubLandingPassEvidenceOk(check: Record<string, unknown>) {
+  const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
+  return evidence.includes("../README.md") && evidence.includes("github-landing-readme-command-order");
 }
 
 function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceControlHandoffNextAction[] {
