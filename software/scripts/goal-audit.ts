@@ -781,6 +781,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     ? manifest.remainingRealWorldBlockers.map(String)
     : [];
   const readinessEvidence = plugAndPlayReadinessEvidencePaths(root, manifest);
+  const readinessWarnings = plugAndPlayReadinessWarningDetails(manifest);
   const problems: string[] = [];
 
   if (!readiness) problems.push("plug-and-play readiness artifact is missing");
@@ -837,9 +838,11 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   return {
     id: "plug-and-play-readiness",
     requirement: "The system has concrete local plug-and-play readiness evidence with implemented local AI and explicit real-world blockers.",
-    status: problems.length ? "fail" : "pass",
+    status: problems.length ? "fail" : readinessWarnings.length ? "warn" : "pass",
     details: problems.length
       ? problems.join("; ")
+      : readinessWarnings.length
+        ? `Plug-and-play readiness confirms local app, AI, API, QA, setup, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence with warning(s): ${readinessWarnings.join("; ")}.`
       : "Plug-and-play readiness confirms local app, AI, API, QA, setup, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence while preserving real-world blockers.",
     evidence: [
       readiness?.relativePath,
@@ -856,6 +859,18 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
       ".tmp/acceptance-status.json"
     ].filter(isString)
   };
+}
+
+function plugAndPlayReadinessWarningDetails(manifest: unknown) {
+  if (!isRecord(manifest)) return [];
+  const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
+  return checks
+    .filter((check) => check.status === "warn")
+    .map((check) => {
+      const id = String(check.id ?? "unknown");
+      const details = typeof check.details === "string" && check.details.length ? check.details : "warning details unavailable";
+      return `${id}: ${details}`;
+    });
 }
 
 function plugAndPlayReadinessEvidencePaths(root: string, manifest: unknown) {

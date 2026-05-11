@@ -216,6 +216,27 @@ describe("goal audit", () => {
     });
   });
 
+  it("surfaces plug-and-play readiness warnings without failing local alpha", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    const doctorCheck = readiness.checks.find((check: { id: string }) => check.id === "operator-doctor");
+    doctorCheck.status = "warn";
+    doctorCheck.details = "Latest operator-start doctor passed with soft warning(s): local-ports occupied.";
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(true);
+    expect(manifest.summary.warn).toBe(1);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("local-ports occupied")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness does not reference source-control handoff evidence", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
