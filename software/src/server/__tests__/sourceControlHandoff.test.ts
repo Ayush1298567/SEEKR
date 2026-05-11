@@ -326,6 +326,57 @@ describe("source-control handoff audit", () => {
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.details).toContain("npm run audit:plug-and-play");
   });
 
+  it("blocks when the GitHub landing README runs plug-and-play audit before strict local AI proof", async () => {
+    await writeFile(path.join(root, "..", "README.md"), [
+      "# SEEKR",
+      "",
+      "```bash",
+      "git clone https://github.com/Ayush1298567/SEEKR.git",
+      "cd SEEKR/software",
+      "npm ci",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "npm run rehearsal:start",
+      "npm run smoke:rehearsal:start",
+      "npm run audit:plug-and-play",
+      "npm run test:ai:local",
+      "```",
+      "",
+      "If the repository is already cloned, run git pull --ff-only first.",
+      "The local plug-and-play path keeps command upload and hardware actuation disabled.",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: freshCloneOk(LOCAL_SHA)
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("npm run test:ai:local before npm run audit:plug-and-play")
+    });
+  });
+
   it("warns instead of pretending remote refs were checked when ls-remote fails", async () => {
     const manifest = await buildSourceControlHandoff({
       root,

@@ -109,7 +109,9 @@ const REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER = [
   "npm run audit:source-control",
   "npm run doctor",
   "npm run rehearsal:start",
-  "npm run smoke:rehearsal:start"
+  "npm run smoke:rehearsal:start",
+  "npm run test:ai:local",
+  "npm run audit:plug-and-play"
 ];
 const REQUIRED_FRESH_CLONE_PATHS = [
   "README.md",
@@ -490,7 +492,7 @@ function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
     status: problems.length ? "blocked" : "pass",
     details: problems.length
       ? `The GitHub landing README violates fresh-clone plug-and-play guidance: ${problems.join(", ")}.`
-      : "The GitHub landing README gives an ordered fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke, strict local AI smoke, and plug-and-play audit guidance, and preserves disabled command/hardware authority.",
+      : "The GitHub landing README gives an ordered fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke before strict local AI smoke before plug-and-play audit guidance, and preserves disabled command/hardware authority.",
     evidence: problems.length ? ["../README.md"] : [
       "../README.md",
       GITHUB_LANDING_README_COMMAND_ORDER_EVIDENCE,
