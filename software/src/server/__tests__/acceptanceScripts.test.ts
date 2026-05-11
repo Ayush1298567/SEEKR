@@ -273,6 +273,10 @@ function expectOrderedCommands(commands: string[], expected: string[]) {
 }
 
 function expectSourceControlCountSummaryDocs(doc: string) {
+  expectSnippet(doc, "handoff:bundle", [
+    "blocked/warning check counts",
+    "source-control handoff"
+  ]);
   expectSnippet(doc, "handoff:bundle:verify", [
     "blocked-check-count",
     "warning-check-count"
