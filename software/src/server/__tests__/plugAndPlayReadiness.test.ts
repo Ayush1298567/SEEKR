@@ -44,6 +44,27 @@ describe("plug-and-play readiness audit", () => {
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
+      sourceControl: {
+        path: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+        status: "ready-source-control-handoff",
+        ready: true,
+        localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        workingTreeClean: true,
+        workingTreeStatusLineCount: 0
+      },
+      reviewBundle: {
+        path: ".tmp/handoff-bundles/seekr-handoff-bundle-test.json",
+        verificationPath: ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
+        status: "pass",
+        checkedFileCount: 8,
+        secretScanStatus: "pass",
+        sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+        sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        sourceControlHandoffWorkingTreeClean: true,
+        sourceControlHandoffWorkingTreeStatusLineCount: 0
+      },
       safetyBoundary: {
         realAircraftCommandUpload: false,
         hardwareActuationEnabled: false,
@@ -62,6 +83,26 @@ describe("plug-and-play readiness audit", () => {
       details: expect.stringContaining("published local HEAD")
     });
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("clean worktree");
+  });
+
+  it("fails when review bundle source-control summary drifts from the latest source-control artifact", async () => {
+    const verificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
+    const verification = JSON.parse(await readFile(verificationPath, "utf8"));
+    verification.sourceControlHandoffWorkingTreeClean = false;
+    await writeFile(verificationPath, JSON.stringify(verification), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.reviewBundle.sourceControlHandoffWorkingTreeClean).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("clean-worktree summary must match")
+    });
   });
 
   it("fails closed when completion audit is not complete even if the blocker list is empty", async () => {
@@ -1542,6 +1583,10 @@ async function seedPlugAndPlayEvidence(root: string) {
     gstackQaReportPath: ".gstack/qa-reports/seekr-qa-test.md",
     todoAuditPath: ".tmp/todo-audit/seekr-todo-audit-test.json",
     sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+    sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    sourceControlHandoffWorkingTreeClean: true,
+    sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
     localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",

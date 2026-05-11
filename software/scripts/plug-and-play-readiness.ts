@@ -43,6 +43,28 @@ export interface PlugAndPlayReadinessManifest {
     caseCount?: number;
     caseNames?: string[];
   };
+  sourceControl: {
+    path?: string;
+    generatedAt?: string;
+    status?: string;
+    ready?: boolean;
+    localHeadSha?: string;
+    remoteDefaultBranchSha?: string;
+    workingTreeClean?: boolean;
+    workingTreeStatusLineCount?: number;
+  };
+  reviewBundle: {
+    path?: string;
+    verificationPath?: string;
+    status?: string;
+    checkedFileCount?: number;
+    secretScanStatus?: string;
+    sourceControlHandoffPath?: string;
+    sourceControlHandoffLocalHeadSha?: string;
+    sourceControlHandoffRemoteDefaultBranchSha?: string;
+    sourceControlHandoffWorkingTreeClean?: boolean;
+    sourceControlHandoffWorkingTreeStatusLineCount?: number;
+  };
   summary: {
     pass: number;
     warn: number;
@@ -148,6 +170,8 @@ export async function buildPlugAndPlayReadiness(options: {
   const complete = localPlugAndPlayOk && completionAuditComplete && remainingRealWorldBlockers.length === 0;
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
+  const sourceControl = await sourceControlSummary(root);
+  const reviewBundle = await reviewBundleSummary(root);
 
   return {
     schemaVersion: 1,
@@ -164,6 +188,8 @@ export async function buildPlugAndPlayReadiness(options: {
       caseCount: typeof strictLocalAi?.caseCount === "number" ? strictLocalAi.caseCount : undefined,
       caseNames: stringArray(strictLocalAi?.caseNames)
     },
+    sourceControl,
+    reviewBundle,
     summary,
     checks,
     remainingRealWorldBlockers,
@@ -801,6 +827,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const qaReport = isRecord(workflowManifest) && isRecord(workflowManifest.qaReport) ? workflowManifest.qaReport : undefined;
   const todoAudit = await latestJson(root, ".tmp/todo-audit", (name) => name.startsWith("seekr-todo-audit-"));
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const doctor = await latestOperatorDoctorJson(root);
@@ -825,6 +852,20 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!workflow || gstackWorkflowStatusPath !== workflow.relativePath) problems.push("review bundle verification must point at the latest gstack workflow status");
   if (!todoAudit || todoAuditPath !== todoAudit.relativePath) problems.push("review bundle verification must point at the latest TODO audit");
   if (!sourceControl || sourceControlHandoffPath !== sourceControl.relativePath) problems.push("review bundle verification must point at the latest source-control handoff");
+  if (isRecord(sourceControlManifest) && sourceControlManifest.ready === true && isRecord(manifest)) {
+    if (stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha) !== stringOrUndefined(sourceControlManifest.localHeadSha)) {
+      problems.push("review bundle source-control local HEAD summary must match the latest source-control handoff");
+    }
+    if (stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha) !== stringOrUndefined(sourceControlManifest.remoteDefaultBranchSha)) {
+      problems.push("review bundle source-control remote default SHA summary must match the latest source-control handoff");
+    }
+    if (booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean) !== booleanOrUndefined(sourceControlManifest.workingTreeClean)) {
+      problems.push("review bundle source-control clean-worktree summary must match the latest source-control handoff");
+    }
+    if (numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount) !== numberOrUndefined(sourceControlManifest.workingTreeStatusLineCount)) {
+      problems.push("review bundle source-control working-tree status line summary must match the latest source-control handoff");
+    }
+  }
   if (!setup || plugAndPlaySetupPath !== setup.relativePath) problems.push("review bundle verification must point at the latest plug-and-play setup");
   if (!localAiPrepare || localAiPreparePath !== localAiPrepare.relativePath) problems.push("review bundle verification must point at the latest local AI prepare artifact");
   if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest operator-start plug-and-play doctor");
@@ -924,6 +965,29 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     typeof manifest.ai.caseCount === "number" ? `- Smoke cases: ${manifest.ai.caseCount}` : undefined,
     manifest.ai.caseNames?.length ? `- Smoke scenario names: ${manifest.ai.caseNames.join(", ")}` : undefined,
     "",
+    "Source control:",
+    "",
+    manifest.sourceControl.path ? `- Handoff: ${manifest.sourceControl.path}` : undefined,
+    manifest.sourceControl.status ? `- Status: ${manifest.sourceControl.status}` : undefined,
+    typeof manifest.sourceControl.ready === "boolean" ? `- Ready: ${manifest.sourceControl.ready}` : undefined,
+    manifest.sourceControl.localHeadSha ? `- Local HEAD: ${manifest.sourceControl.localHeadSha}` : undefined,
+    manifest.sourceControl.remoteDefaultBranchSha ? `- Remote default SHA: ${manifest.sourceControl.remoteDefaultBranchSha}` : undefined,
+    typeof manifest.sourceControl.workingTreeClean === "boolean" ? `- Working tree clean: ${manifest.sourceControl.workingTreeClean}` : undefined,
+    typeof manifest.sourceControl.workingTreeStatusLineCount === "number" ? `- Working tree status lines: ${manifest.sourceControl.workingTreeStatusLineCount}` : undefined,
+    "",
+    "Review bundle:",
+    "",
+    manifest.reviewBundle.path ? `- Bundle: ${manifest.reviewBundle.path}` : undefined,
+    manifest.reviewBundle.verificationPath ? `- Verification: ${manifest.reviewBundle.verificationPath}` : undefined,
+    manifest.reviewBundle.status ? `- Status: ${manifest.reviewBundle.status}` : undefined,
+    typeof manifest.reviewBundle.checkedFileCount === "number" ? `- Checked files: ${manifest.reviewBundle.checkedFileCount}` : undefined,
+    manifest.reviewBundle.secretScanStatus ? `- Secret scan: ${manifest.reviewBundle.secretScanStatus}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffPath ? `- Source-control handoff: ${manifest.reviewBundle.sourceControlHandoffPath}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffLocalHeadSha ? `- Source-control local HEAD: ${manifest.reviewBundle.sourceControlHandoffLocalHeadSha}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha ? `- Source-control remote default SHA: ${manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    typeof manifest.reviewBundle.sourceControlHandoffWorkingTreeClean === "boolean" ? `- Source-control working tree clean: ${manifest.reviewBundle.sourceControlHandoffWorkingTreeClean}` : undefined,
+    typeof manifest.reviewBundle.sourceControlHandoffWorkingTreeStatusLineCount === "number" ? `- Source-control working tree status lines: ${manifest.reviewBundle.sourceControlHandoffWorkingTreeStatusLineCount}` : undefined,
+    "",
     "Checks:",
     "",
     "| Check | Status | Details |",
@@ -1002,6 +1066,47 @@ async function readText(filePath: string) {
   }
 }
 
+async function sourceControlSummary(root: string): Promise<PlugAndPlayReadinessManifest["sourceControl"]> {
+  const artifact = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  if (!isRecord(manifest)) return {};
+  return {
+    path: artifact?.relativePath,
+    generatedAt: stringOrUndefined(manifest.generatedAt),
+    status: stringOrUndefined(manifest.status),
+    ready: booleanOrUndefined(manifest.ready),
+    localHeadSha: stringOrUndefined(manifest.localHeadSha),
+    remoteDefaultBranchSha: stringOrUndefined(manifest.remoteDefaultBranchSha),
+    workingTreeClean: booleanOrUndefined(manifest.workingTreeClean),
+    workingTreeStatusLineCount: numberOrUndefined(manifest.workingTreeStatusLineCount)
+  };
+}
+
+async function reviewBundleSummary(root: string): Promise<PlugAndPlayReadinessManifest["reviewBundle"]> {
+  const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
+  const verification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
+  const manifest = verification ? await readJson(verification.absolutePath) : undefined;
+  const secretScan = isRecord(manifest) && isRecord(manifest.secretScan) ? manifest.secretScan : undefined;
+  if (!isRecord(manifest)) {
+    return {
+      path: bundle?.relativePath,
+      verificationPath: verification?.relativePath
+    };
+  }
+  return {
+    path: normalizeArtifactPath(root, manifest.sourceBundlePath) ?? bundle?.relativePath,
+    verificationPath: verification?.relativePath,
+    status: stringOrUndefined(manifest.status),
+    checkedFileCount: numberOrUndefined(manifest.checkedFileCount),
+    secretScanStatus: isRecord(secretScan) ? stringOrUndefined(secretScan.status) : undefined,
+    sourceControlHandoffPath: normalizeArtifactPath(root, manifest.sourceControlHandoffPath),
+    sourceControlHandoffLocalHeadSha: stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha),
+    sourceControlHandoffRemoteDefaultBranchSha: stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha),
+    sourceControlHandoffWorkingTreeClean: booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean),
+    sourceControlHandoffWorkingTreeStatusLineCount: numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount)
+  };
+}
+
 async function pathExists(filePath: string) {
   try {
     await readFile(filePath);
@@ -1028,6 +1133,15 @@ function timeMs(value: unknown) {
 
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function booleanOrUndefined(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function numberOrUndefined(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
 }
 
 function gstackHelperToolEvidenceOk(manifest: Record<string, unknown>) {
@@ -1103,6 +1217,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     status: result.manifest.status,
     commandUploadEnabled: result.manifest.commandUploadEnabled,
     ai: result.manifest.ai,
+    sourceControl: result.manifest.sourceControl,
+    reviewBundle: result.manifest.reviewBundle,
     summary: result.manifest.summary,
     remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,
     jsonPath: result.jsonPath,
