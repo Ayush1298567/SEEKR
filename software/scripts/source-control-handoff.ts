@@ -37,6 +37,9 @@ export interface SourceControlHandoffManifest {
   localBranch?: string;
   localHeadSha?: string;
   remoteDefaultBranchSha?: string;
+  freshCloneHeadSha?: string;
+  freshCloneInstallDryRunOk?: boolean;
+  freshCloneCheckedPathCount?: number;
   workingTreeClean?: boolean;
   workingTreeStatusLineCount?: number;
   configuredRemoteUrls: string[];
@@ -64,6 +67,9 @@ export function sourceControlHandoffCliSummary(manifest: SourceControlHandoffMan
     remoteRefCount: manifest.remoteRefCount,
     localHeadSha: manifest.localHeadSha,
     remoteDefaultBranchSha: manifest.remoteDefaultBranchSha,
+    freshCloneHeadSha: manifest.freshCloneHeadSha,
+    freshCloneInstallDryRunOk: manifest.freshCloneInstallDryRunOk,
+    freshCloneCheckedPathCount: manifest.freshCloneCheckedPathCount,
     workingTreeClean: manifest.workingTreeClean,
     workingTreeStatusLineCount: manifest.workingTreeStatusLineCount,
     blockedCheckCount: manifest.blockedCheckCount,
@@ -303,6 +309,9 @@ export async function buildSourceControlHandoff(options: {
     localBranch: localGit.branch,
     localHeadSha: localGit.headSha,
     remoteDefaultBranchSha,
+    freshCloneHeadSha: freshCloneProbe.headSha,
+    freshCloneInstallDryRunOk: freshCloneProbe.installDryRunOk,
+    freshCloneCheckedPathCount: freshCloneProbe.checkedPaths.length,
     workingTreeClean,
     workingTreeStatusLineCount,
     configuredRemoteUrls,
@@ -502,6 +511,9 @@ function renderMarkdown(manifest: SourceControlHandoffManifest) {
     `Configured remotes: ${manifest.configuredRemoteUrls.length ? manifest.configuredRemoteUrls.join(", ") : "none"}`,
     `Remote default branch: ${manifest.remoteDefaultBranch ?? "none"}`,
     manifest.remoteDefaultBranchSha ? `Remote default branch SHA: ${manifest.remoteDefaultBranchSha}` : undefined,
+    manifest.freshCloneHeadSha ? `Fresh-clone HEAD: ${manifest.freshCloneHeadSha}` : undefined,
+    typeof manifest.freshCloneInstallDryRunOk === "boolean" ? `Fresh-clone npm ci dry-run: ${manifest.freshCloneInstallDryRunOk}` : undefined,
+    typeof manifest.freshCloneCheckedPathCount === "number" ? `Fresh-clone checked paths: ${manifest.freshCloneCheckedPathCount}` : undefined,
     `Remote ref count: ${manifest.remoteRefCount}`,
     typeof manifest.workingTreeClean === "boolean" ? `Working tree clean: ${manifest.workingTreeClean}` : undefined,
     typeof manifest.workingTreeStatusLineCount === "number" ? `Working tree status lines: ${manifest.workingTreeStatusLineCount}` : undefined,
@@ -605,8 +617,9 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
         NPM_CI_DRY_RUN_COMMAND,
         "fresh-clone-github-landing-readme-contract",
         "fresh-clone-operator-quickstart-contract",
+        result.headSha ? `fresh-clone-head:${result.headSha}` : undefined,
         ...result.checkedPaths.map((checkedPath) => `fresh-clone:${checkedPath}`)
-      ]
+      ].filter((item): item is string => typeof item === "string")
     };
   }
   if (result.cloneSucceeded && result.missingPaths.length) {
@@ -729,6 +742,8 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   const checkStatusFor = (id: string) => String(checks.find((check) => check.id === id)?.status ?? "");
   const githubRemoteRefsPass = checkStatusFor("github-remote-refs") === "pass";
   const localHeadPublishedPass = checkStatusFor("local-head-published") === "pass";
+  const freshCloneSmokePass = checkStatusFor("fresh-clone-smoke") === "pass";
+  const manifestFreshCloneHeadSha = String(manifest.freshCloneHeadSha ?? "");
 
   if (manifest.schemaVersion !== 1) problems.push("schemaVersion must be 1");
   if (manifest.commandUploadEnabled !== false) problems.push("commandUploadEnabled must be false");
@@ -748,6 +763,18 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if (ready && localHeadPublishedPass && typeof manifest.remoteDefaultBranchSha !== "string") problems.push("published source-control handoff must include remoteDefaultBranchSha");
   if (ready && localHeadPublishedPass && typeof manifest.localHeadSha === "string" && typeof manifest.remoteDefaultBranchSha === "string" && manifest.localHeadSha !== manifest.remoteDefaultBranchSha) {
     problems.push("ready source-control handoff must have localHeadSha equal remoteDefaultBranchSha");
+  }
+  if (ready && freshCloneSmokePass && !manifestFreshCloneHeadSha.trim()) {
+    problems.push("ready source-control handoff must include freshCloneHeadSha from the shallow GitHub clone");
+  }
+  if (ready && freshCloneSmokePass && typeof manifest.remoteDefaultBranchSha === "string" && manifestFreshCloneHeadSha && manifestFreshCloneHeadSha !== manifest.remoteDefaultBranchSha) {
+    problems.push("ready source-control handoff must have freshCloneHeadSha equal remoteDefaultBranchSha");
+  }
+  if (ready && freshCloneSmokePass && manifest.freshCloneInstallDryRunOk !== true) {
+    problems.push("ready source-control handoff must record freshCloneInstallDryRunOk true");
+  }
+  if (ready && freshCloneSmokePass && (!Number.isInteger(Number(manifest.freshCloneCheckedPathCount)) || Number(manifest.freshCloneCheckedPathCount) < REQUIRED_FRESH_CLONE_PATHS.length)) {
+    problems.push("ready source-control handoff must record freshCloneCheckedPathCount for every required startup file");
   }
   if (ready && githubRemoteRefsPass && !String(manifest.remoteDefaultBranch ?? "")) problems.push("verified remote source-control handoff must include remoteDefaultBranch");
   if (ready && githubRemoteRefsPass && Number(manifest.remoteRefCount) < 1) problems.push("verified remote source-control handoff must include at least one GitHub remote ref");
@@ -777,6 +804,9 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   }
   if (freshCloneCheck?.status === "pass" && !freshClonePassEvidenceOk(freshCloneCheck)) {
     problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, landing README contract proof, operator quickstart contract proof, and all required startup-file evidence");
+  }
+  if (freshCloneCheck?.status === "pass" && manifestFreshCloneHeadSha && !freshClonePassHeadEvidenceOk(freshCloneCheck, manifestFreshCloneHeadSha)) {
+    problems.push("fresh-clone-smoke pass must include evidence for the recorded freshCloneHeadSha");
   }
   if (!nextActions.length) {
     problems.push("nextActionChecklist must include publication or verification steps");
@@ -839,6 +869,11 @@ function freshClonePassEvidenceOk(check: Record<string, unknown>) {
     evidence.includes("fresh-clone-github-landing-readme-contract") &&
     evidence.includes("fresh-clone-operator-quickstart-contract") &&
     REQUIRED_FRESH_CLONE_PATHS.every((relativePath) => evidence.includes(`fresh-clone:${relativePath}`));
+}
+
+function freshClonePassHeadEvidenceOk(check: Record<string, unknown>, headSha: string) {
+  const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
+  return evidence.includes(`fresh-clone-head:${headSha}`);
 }
 
 function githubLandingPassEvidenceOk(check: Record<string, unknown>) {

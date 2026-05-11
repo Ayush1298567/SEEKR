@@ -59,6 +59,9 @@ export interface PlugAndPlayReadinessManifest {
     warningCheckCount?: number;
     localHeadSha?: string;
     remoteDefaultBranchSha?: string;
+    freshCloneHeadSha?: string;
+    freshCloneInstallDryRunOk?: boolean;
+    freshCloneCheckedPathCount?: number;
     workingTreeClean?: boolean;
     workingTreeStatusLineCount?: number;
   };
@@ -104,6 +107,9 @@ export interface PlugAndPlayReadinessManifest {
     sourceControlHandoffWarningCheckCount?: number;
     sourceControlHandoffLocalHeadSha?: string;
     sourceControlHandoffRemoteDefaultBranchSha?: string;
+    sourceControlHandoffFreshCloneHeadSha?: string;
+    sourceControlHandoffFreshCloneInstallDryRunOk?: boolean;
+    sourceControlHandoffFreshCloneCheckedPathCount?: number;
     sourceControlHandoffWorkingTreeClean?: boolean;
     sourceControlHandoffWorkingTreeStatusLineCount?: number;
   };
@@ -968,6 +974,15 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
     if (stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha) !== stringOrUndefined(sourceControlManifest.remoteDefaultBranchSha)) {
       problems.push("review bundle source-control remote default SHA summary must match the latest source-control handoff");
     }
+    if (stringOrUndefined(manifest.sourceControlHandoffFreshCloneHeadSha) !== stringOrUndefined(sourceControlManifest.freshCloneHeadSha)) {
+      problems.push("review bundle source-control fresh-clone HEAD summary must match the latest source-control handoff");
+    }
+    if (booleanOrUndefined(manifest.sourceControlHandoffFreshCloneInstallDryRunOk) !== booleanOrUndefined(sourceControlManifest.freshCloneInstallDryRunOk)) {
+      problems.push("review bundle source-control fresh-clone npm ci dry-run summary must match the latest source-control handoff");
+    }
+    if (numberOrUndefined(manifest.sourceControlHandoffFreshCloneCheckedPathCount) !== numberOrUndefined(sourceControlManifest.freshCloneCheckedPathCount)) {
+      problems.push("review bundle source-control fresh-clone checked-path summary must match the latest source-control handoff");
+    }
     if (stringOrUndefined(manifest.sourceControlHandoffRepositoryUrl) !== stringOrUndefined(sourceControlManifest.repositoryUrl)) {
       problems.push("review bundle source-control repository URL summary must match the latest source-control handoff");
     }
@@ -1133,6 +1148,9 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     typeof manifest.sourceControl.warningCheckCount === "number" ? `- Warning checks: ${manifest.sourceControl.warningCheckCount}` : undefined,
     manifest.sourceControl.localHeadSha ? `- Local HEAD: ${manifest.sourceControl.localHeadSha}` : undefined,
     manifest.sourceControl.remoteDefaultBranchSha ? `- Remote default SHA: ${manifest.sourceControl.remoteDefaultBranchSha}` : undefined,
+    manifest.sourceControl.freshCloneHeadSha ? `- Fresh-clone HEAD: ${manifest.sourceControl.freshCloneHeadSha}` : undefined,
+    typeof manifest.sourceControl.freshCloneInstallDryRunOk === "boolean" ? `- Fresh-clone npm ci dry-run: ${manifest.sourceControl.freshCloneInstallDryRunOk}` : undefined,
+    typeof manifest.sourceControl.freshCloneCheckedPathCount === "number" ? `- Fresh-clone checked paths: ${manifest.sourceControl.freshCloneCheckedPathCount}` : undefined,
     typeof manifest.sourceControl.workingTreeClean === "boolean" ? `- Working tree clean: ${manifest.sourceControl.workingTreeClean}` : undefined,
     typeof manifest.sourceControl.workingTreeStatusLineCount === "number" ? `- Working tree status lines: ${manifest.sourceControl.workingTreeStatusLineCount}` : undefined,
     "",
@@ -1181,6 +1199,9 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     typeof manifest.reviewBundle.sourceControlHandoffWarningCheckCount === "number" ? `- Source-control warning checks: ${manifest.reviewBundle.sourceControlHandoffWarningCheckCount}` : undefined,
     manifest.reviewBundle.sourceControlHandoffLocalHeadSha ? `- Source-control local HEAD: ${manifest.reviewBundle.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha ? `- Source-control remote default SHA: ${manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffFreshCloneHeadSha ? `- Source-control fresh-clone HEAD: ${manifest.reviewBundle.sourceControlHandoffFreshCloneHeadSha}` : undefined,
+    typeof manifest.reviewBundle.sourceControlHandoffFreshCloneInstallDryRunOk === "boolean" ? `- Source-control fresh-clone npm ci dry-run: ${manifest.reviewBundle.sourceControlHandoffFreshCloneInstallDryRunOk}` : undefined,
+    typeof manifest.reviewBundle.sourceControlHandoffFreshCloneCheckedPathCount === "number" ? `- Source-control fresh-clone checked paths: ${manifest.reviewBundle.sourceControlHandoffFreshCloneCheckedPathCount}` : undefined,
     typeof manifest.reviewBundle.sourceControlHandoffWorkingTreeClean === "boolean" ? `- Source-control working tree clean: ${manifest.reviewBundle.sourceControlHandoffWorkingTreeClean}` : undefined,
     typeof manifest.reviewBundle.sourceControlHandoffWorkingTreeStatusLineCount === "number" ? `- Source-control working tree status lines: ${manifest.reviewBundle.sourceControlHandoffWorkingTreeStatusLineCount}` : undefined,
     "",
@@ -1283,6 +1304,9 @@ async function sourceControlSummary(root: string): Promise<PlugAndPlayReadinessM
     warningCheckCount: numberOrUndefined(manifest.warningCheckCount),
     localHeadSha: stringOrUndefined(manifest.localHeadSha),
     remoteDefaultBranchSha: stringOrUndefined(manifest.remoteDefaultBranchSha),
+    freshCloneHeadSha: stringOrUndefined(manifest.freshCloneHeadSha),
+    freshCloneInstallDryRunOk: booleanOrUndefined(manifest.freshCloneInstallDryRunOk),
+    freshCloneCheckedPathCount: numberOrUndefined(manifest.freshCloneCheckedPathCount),
     workingTreeClean: booleanOrUndefined(manifest.workingTreeClean),
     workingTreeStatusLineCount: numberOrUndefined(manifest.workingTreeStatusLineCount)
   };
@@ -1361,6 +1385,9 @@ async function reviewBundleSummary(root: string): Promise<PlugAndPlayReadinessMa
     sourceControlHandoffWarningCheckCount: numberOrUndefined(manifest.sourceControlHandoffWarningCheckCount),
     sourceControlHandoffLocalHeadSha: stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha),
     sourceControlHandoffRemoteDefaultBranchSha: stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha),
+    sourceControlHandoffFreshCloneHeadSha: stringOrUndefined(manifest.sourceControlHandoffFreshCloneHeadSha),
+    sourceControlHandoffFreshCloneInstallDryRunOk: booleanOrUndefined(manifest.sourceControlHandoffFreshCloneInstallDryRunOk),
+    sourceControlHandoffFreshCloneCheckedPathCount: numberOrUndefined(manifest.sourceControlHandoffFreshCloneCheckedPathCount),
     sourceControlHandoffWorkingTreeClean: booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean),
     sourceControlHandoffWorkingTreeStatusLineCount: numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount)
   };

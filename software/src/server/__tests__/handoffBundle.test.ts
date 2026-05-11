@@ -3292,6 +3292,9 @@ function markSourceControlReady(manifest: {
   localBranch?: string;
   localHeadSha?: string;
   remoteDefaultBranchSha?: string;
+  freshCloneHeadSha?: string;
+  freshCloneInstallDryRunOk?: boolean;
+  freshCloneCheckedPathCount?: number;
   remoteDefaultBranch?: string;
   workingTreeClean?: boolean;
   workingTreeStatusLineCount?: number;
@@ -3305,6 +3308,9 @@ function markSourceControlReady(manifest: {
   manifest.warningCheckCount = 0;
   manifest.localHeadSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
   manifest.remoteDefaultBranchSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
+  manifest.freshCloneHeadSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
+  manifest.freshCloneInstallDryRunOk = true;
+  manifest.freshCloneCheckedPathCount = 7;
   manifest.localBranch = "main";
   manifest.remoteDefaultBranch = "main";
   manifest.workingTreeClean = true;
@@ -3350,6 +3356,7 @@ function freshCloneSmokeEvidence() {
     "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
     "fresh-clone-github-landing-readme-contract",
     "fresh-clone-operator-quickstart-contract",
+    "fresh-clone-head:1551c2f20dd0d51858200be22fde06f7b749f53d",
     "fresh-clone:README.md",
     "fresh-clone:software/package.json",
     "fresh-clone:software/package-lock.json",

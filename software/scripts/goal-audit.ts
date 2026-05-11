@@ -1108,6 +1108,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffRemoteDefaultBranchSha) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffRemoteDefaultBranchSha)) {
       problems.push("plug-and-play readiness review-bundle source-control remote default SHA summary must match the latest bundle verification");
     }
+    if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffFreshCloneHeadSha) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffFreshCloneHeadSha)) {
+      problems.push("plug-and-play readiness review-bundle source-control fresh-clone HEAD summary must match the latest bundle verification");
+    }
+    if (booleanOrUndefined(readinessReviewBundle.sourceControlHandoffFreshCloneInstallDryRunOk) !== booleanOrUndefined(bundleVerificationManifest.sourceControlHandoffFreshCloneInstallDryRunOk)) {
+      problems.push("plug-and-play readiness review-bundle source-control fresh-clone npm ci dry-run summary must match the latest bundle verification");
+    }
+    if (numberOrUndefined(readinessReviewBundle.sourceControlHandoffFreshCloneCheckedPathCount) !== numberOrUndefined(bundleVerificationManifest.sourceControlHandoffFreshCloneCheckedPathCount)) {
+      problems.push("plug-and-play readiness review-bundle source-control fresh-clone checked-path summary must match the latest bundle verification");
+    }
     if (booleanOrUndefined(readinessReviewBundle.sourceControlHandoffWorkingTreeClean) !== booleanOrUndefined(bundleVerificationManifest.sourceControlHandoffWorkingTreeClean)) {
       problems.push("plug-and-play readiness review-bundle source-control clean-worktree summary must match the latest bundle verification");
     }

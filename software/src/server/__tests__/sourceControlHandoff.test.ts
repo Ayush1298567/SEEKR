@@ -61,6 +61,9 @@ describe("source-control handoff audit", () => {
       remoteDefaultBranch: "main",
       remoteDefaultBranchSha: LOCAL_SHA,
       remoteRefCount: 1,
+      freshCloneHeadSha: LOCAL_SHA,
+      freshCloneInstallDryRunOk: true,
+      freshCloneCheckedPathCount: FRESH_CLONE_PATHS.length,
       workingTreeClean: true,
       workingTreeStatusLineCount: 0,
       blockedCheckCount: 0,
@@ -89,6 +92,9 @@ describe("source-control handoff audit", () => {
       localHeadSha: LOCAL_SHA,
       remoteDefaultBranch: "main",
       remoteDefaultBranchSha: LOCAL_SHA,
+      freshCloneHeadSha: LOCAL_SHA,
+      freshCloneInstallDryRunOk: true,
+      freshCloneCheckedPathCount: FRESH_CLONE_PATHS.length,
       workingTreeClean: true,
       jsonPath: ".tmp/source.json",
       markdownPath: ".tmp/source.md"
@@ -983,7 +989,9 @@ describe("source-control handoff audit", () => {
     expect(result.jsonPath).toContain(`${path.sep}.tmp${path.sep}source-control-handoff${path.sep}`);
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"workingTreeClean\": true");
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"freshCloneHeadSha\"");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Source-Control Handoff");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Fresh-clone HEAD");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Working tree clean: true");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Publication Next Steps");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("does not initialize Git");
@@ -1038,6 +1046,30 @@ describe("source-control handoff audit", () => {
       remoteDefaultBranchSha: REMOTE_SHA
     }).problems).toEqual(expect.arrayContaining([
       expect.stringContaining("localHeadSha equal remoteDefaultBranchSha")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      freshCloneHeadSha: undefined
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("freshCloneHeadSha")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      freshCloneHeadSha: REMOTE_SHA
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("freshCloneHeadSha equal remoteDefaultBranchSha")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      freshCloneInstallDryRunOk: false
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("freshCloneInstallDryRunOk true")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      freshCloneCheckedPathCount: FRESH_CLONE_PATHS.length - 1
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("freshCloneCheckedPathCount")
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,
@@ -1105,6 +1137,17 @@ describe("source-control handoff audit", () => {
         : check)
     }).problems).toEqual(expect.arrayContaining([
       expect.stringContaining("landing README contract proof")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      checks: manifest.checks.map((check) => check.id === "fresh-clone-smoke"
+        ? {
+          ...check,
+          evidence: check.evidence.filter((item) => item !== `fresh-clone-head:${LOCAL_SHA}`)
+        }
+        : check)
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("recorded freshCloneHeadSha")
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,

@@ -55,6 +55,9 @@ export interface HandoffBundleManifest {
   sourceControlHandoffWarningCheckCount?: number;
   sourceControlHandoffLocalHeadSha?: string;
   sourceControlHandoffRemoteDefaultBranchSha?: string;
+  sourceControlHandoffFreshCloneHeadSha?: string;
+  sourceControlHandoffFreshCloneInstallDryRunOk?: boolean;
+  sourceControlHandoffFreshCloneCheckedPathCount?: number;
   sourceControlHandoffWorkingTreeClean?: boolean;
   sourceControlHandoffWorkingTreeStatusLineCount?: number;
   plugAndPlaySetupPath?: string;
@@ -308,6 +311,9 @@ export async function writeHandoffBundle(options: {
     sourceControlHandoffWarningCheckCount: isRecord(sourceControlManifest) ? numberOrUndefined(sourceControlManifest.warningCheckCount) : undefined,
     sourceControlHandoffLocalHeadSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.localHeadSha) : undefined,
     sourceControlHandoffRemoteDefaultBranchSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.remoteDefaultBranchSha) : undefined,
+    sourceControlHandoffFreshCloneHeadSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.freshCloneHeadSha) : undefined,
+    sourceControlHandoffFreshCloneInstallDryRunOk: isRecord(sourceControlManifest) ? booleanOrUndefined(sourceControlManifest.freshCloneInstallDryRunOk) : undefined,
+    sourceControlHandoffFreshCloneCheckedPathCount: isRecord(sourceControlManifest) ? numberOrUndefined(sourceControlManifest.freshCloneCheckedPathCount) : undefined,
     sourceControlHandoffWorkingTreeClean: isRecord(sourceControlManifest) ? booleanOrUndefined(sourceControlManifest.workingTreeClean) : undefined,
     sourceControlHandoffWorkingTreeStatusLineCount: isRecord(sourceControlManifest) ? numberOrUndefined(sourceControlManifest.workingTreeStatusLineCount) : undefined,
     plugAndPlaySetupPath: setup?.relativePath,
@@ -537,6 +543,9 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     typeof manifest.sourceControlHandoffWarningCheckCount === "number" ? `Source-control warning checks: ${manifest.sourceControlHandoffWarningCheckCount}` : undefined,
     manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.sourceControlHandoffRemoteDefaultBranchSha ? `Source-control remote default SHA: ${manifest.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    manifest.sourceControlHandoffFreshCloneHeadSha ? `Source-control fresh-clone HEAD: ${manifest.sourceControlHandoffFreshCloneHeadSha}` : undefined,
+    typeof manifest.sourceControlHandoffFreshCloneInstallDryRunOk === "boolean" ? `Source-control fresh-clone npm ci dry-run: ${manifest.sourceControlHandoffFreshCloneInstallDryRunOk}` : undefined,
+    typeof manifest.sourceControlHandoffFreshCloneCheckedPathCount === "number" ? `Source-control fresh-clone checked paths: ${manifest.sourceControlHandoffFreshCloneCheckedPathCount}` : undefined,
     typeof manifest.sourceControlHandoffWorkingTreeClean === "boolean" ? `Source-control working tree clean: ${manifest.sourceControlHandoffWorkingTreeClean}` : undefined,
     typeof manifest.sourceControlHandoffWorkingTreeStatusLineCount === "number" ? `Source-control working tree status lines: ${manifest.sourceControlHandoffWorkingTreeStatusLineCount}` : undefined,
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
@@ -1021,6 +1030,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffWarningCheckCount: result.manifest.sourceControlHandoffWarningCheckCount,
     sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,
     sourceControlHandoffRemoteDefaultBranchSha: result.manifest.sourceControlHandoffRemoteDefaultBranchSha,
+    sourceControlHandoffFreshCloneHeadSha: result.manifest.sourceControlHandoffFreshCloneHeadSha,
+    sourceControlHandoffFreshCloneInstallDryRunOk: result.manifest.sourceControlHandoffFreshCloneInstallDryRunOk,
+    sourceControlHandoffFreshCloneCheckedPathCount: result.manifest.sourceControlHandoffFreshCloneCheckedPathCount,
     sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,
     sourceControlHandoffWorkingTreeStatusLineCount: result.manifest.sourceControlHandoffWorkingTreeStatusLineCount,
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
