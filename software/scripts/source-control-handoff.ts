@@ -90,6 +90,14 @@ const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "command upload",
   "hardware actuation"
 ];
+const REQUIRED_FRESH_CLONE_PATHS = [
+  "README.md",
+  "software/package.json",
+  "software/package-lock.json",
+  "software/.env.example",
+  "software/scripts/rehearsal-start.sh",
+  "software/docs/OPERATOR_QUICKSTART.md"
+];
 const execFileAsync = promisify(execFile);
 
 export async function buildSourceControlHandoff(options: {
@@ -315,7 +323,6 @@ async function gitCommand(args: string[], cwd: string): Promise<GitCommandResult
 }
 
 async function gitFreshCloneProbe(repositoryUrl: string): Promise<FreshCloneResult> {
-  const requiredPaths = ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"];
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "seekr-fresh-clone-"));
   const cloneDir = path.join(tempDir, "SEEKR");
   try {
@@ -331,22 +338,22 @@ async function gitFreshCloneProbe(repositoryUrl: string): Promise<FreshCloneResu
       maxBuffer: 1024 * 1024
     });
     const missingPaths: string[] = [];
-    for (const relativePath of requiredPaths) {
+    for (const relativePath of REQUIRED_FRESH_CLONE_PATHS) {
       if (!(await pathExists(path.join(cloneDir, relativePath)))) missingPaths.push(relativePath);
     }
     return {
       ok: missingPaths.length === 0,
       cloneSucceeded: true,
       headSha: head.stdout.trim() || undefined,
-      checkedPaths: requiredPaths,
+      checkedPaths: REQUIRED_FRESH_CLONE_PATHS,
       missingPaths
     };
   } catch (error) {
     return {
       ok: false,
       cloneSucceeded: false,
-      checkedPaths: requiredPaths,
-      missingPaths: requiredPaths,
+      checkedPaths: REQUIRED_FRESH_CLONE_PATHS,
+      missingPaths: REQUIRED_FRESH_CLONE_PATHS,
       error: [
         String((error as { stdout?: unknown }).stdout ?? "").trim(),
         String((error as { stderr?: unknown }).stderr ?? "").trim(),
@@ -440,7 +447,7 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
     return {
       id: "fresh-clone-smoke",
       status: "pass",
-      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)} and contains the landing README, software package, and operator quickstart.`,
+      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)} and contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart.`,
       evidence: [
         EXPECTED_REPOSITORY_URL,
         "git clone --depth 1",
@@ -640,10 +647,10 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
     actions.push({
       id: "repair-published-fresh-clone",
       status: "required",
-      details: "Repair the published repository contents so a fresh clone contains the landing README, software package, and operator quickstart.",
+      details: "Repair the published repository contents so a fresh clone contains the landing README, package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart.",
       commands: [
         "git status --short --branch",
-        "git diff -- README.md software/package.json software/docs/OPERATOR_QUICKSTART.md",
+        "git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md",
         "git push origin HEAD:main",
         "npm run audit:source-control"
       ],

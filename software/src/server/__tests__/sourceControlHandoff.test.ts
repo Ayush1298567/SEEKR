@@ -6,6 +6,14 @@ import { buildSourceControlHandoff, validateSourceControlHandoffManifest, writeS
 
 const LOCAL_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const REMOTE_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const FRESH_CLONE_PATHS = [
+  "README.md",
+  "software/package.json",
+  "software/package-lock.json",
+  "software/.env.example",
+  "software/scripts/rehearsal-start.sh",
+  "software/docs/OPERATOR_QUICKSTART.md"
+];
 
 describe("source-control handoff audit", () => {
   let root: string;
@@ -221,8 +229,8 @@ describe("source-control handoff audit", () => {
       freshClone: async () => ({
         ok: false,
         cloneSucceeded: false,
-        checkedPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
-        missingPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
+        checkedPaths: FRESH_CLONE_PATHS,
+        missingPaths: FRESH_CLONE_PATHS,
         error: "network unavailable"
       })
     });
@@ -266,14 +274,18 @@ describe("source-control handoff audit", () => {
         ok: false,
         cloneSucceeded: true,
         headSha: LOCAL_SHA,
-        checkedPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
-        missingPaths: ["software/docs/OPERATOR_QUICKSTART.md"]
+        checkedPaths: FRESH_CLONE_PATHS,
+        missingPaths: ["software/package-lock.json", "software/docs/OPERATOR_QUICKSTART.md"]
       })
     });
 
     expect(manifest.ready).toBe(false);
     expect(manifest.status).toBe("blocked-source-control-handoff");
     expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("software/package-lock.json")
+    });
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")).toMatchObject({
       status: "blocked",
       details: expect.stringContaining("software/docs/OPERATOR_QUICKSTART.md")
@@ -423,7 +435,7 @@ function freshCloneOk(headSha = LOCAL_SHA) {
     ok: true,
     cloneSucceeded: true,
     headSha,
-    checkedPaths: ["README.md", "software/package.json", "software/docs/OPERATOR_QUICKSTART.md"],
+    checkedPaths: FRESH_CLONE_PATHS,
     missingPaths: []
   });
 }

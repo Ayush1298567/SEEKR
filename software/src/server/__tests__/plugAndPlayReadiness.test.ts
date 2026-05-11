@@ -922,7 +922,7 @@ describe("plug-and-play readiness audit", () => {
         { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
         { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
         { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
-        { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains the landing README, software package, and operator quickstart." },
+        { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files." },
         { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
         { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
       ],
@@ -1534,7 +1534,7 @@ async function seedDoctorFiles(root: string) {
       { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
       { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
-      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains the landing README, software package, and operator quickstart." },
+      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files." },
       { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
       { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
     ],
