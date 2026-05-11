@@ -1964,6 +1964,7 @@ async function seedLocalAiPrepareFiles(root: string) {
     "it('runs ollama pull llama3.2', () => {});",
     "it('supports check-only mode', () => {});",
     "it('fails closed when ollama prep fails closed', () => {});",
+    "it('fails closed before execution for shell-metacharacter model argument', () => {});",
     ""
   ].join("\n"), "utf8");
   await writeFile(path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json"), JSON.stringify({

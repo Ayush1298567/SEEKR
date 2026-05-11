@@ -41,6 +41,7 @@ const DEFAULT_OUT_DIR = ".tmp/local-ai-prepare";
 const DEFAULT_OLLAMA_MODEL = "llama3.2:latest";
 const DEFAULT_OLLAMA_COMMAND = "ollama";
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
+const SAFE_OLLAMA_MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
 
 export async function buildLocalAiPrepare(options: {
   root?: string;
@@ -68,7 +69,7 @@ export async function buildLocalAiPrepare(options: {
     checks.push({
       id: "ollama-model-prep",
       status: "fail",
-      details: "Refusing unsafe Ollama model argument; model names must be a single non-option argument without whitespace or control characters.",
+      details: "Refusing unsafe Ollama model argument; model names must be a single non-option token using only letters, numbers, dots, underscores, colons, slashes, or hyphens.",
       evidence: ["package.json scripts.ai:prepare", prepareCommand.join(" ")]
     });
   } else if (options.checkOnly) {
@@ -198,7 +199,7 @@ function isSafeOllamaModelArgument(value: string | undefined) {
     value.length > 0 &&
     value.trim() === value &&
     !value.startsWith("-") &&
-    !/[\s\x00-\x1f\x7f]/.test(value);
+    SAFE_OLLAMA_MODEL_PATTERN.test(value);
 }
 
 function isOllamaCommand(command: string | undefined) {

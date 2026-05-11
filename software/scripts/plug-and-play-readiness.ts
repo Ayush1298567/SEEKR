@@ -350,7 +350,7 @@ async function localAiPrepareCheck(root: string): Promise<PlugAndPlayCheck> {
     if (script && !script.includes(signal)) problems.push(`scripts/local-ai-prepare.ts missing ${signal}`);
   }
   if (!test) problems.push("src/server/__tests__/localAiPrepare.test.ts is missing");
-  for (const signal of ["ollama pull llama3.2", "check-only", "fails closed"]) {
+  for (const signal of ["ollama pull llama3.2", "check-only", "fails closed", "shell-metacharacter model argument"]) {
     if (test && !test.includes(signal)) problems.push(`localAiPrepare.test.ts missing ${signal}`);
   }
   if (!localAiPrepareManifestOk(manifest)) {

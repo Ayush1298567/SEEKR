@@ -160,6 +160,16 @@ describe("local AI model preparation", () => {
     })).toBe(false);
     expect(localAiPrepareManifestOk({
       ...manifest,
+      model: "llama3.2;rm",
+      pullModel: "llama3.2;rm",
+      prepareCommand: ["ollama", "pull", "llama3.2;rm"],
+      checks: manifest.checks.map((check) => ({
+        ...check,
+        evidence: ["package.json scripts.ai:prepare", "ollama pull llama3.2;rm"]
+      }))
+    })).toBe(false);
+    expect(localAiPrepareManifestOk({
+      ...manifest,
       model: "llama3.2 latest",
       pullModel: "llama3.2 latest",
       prepareCommand: ["ollama", "pull", "llama3.2 latest"],
@@ -168,6 +178,27 @@ describe("local AI model preparation", () => {
         evidence: ["package.json scripts.ai:prepare", "ollama pull llama3.2 latest"]
       }))
     })).toBe(false);
+  });
+
+  it("fails closed before execution for shell-metacharacter model arguments", async () => {
+    const manifest = await buildLocalAiPrepare({
+      root,
+      model: "llama3.2;rm",
+      execFileImpl: async () => {
+        throw new Error("should not execute shell-metacharacter model argument");
+      }
+    });
+
+    expect(manifest).toMatchObject({
+      ok: false,
+      status: "blocked-local-ai-model",
+      pullAttempted: false,
+      prepareCommand: ["ollama", "pull", "llama3.2;rm"]
+    });
+    expect(manifest.checks.find((check) => check.id === "ollama-model-prep")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("unsafe Ollama model argument")
+    });
   });
 
   it("rejects local AI prepare evidence with extra pull arguments or missing command evidence", async () => {
