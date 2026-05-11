@@ -135,6 +135,90 @@ describe("plug-and-play artifact contract", () => {
     expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(true);
   });
 
+  it("accepts auto-recoverable pass evidence for both occupied default ports only when both fallback candidates are proven", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ports"
+        ? {
+            ...check,
+            status: "pass",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787, client 5173. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console; client 5173 -> node pid 12346 cwd ~/Ayush/Prophet/prophet-console. npm run plug-and-play delegates to the rehearsal wrapper, which auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s). Current free fallback candidate(s): API 6100, client 6101; npm run plug-and-play prints the actual URLs it selects at startup.",
+            evidence: [
+              "PORT",
+              "SEEKR_API_PORT",
+              "SEEKR_CLIENT_PORT",
+              "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+              "fallback API port candidate 6100",
+              "fallback client port candidate 6101",
+              "http://127.0.0.1:8787/api/health",
+              "http://127.0.0.1:5173/",
+              "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+              "listener 12345 cwd ~/Ayush/Prophet/prophet-console",
+              "lsof -nP -iTCP:5173 -sTCP:LISTEN",
+              "listener 12346 cwd ~/Ayush/Prophet/prophet-console"
+            ]
+          }
+        : check
+    );
+
+    expect(doctorPortWarningEvidenceOk(checks)).toBe(true);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(true);
+  });
+
+  it("rejects auto-recoverable pass evidence that omits fallback proof for one occupied default port", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ports"
+        ? {
+            ...check,
+            status: "pass",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787, client 5173. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console; client 5173 -> node pid 12346 cwd ~/Ayush/Prophet/prophet-console. npm run plug-and-play delegates to the rehearsal wrapper, which auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s). Current free fallback candidate(s): API 6100, client 6101; npm run plug-and-play prints the actual URLs it selects at startup.",
+            evidence: [
+              "PORT",
+              "SEEKR_API_PORT",
+              "SEEKR_CLIENT_PORT",
+              "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+              "fallback API port candidate 6100",
+              "http://127.0.0.1:8787/api/health",
+              "http://127.0.0.1:5173/",
+              "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+              "listener 12345 cwd ~/Ayush/Prophet/prophet-console",
+              "lsof -nP -iTCP:5173 -sTCP:LISTEN",
+              "listener 12346 cwd ~/Ayush/Prophet/prophet-console"
+            ]
+          }
+        : check
+    );
+
+    expect(doctorPortWarningEvidenceOk(checks)).toBe(false);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
+  });
+
+  it("rejects occupied-port evidence that omits per-port listener inspection", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ports"
+        ? {
+            ...check,
+            status: "pass",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787, client 5173. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console; client 5173 -> node pid 12346 cwd ~/Ayush/Prophet/prophet-console. npm run plug-and-play delegates to the rehearsal wrapper, which auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s). Current free fallback candidate(s): API 6100, client 6101; npm run plug-and-play prints the actual URLs it selects at startup.",
+            evidence: [
+              "PORT",
+              "SEEKR_API_PORT",
+              "SEEKR_CLIENT_PORT",
+              "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+              "fallback API port candidate 6100",
+              "fallback client port candidate 6101",
+              "http://127.0.0.1:8787/api/health",
+              "http://127.0.0.1:5173/",
+              "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+              "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+            ]
+          }
+        : check
+    );
+
+    expect(doctorPortWarningEvidenceOk(checks)).toBe(false);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
+  });
+
   it("rejects non-SEEKR local-port warnings that drop listener diagnostics", () => {
     const checks = doctorChecks().map((check) =>
       check.id === "local-ports"

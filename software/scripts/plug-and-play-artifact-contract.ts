@@ -101,16 +101,31 @@ export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
   const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
   const details = typeof check.details === "string" ? check.details : "";
   if (!/non-SEEKR or unhealthy listener/.test(details)) return true;
-  const hasListenerDetails = /Listener diagnostics: .*pid \d+/.test(details);
-  const hasPortInspectorEvidence = evidence.some((item) => item.startsWith("lsof -nP -iTCP:")) &&
+  const occupiedPorts = occupiedPortPairsFromDetails(details);
+  const hasListenerDetails = occupiedPorts.length > 0 &&
+    occupiedPorts.every(({ role, port }) => new RegExp(`${role} ${port} -> .*pid \\d+`).test(details));
+  const hasPortInspectorEvidence = occupiedPorts.every(({ port }) => evidence.includes(`lsof -nP -iTCP:${port} -sTCP:LISTEN`)) &&
     evidence.some((item) => /^listener \d+ (cwd|command) /.test(item));
   if (check.status === "warn") return hasListenerDetails && hasPortInspectorEvidence;
   const hasAutoFallbackDetails = /auto-selects free local API\/client ports/.test(details);
   const hasPlugAndPlayGuidance = /npm run plug-and-play/.test(details);
   const hasAutoFallbackEvidence = evidence.some((item) => item.includes("auto-selected free local API/client ports"));
   const hasFallbackCandidate = /Current free fallback candidate\(s\): API \d+, client \d+/.test(details) &&
-    evidence.some((item) => /^fallback (API|client) port candidate \d+$/.test(item));
+    occupiedPorts.every(({ role }) => evidence.some((item) => fallbackEvidencePattern(role).test(item)));
   return hasListenerDetails && hasPortInspectorEvidence && hasAutoFallbackDetails && hasPlugAndPlayGuidance && hasAutoFallbackEvidence && hasFallbackCandidate;
+}
+
+function occupiedPortPairsFromDetails(details: string) {
+  const match = details.match(/non-SEEKR or unhealthy listener: ([^.]+)\./);
+  const summary = match?.[1] ?? "";
+  return Array.from(summary.matchAll(/\b(api|client) (\d{1,5})\b/g)).map((item) => ({
+    role: item[1],
+    port: item[2]
+  }));
+}
+
+function fallbackEvidencePattern(role: string) {
+  return role === "api" ? /^fallback API port candidate \d+$/ : /^fallback client port candidate \d+$/;
 }
 
 function timeMs(value: unknown) {
