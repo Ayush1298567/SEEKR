@@ -40,7 +40,7 @@
 
    The bounded wrapper smoke starts on temporary local ports, checks API/client/readiness/source-health, writes `.tmp/rehearsal-start-smoke/`, then shuts down. It is local startup evidence only, not hardware validation. The smoke run refreshes source-control evidence and writes a smoke-profile doctor, so final review packaging should rerun standalone `npm run doctor` afterward. After the current HEAD is published, `smoke:fresh-clone` proves a clean GitHub clone can run install, bounded startup smoke, and final doctor while command upload remains disabled.
 
-5. Open the client URL printed by `npm run rehearsal:start`; by default it is `http://127.0.0.1:5173`.
+5. Open the client URL printed by `npm run plug-and-play`; by default it is `http://127.0.0.1:5173`.
 
 6. If the run uses `SEEKR_INTERNAL_TOKEN`, open browser dev tools and set:
 

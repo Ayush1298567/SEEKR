@@ -12,7 +12,7 @@ npm run setup:local
 npm run ai:prepare
 npm run audit:source-control
 npm run doctor
-npm run rehearsal:start
+npm run plug-and-play
 ```
 
 For day-to-day local startup, `npm run plug-and-play` is an alias for the same checked `npm run rehearsal:start` wrapper.

@@ -10,6 +10,7 @@ export const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
   "npm run ai:prepare",
   "npm run audit:source-control",
   "npm run doctor",
+  "npm run plug-and-play",
   "non-SEEKR or unhealthy listener",
   "Listener diagnostics",
   "Stop the existing process",
@@ -49,7 +50,7 @@ export const REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER = [
   "npm run ai:prepare",
   "npm run audit:source-control",
   "npm run doctor",
-  "npm run rehearsal:start",
+  "npm run plug-and-play",
   "npm run smoke:rehearsal:start"
 ] as const;
 

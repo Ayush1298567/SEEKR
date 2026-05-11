@@ -24,10 +24,11 @@ describe("operator quickstart contract", () => {
     expect(content).toContain("cd SEEKR/software");
     expect(content).toContain("git pull --ff-only");
     expect(content).toContain("npm run audit:source-control");
+    expect(content).toContain("npm run plug-and-play");
     expect(content).toContain("npm run smoke:rehearsal:start");
     expect(content.indexOf("git clone https://github.com/Ayush1298567/SEEKR.git")).toBeLessThan(content.indexOf("cd SEEKR/software"));
     expect(content.indexOf("cd SEEKR/software")).toBeLessThan(content.indexOf("npm ci"));
-    expect(content.indexOf("npm run rehearsal:start")).toBeLessThan(content.indexOf("npm run smoke:rehearsal:start"));
+    expect(content.indexOf("npm run plug-and-play")).toBeLessThan(content.indexOf("npm run smoke:rehearsal:start"));
   });
 
   it("pins advisory AI command-safety language as required signals", () => {
@@ -73,6 +74,7 @@ describe("operator quickstart contract", () => {
   });
 
   it("pins bounded rehearsal-start smoke proof guidance as a required signal", () => {
+    expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toContain("npm run plug-and-play");
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toContain("npm run smoke:rehearsal:start");
   });
 
@@ -149,7 +151,7 @@ describe("operator quickstart contract", () => {
       "npm run setup:local",
       "npm run ai:prepare",
       "npm run doctor",
-      "npm run rehearsal:start",
+      "npm run plug-and-play",
       "npm run smoke:rehearsal:start",
       "npm run audit:source-control",
       ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) =>
@@ -171,7 +173,7 @@ describe("operator quickstart contract", () => {
       "npm run ai:prepare",
       "npm run audit:source-control",
       "npm run doctor",
-      "npm run rehearsal:start",
+      "npm run plug-and-play",
       "npm run smoke:rehearsal:start",
       "npm ci",
       ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) =>
@@ -195,7 +197,7 @@ describe("operator quickstart contract", () => {
       "npm run audit:source-control",
       "npm run doctor",
       "npm run smoke:rehearsal:start",
-      "npm run rehearsal:start",
+      "npm run plug-and-play",
       ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) =>
         !REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER.includes(signal as never)
       )

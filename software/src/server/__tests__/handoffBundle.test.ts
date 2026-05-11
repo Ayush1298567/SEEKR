@@ -159,6 +159,7 @@ describe("handoff bundle", () => {
     expect(copiedStrictAiSmoke.cases.some((testCase: { unsafeOperatorTextPresent: boolean }) => testCase.unsafeOperatorTextPresent)).toBe(false);
     expect(copiedStrictAiSmoke.cases.some((testCase: { mutatedWhileThinking: boolean }) => testCase.mutatedWhileThinking)).toBe(false);
     const copiedQuickstart = await readFile(path.join(result.bundleDirectory, "artifacts", operatorQuickstartPath), "utf8");
+    expect(copiedQuickstart).toContain("npm run plug-and-play");
     expect(copiedQuickstart).toContain("npm run rehearsal:start");
     expect(copiedQuickstart).toContain("npm run smoke:rehearsal:start");
     expect(copiedQuickstart).toContain("command upload");
@@ -1118,6 +1119,7 @@ describe("handoff bundle", () => {
       "npm ci",
       "npm run setup:local",
       "npm run doctor",
+      "npm run plug-and-play",
       "npm run rehearsal:start",
       "```",
       "",
@@ -1178,6 +1180,7 @@ describe("handoff bundle", () => {
       "npm run setup:local",
       "npm run audit:source-control",
       "npm run doctor",
+      "npm run plug-and-play",
       "npm run rehearsal:start",
       "```",
       "",
@@ -1842,6 +1845,7 @@ describe("handoff bundle", () => {
         "npm ci",
         "npm run setup:local",
         "npm run doctor",
+        "npm run plug-and-play",
         "npm run rehearsal:start",
         "```",
         "",
@@ -1889,6 +1893,7 @@ describe("handoff bundle", () => {
         "npm run setup:local",
         "npm run audit:source-control",
         "npm run doctor",
+        "npm run plug-and-play",
         "npm run rehearsal:start",
         "```",
         "",
@@ -3225,6 +3230,7 @@ async function seedBundleEvidence(root: string) {
     "npm run ai:prepare",
     "npm run audit:source-control",
     "npm run doctor",
+    "npm run plug-and-play",
     "npm run rehearsal:start",
     "npm run smoke:rehearsal:start",
     "```",
