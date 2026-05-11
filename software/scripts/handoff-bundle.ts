@@ -8,6 +8,7 @@ import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
 
 type BundleStatus = "ready-local-alpha-review-bundle" | "blocked";
 
@@ -51,6 +52,11 @@ export interface HandoffBundleManifest {
   rehearsalStartSmokePath?: string;
   rehearsalStartSmokeGeneratedAt?: string;
   rehearsalStartSmokeStatus?: string;
+  strictAiSmokeStatusPath?: string;
+  strictAiSmokeGeneratedAt?: number;
+  strictAiSmokeProvider?: string;
+  strictAiSmokeModel?: string;
+  strictAiSmokeCaseCount?: number;
   operatorQuickstartPath?: string;
   copiedFileCount: number;
   bundleDirectory: string;
@@ -86,6 +92,7 @@ const SOURCE_CONTROL_HANDOFF_DIR = ".tmp/source-control-handoff";
 const PLUG_AND_PLAY_SETUP_DIR = ".tmp/plug-and-play-setup";
 const PLUG_AND_PLAY_DOCTOR_DIR = ".tmp/plug-and-play-doctor";
 const REHEARSAL_START_SMOKE_DIR = ".tmp/rehearsal-start-smoke";
+const STRICT_AI_SMOKE_STATUS_PATH = ".tmp/ai-smoke-status.json";
 const REQUIRED_WORKFLOW_IDS = ["health", "review", "planning", "qa"];
 const REQUIRED_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
 const REQUIRED_TODO_CATEGORY_IDS = [
@@ -129,6 +136,10 @@ export async function writeHandoffBundle(options: {
   const doctorManifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const rehearsalStartSmoke = await latestJson(root, REHEARSAL_START_SMOKE_DIR, (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const rehearsalStartSmokeManifest = rehearsalStartSmoke ? await readJson(rehearsalStartSmoke.absolutePath) : undefined;
+  const strictAiSmokePath = await pathExists(path.join(root, STRICT_AI_SMOKE_STATUS_PATH))
+    ? STRICT_AI_SMOKE_STATUS_PATH
+    : undefined;
+  const strictAiSmokeManifest = strictAiSmokePath ? await readJson(path.join(root, strictAiSmokePath)) : undefined;
   const operatorQuickstart = await readText(path.join(root, OPERATOR_QUICKSTART_PATH));
   const acceptanceManifest = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const verification = await buildHandoffVerification({
@@ -177,6 +188,11 @@ export async function writeHandoffBundle(options: {
   } else if (!rehearsalStartSmokeOk(rehearsalStartSmokeManifest)) {
     blockers.push("Rehearsal-start smoke artifact must pass API/client startup, source-health, readiness, clean shutdown, and commandUploadEnabled false before bundling.");
   }
+  if (!strictAiSmokePath) {
+    blockers.push("No strict local AI smoke status exists; run npm run test:ai:local before bundling for final internal-alpha review.");
+  } else if (!strictAiSmokeStatusOk(strictAiSmokeManifest, acceptanceManifest)) {
+    blockers.push("Strict local AI smoke status must match copied acceptance, use Ollama, require the exact strict AI scenario set, include per-case planKind and validatorOk proof, avoid hold-drone plans, avoid unsafe operator-facing text, avoid state mutation while thinking, and keep command upload disabled.");
+  }
   const operatorQuickstartMissingSignals = operatorQuickstartProblems(operatorQuickstart);
   if (operatorQuickstartMissingSignals.length) {
     blockers.push(`Operator quickstart is missing required plug-and-play signal(s): ${operatorQuickstartMissingSignals.join(", ")}.`);
@@ -194,6 +210,7 @@ export async function writeHandoffBundle(options: {
         ...(setup ? [setup.relativePath, replaceExtension(setup.relativePath, ".md")] : []),
         ...(doctor ? [doctor.relativePath, replaceExtension(doctor.relativePath, ".md")] : []),
         ...(rehearsalStartSmoke ? [rehearsalStartSmoke.relativePath, replaceExtension(rehearsalStartSmoke.relativePath, ".md")] : []),
+        ...(strictAiSmokePath ? [strictAiSmokePath] : []),
         OPERATOR_QUICKSTART_PATH
       ]
     );
@@ -238,6 +255,11 @@ export async function writeHandoffBundle(options: {
     rehearsalStartSmokePath: rehearsalStartSmoke?.relativePath,
     rehearsalStartSmokeGeneratedAt: isRecord(rehearsalStartSmokeManifest) ? stringOrUndefined(rehearsalStartSmokeManifest.generatedAt) : undefined,
     rehearsalStartSmokeStatus: isRecord(rehearsalStartSmokeManifest) ? stringOrUndefined(rehearsalStartSmokeManifest.status) : undefined,
+    strictAiSmokeStatusPath: strictAiSmokePath,
+    strictAiSmokeGeneratedAt: isRecord(strictAiSmokeManifest) ? numberOrUndefined(strictAiSmokeManifest.generatedAt) : undefined,
+    strictAiSmokeProvider: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.provider) : undefined,
+    strictAiSmokeModel: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.model) : undefined,
+    strictAiSmokeCaseCount: isRecord(strictAiSmokeManifest) ? numberOrUndefined(strictAiSmokeManifest.caseCount) : undefined,
     operatorQuickstartPath: OPERATOR_QUICKSTART_PATH,
     copiedFileCount: files.length,
     bundleDirectory: relativeFromRoot(root, bundleDirectory),
@@ -268,6 +290,7 @@ export async function writeHandoffBundle(options: {
       "It also copies the latest TODO audit artifact so reviewers can inspect TODO/blocker consistency with the handoff packet.",
       "It also copies the latest source-control handoff artifact so reviewers can inspect local Git metadata and GitHub publication readiness separately from hardware readiness.",
       "It also copies the latest plug-and-play setup, doctor, and rehearsal-start smoke artifacts so reviewers can inspect local env/data preparation, start-wrapper, AI, port, data-directory, startup, source-health, readiness, shutdown, and safety preflight evidence.",
+      "It also copies the strict local AI smoke status so reviewers can inspect per-scenario Ollama plan-kind, validator, unsafe-text, and mutation safety proof.",
       "It also copies the operator quickstart that the plug-and-play readiness audit checks for local setup, source-control audit, start, advisory-only AI, API evidence, source-health, and safety-boundary instructions.",
       "It does not regenerate acceptance, completion-audit, demo, bench, hardware, policy, safety, API, or overnight evidence.",
       "It does not validate Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim capture, or hardware actuation.",
@@ -437,6 +460,11 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.rehearsalStartSmokePath ? `Rehearsal-start smoke: ${manifest.rehearsalStartSmokePath}` : undefined,
     manifest.rehearsalStartSmokeGeneratedAt ? `Rehearsal-start smoke generated at: ${manifest.rehearsalStartSmokeGeneratedAt}` : undefined,
     manifest.rehearsalStartSmokeStatus ? `Rehearsal-start smoke verdict: ${manifest.rehearsalStartSmokeStatus}` : undefined,
+    manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
+    typeof manifest.strictAiSmokeGeneratedAt === "number" ? `Strict AI smoke generated at: ${manifest.strictAiSmokeGeneratedAt}` : undefined,
+    manifest.strictAiSmokeProvider ? `Strict AI smoke provider: ${manifest.strictAiSmokeProvider}` : undefined,
+    manifest.strictAiSmokeModel ? `Strict AI smoke model: ${manifest.strictAiSmokeModel}` : undefined,
+    typeof manifest.strictAiSmokeCaseCount === "number" ? `Strict AI smoke cases: ${manifest.strictAiSmokeCaseCount}` : undefined,
     manifest.operatorQuickstartPath ? `Operator quickstart: ${manifest.operatorQuickstartPath}` : undefined,
     "",
     "Command upload enabled: false",
@@ -668,6 +696,53 @@ function arraysEqual(left: string[], right: string[]) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
 }
 
+function strictAiSmokeStatusOk(manifest: unknown, acceptance: unknown) {
+  if (!isRecord(manifest) || !isRecord(acceptance)) return false;
+  const strictLocalAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
+  const cases = Array.isArray(manifest.cases) ? manifest.cases.filter(isRecord) : [];
+  const caseNames = cases.map((item) => String(item.name ?? ""));
+  const acceptanceCaseNames = stringArray(strictLocalAi.caseNames);
+  const generatedAt = timeMs(manifest.generatedAt);
+  const acceptanceAiGeneratedAt = timeMs(strictLocalAi.generatedAt);
+  return manifest.ok === true &&
+    manifest.provider === "ollama" &&
+    manifest.requireOllama === true &&
+    typeof manifest.model === "string" &&
+    manifest.model.length > 0 &&
+    strictLocalAi.ok === true &&
+    strictLocalAi.provider === manifest.provider &&
+    strictLocalAi.model === manifest.model &&
+    generatedAt !== undefined &&
+    acceptanceAiGeneratedAt === generatedAt &&
+    Number(manifest.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
+    Number(manifest.caseCount) === cases.length &&
+    Number(strictLocalAi.caseCount) === cases.length &&
+    arraysEqual(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]) &&
+    arraysEqual(acceptanceCaseNames, caseNames) &&
+    cases.every((item) => strictAiSmokeCaseOk(item, manifest.model));
+}
+
+function strictAiSmokeCaseOk(testCase: Record<string, unknown>, model: unknown) {
+  const planKind = typeof testCase.planKind === "string" ? testCase.planKind.trim() : "";
+  return typeof testCase.name === "string" &&
+    testCase.provider === "ollama" &&
+    testCase.model === model &&
+    planKind.length > 0 &&
+    planKind !== "hold-drone" &&
+    testCase.validatorOk === true &&
+    testCase.unsafeOperatorTextPresent === false &&
+    testCase.mutatedWhileThinking === false;
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function numberOrUndefined(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
 function todoAuditOk(manifest: unknown) {
   if (!isRecord(manifest)) return false;
   const validation = isRecord(manifest.validation) ? manifest.validation : {};
@@ -819,6 +894,10 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     plugAndPlayDoctorStatus: result.manifest.plugAndPlayDoctorStatus,
     rehearsalStartSmokePath: result.manifest.rehearsalStartSmokePath,
     rehearsalStartSmokeStatus: result.manifest.rehearsalStartSmokeStatus,
+    strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
+    strictAiSmokeProvider: result.manifest.strictAiSmokeProvider,
+    strictAiSmokeModel: result.manifest.strictAiSmokeModel,
+    strictAiSmokeCaseCount: result.manifest.strictAiSmokeCaseCount,
     operatorQuickstartPath: result.manifest.operatorQuickstartPath,
     copiedFileCount: result.manifest.copiedFileCount,
     validation: result.manifest.validation,

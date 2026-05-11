@@ -61,8 +61,12 @@ describe("handoff bundle", () => {
       plugAndPlayDoctorStatus: "ready-local-start",
       rehearsalStartSmokePath: rehearsalStartSmokePath,
       rehearsalStartSmokeStatus: "pass",
+      strictAiSmokeStatusPath: strictAiSmokePath,
+      strictAiSmokeProvider: "ollama",
+      strictAiSmokeModel: "llama3.2:latest",
+      strictAiSmokeCaseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       operatorQuickstartPath,
-      copiedFileCount: 22,
+      copiedFileCount: 23,
       safetyBoundary: {
         realAircraftCommandUpload: false,
         hardwareActuationEnabled: false,
@@ -97,6 +101,7 @@ describe("handoff bundle", () => {
       expect.objectContaining({ sourcePath: doctorPath.replace(/\.json$/, ".md") }),
       expect.objectContaining({ sourcePath: rehearsalStartSmokePath }),
       expect.objectContaining({ sourcePath: rehearsalStartSmokePath.replace(/\.json$/, ".md") }),
+      expect.objectContaining({ sourcePath: strictAiSmokePath }),
       expect.objectContaining({ sourcePath: operatorQuickstartPath })
     ]));
     const copiedAcceptance = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", acceptancePath), "utf8"));
@@ -117,6 +122,12 @@ describe("handoff bundle", () => {
     expect(copiedDoctor.commandUploadEnabled).toBe(false);
     const copiedRehearsalStartSmoke = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", rehearsalStartSmokePath), "utf8"));
     expect(copiedRehearsalStartSmoke.commandUploadEnabled).toBe(false);
+    const copiedStrictAiSmoke = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", strictAiSmokePath), "utf8"));
+    expect(copiedStrictAiSmoke.ok).toBe(true);
+    expect(copiedStrictAiSmoke.cases.map((testCase: { name: string }) => testCase.name)).toEqual(REQUIRED_STRICT_AI_SMOKE_CASES);
+    expect(copiedStrictAiSmoke.cases.every((testCase: { validatorOk: boolean }) => testCase.validatorOk)).toBe(true);
+    expect(copiedStrictAiSmoke.cases.some((testCase: { unsafeOperatorTextPresent: boolean }) => testCase.unsafeOperatorTextPresent)).toBe(false);
+    expect(copiedStrictAiSmoke.cases.some((testCase: { mutatedWhileThinking: boolean }) => testCase.mutatedWhileThinking)).toBe(false);
     const copiedQuickstart = await readFile(path.join(result.bundleDirectory, "artifacts", operatorQuickstartPath), "utf8");
     expect(copiedQuickstart).toContain("npm run rehearsal:start");
     expect(copiedQuickstart).toContain("command upload");
@@ -127,6 +138,7 @@ describe("handoff bundle", () => {
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play setup");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play doctor");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Rehearsal-start smoke");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Strict AI smoke status");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Operator quickstart");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("does not validate Jetson/Pi hardware");
 
@@ -147,8 +159,9 @@ describe("handoff bundle", () => {
       plugAndPlaySetupPath: setupPath,
       plugAndPlayDoctorPath: doctorPath,
       rehearsalStartSmokePath,
+      strictAiSmokeStatusPath: strictAiSmokePath,
       operatorQuickstartPath,
-      checkedFileCount: 22,
+      checkedFileCount: 23,
       validation: {
         ok: true,
         blockers: []
@@ -1004,6 +1017,25 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when strict local AI smoke proof contains unsafe operator text", async () => {
+    const strictAiSmoke = JSON.parse(await readFile(path.join(root, strictAiSmokePath), "utf8"));
+    strictAiSmoke.cases[1].unsafeOperatorTextPresent = true;
+    await writeFile(path.join(root, strictAiSmokePath), JSON.stringify(strictAiSmoke), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Strict local AI smoke status must match copied acceptance")
+    ]));
+  });
+
   it("blocks bundling when gstack workflow status has a failing workflow", async () => {
     await writeFile(path.join(root, workflowPath), JSON.stringify({
       status: "fail",
@@ -1202,8 +1234,8 @@ describe("handoff bundle", () => {
     });
     expect(verification.manifest.secretScan).toMatchObject({
       status: "pass",
-      expectedFileCount: 22,
-      scannedFileCount: 22,
+      expectedFileCount: 23,
+      scannedFileCount: 23,
       findingCount: 0
     });
   });
@@ -1263,6 +1295,31 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
       expect.stringContaining("Copied acceptance status must pass")
+    ]));
+  });
+
+  it("fails bundle verification when copied strict local AI smoke proof no longer validates", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedStrictAiSmokePath = path.join(result.bundleDirectory, "artifacts", strictAiSmokePath);
+    const copiedStrictAiSmoke = JSON.parse(await readFile(copiedStrictAiSmokePath, "utf8"));
+    copiedStrictAiSmoke.cases[2].validatorOk = false;
+    const content = JSON.stringify(copiedStrictAiSmoke);
+    await writeFile(copiedStrictAiSmokePath, content, "utf8");
+    await updateBundleManifestDigest(result.jsonPath, strictAiSmokePath, content);
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied strict local AI smoke status must match copied acceptance")
     ]));
   });
 
@@ -2268,12 +2325,12 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.secretScan).toMatchObject({
       status: "fail",
-      expectedFileCount: 22,
-      scannedFileCount: 21,
+      expectedFileCount: 23,
+      scannedFileCount: 22,
       findingCount: 0
     });
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("Handoff bundle secret scan covered 21/22 copied files")
+      expect.stringContaining("Handoff bundle secret scan covered 22/23 copied files")
     ]));
   });
 });
@@ -2292,9 +2349,11 @@ const sourceControlPath = ".tmp/source-control-handoff/seekr-source-control-hand
 const setupPath = ".tmp/plug-and-play-setup/seekr-local-setup-test.json";
 const doctorPath = ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json";
 const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json";
+const strictAiSmokePath = ".tmp/ai-smoke-status.json";
 const operatorQuickstartPath = "docs/OPERATOR_QUICKSTART.md";
 
 async function seedBundleEvidence(root: string) {
+  const strictAiGeneratedAt = Date.parse("2026-05-09T20:56:30.000Z");
   const acceptance = JSON.stringify({
     ok: true,
     generatedAt: Date.parse("2026-05-09T20:57:00.000Z"),
@@ -2305,7 +2364,8 @@ async function seedBundleEvidence(root: string) {
       provider: "ollama",
       model: "llama3.2:latest",
       caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
-      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
+      generatedAt: strictAiGeneratedAt
     },
     releaseChecksum: {
       overallSha256: "a".repeat(64),
@@ -2333,7 +2393,8 @@ async function seedBundleEvidence(root: string) {
         provider: "ollama",
         model: "llama3.2:latest",
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
-        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
+        generatedAt: strictAiGeneratedAt
       },
       releaseChecksum: {
         overallSha256: "a".repeat(64),
@@ -2347,6 +2408,25 @@ async function seedBundleEvidence(root: string) {
         allowedFindingCount: 36
       }
     }
+  });
+  const strictAiSmoke = JSON.stringify({
+    ok: true,
+    generatedAt: strictAiGeneratedAt,
+    softwareVersion: "0.2.0",
+    provider: "ollama",
+    model: "llama3.2:latest",
+    requireOllama: true,
+    caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+    cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name, index) => ({
+      name,
+      provider: "ollama",
+      model: "llama3.2:latest",
+      planKind: index === 0 ? "assign-zone" : index === 2 ? "set-no-fly-zone" : "focused-search",
+      validatorOk: true,
+      elapsedMs: 1,
+      unsafeOperatorTextPresent: false,
+      mutatedWhileThinking: false
+    }))
   });
   const demo = JSON.stringify({ status: "ready-local-alpha", commandUploadEnabled: false });
   const bench = JSON.stringify({ status: "ready-for-bench-prep", commandUploadEnabled: false });
@@ -2590,6 +2670,7 @@ async function seedBundleEvidence(root: string) {
   });
   await writeFile(path.join(root, acceptancePath), acceptance, "utf8");
   await writeFile(path.join(root, apiProbePath), apiProbe, "utf8");
+  await writeFile(path.join(root, strictAiSmokePath), strictAiSmoke, "utf8");
   await writeFile(path.join(root, demoPath), demo, "utf8");
   await writeFile(path.join(root, benchPath), bench, "utf8");
   await writeFile(path.join(root, workflowPath), workflow, "utf8");

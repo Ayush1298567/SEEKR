@@ -38,6 +38,7 @@ export interface HandoffBundleVerificationManifest {
   plugAndPlaySetupPath?: string;
   plugAndPlayDoctorPath?: string;
   rehearsalStartSmokePath?: string;
+  strictAiSmokeStatusPath?: string;
   operatorQuickstartPath?: string;
   checkedFileCount: number;
   safetyBoundary: {
@@ -82,6 +83,7 @@ const REQUIRED_TODO_CATEGORY_IDS = [
   "isaac-sim-jetson-capture",
   "hardware-actuation-policy-review"
 ];
+const STRICT_AI_SMOKE_STATUS_PATH = ".tmp/ai-smoke-status.json";
 const SECRET_PATTERNS: Array<{ rule: string; pattern: RegExp; details: string }> = [
   {
     rule: "private-key-block",
@@ -194,6 +196,18 @@ export async function buildHandoffBundleVerification(options: {
     blockers.push("Handoff bundle does not include copied acceptance status JSON.");
   } else if (!acceptanceStrictLocalAiOk(copiedAcceptance)) {
     blockers.push("Copied acceptance status must pass, keep commandUploadEnabled false, and include the exact required strict local AI scenario names.");
+  }
+  const strictAiSmokeStatusPath = isRecord(manifest) ? stringOrUndefined(manifest.strictAiSmokeStatusPath) : undefined;
+  if (strictAiSmokeStatusPath !== STRICT_AI_SMOKE_STATUS_PATH) {
+    blockers.push(`Handoff bundle must name ${STRICT_AI_SMOKE_STATUS_PATH} as the strict local AI smoke status JSON.`);
+  } else if (!manifestFiles.some((file) => file.sourcePath === strictAiSmokeStatusPath)) {
+    blockers.push("Handoff bundle does not include the strict local AI smoke status JSON.");
+  }
+  if (bundleDirectory && bundleDirectoryOk && strictAiSmokeStatusPath === STRICT_AI_SMOKE_STATUS_PATH) {
+    const strictAiSmoke = await readCopiedJson(bundleDirectory, strictAiSmokeStatusPath);
+    if (!strictAiSmokeStatusOk(strictAiSmoke, copiedAcceptance)) {
+      blockers.push("Copied strict local AI smoke status must match copied acceptance, use Ollama, require the exact strict AI scenario set, include per-case planKind and validatorOk proof, avoid hold-drone plans, avoid unsafe operator-facing text, avoid state mutation while thinking, and keep command upload disabled.");
+    }
   }
   const copiedApiProbeFile = manifestFiles
     .map((file) => String(file.sourcePath ?? ""))
@@ -346,6 +360,7 @@ export async function buildHandoffBundleVerification(options: {
     plugAndPlaySetupPath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
+    strictAiSmokeStatusPath,
     operatorQuickstartPath,
     checkedFileCount: files.length,
     safetyBoundary: {
@@ -363,7 +378,7 @@ export async function buildHandoffBundleVerification(options: {
     limitations: [
       "This verification checks a copied local handoff bundle manifest and the SHA-256 digests it recorded for copied artifacts.",
       "It scans copied text artifacts for high-confidence secret patterns before review handoff.",
-      "It semantically checks the copied acceptance status, API-probe acceptance readback, gstack workflow-status, TODO audit, source-control handoff, plug-and-play setup, plug-and-play doctor, rehearsal-start smoke, and operator quickstart artifacts included in the review packet.",
+      "It semantically checks the copied acceptance status, strict local AI smoke status, API-probe acceptance readback, gstack workflow-status, TODO audit, source-control handoff, plug-and-play setup, plug-and-play doctor, rehearsal-start smoke, and operator quickstart artifacts included in the review packet.",
       "When the bundle names a local gstack browser QA report, this verifier checks that the report and named screenshots were copied and secret-scanned with the rest of the packet.",
       "It does not regenerate acceptance, completion-audit, demo, bench, hardware, policy, safety, API, overnight, handoff index, or handoff verification evidence.",
       "It does not validate Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim capture, or hardware actuation."
@@ -586,6 +601,7 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
     manifest.plugAndPlayDoctorPath ? `Plug-and-play doctor: ${manifest.plugAndPlayDoctorPath}` : undefined,
     manifest.rehearsalStartSmokePath ? `Rehearsal-start smoke: ${manifest.rehearsalStartSmokePath}` : undefined,
+    manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
     manifest.operatorQuickstartPath ? `Operator quickstart: ${manifest.operatorQuickstartPath}` : undefined,
     "",
     "Command upload enabled: false",
@@ -834,6 +850,44 @@ function acceptanceStrictLocalAiOk(manifest: unknown) {
     arraysEqual(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]);
 }
 
+function strictAiSmokeStatusOk(manifest: unknown, acceptance: unknown) {
+  if (!isRecord(manifest) || !isRecord(acceptance)) return false;
+  const strictLocalAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
+  const cases = Array.isArray(manifest.cases) ? manifest.cases.filter(isRecord) : [];
+  const caseNames = cases.map((item) => String(item.name ?? ""));
+  const acceptanceCaseNames = stringArray(strictLocalAi.caseNames);
+  const generatedAt = timeMs(manifest.generatedAt);
+  const acceptanceAiGeneratedAt = timeMs(strictLocalAi.generatedAt);
+  return manifest.ok === true &&
+    manifest.provider === "ollama" &&
+    manifest.requireOllama === true &&
+    typeof manifest.model === "string" &&
+    manifest.model.length > 0 &&
+    strictLocalAi.ok === true &&
+    strictLocalAi.provider === manifest.provider &&
+    strictLocalAi.model === manifest.model &&
+    generatedAt !== undefined &&
+    acceptanceAiGeneratedAt === generatedAt &&
+    Number(manifest.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
+    Number(manifest.caseCount) === cases.length &&
+    Number(strictLocalAi.caseCount) === cases.length &&
+    arraysEqual(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]) &&
+    arraysEqual(acceptanceCaseNames, caseNames) &&
+    cases.every((item) => strictAiSmokeCaseOk(item, manifest.model));
+}
+
+function strictAiSmokeCaseOk(testCase: Record<string, unknown>, model: unknown) {
+  const planKind = typeof testCase.planKind === "string" ? testCase.planKind.trim() : "";
+  return typeof testCase.name === "string" &&
+    testCase.provider === "ollama" &&
+    testCase.model === model &&
+    planKind.length > 0 &&
+    planKind !== "hold-drone" &&
+    testCase.validatorOk === true &&
+    testCase.unsafeOperatorTextPresent === false &&
+    testCase.mutatedWhileThinking === false;
+}
+
 function apiProbeAcceptanceReadbackOk(apiProbe: unknown, acceptance: unknown) {
   if (!isRecord(apiProbe) || !isRecord(acceptance)) return false;
   const sessionAcceptance = isRecord(apiProbe.sessionAcceptance) ? apiProbe.sessionAcceptance : {};
@@ -1026,6 +1080,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
     plugAndPlayDoctorPath: result.manifest.plugAndPlayDoctorPath,
     rehearsalStartSmokePath: result.manifest.rehearsalStartSmokePath,
+    strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
     operatorQuickstartPath: result.manifest.operatorQuickstartPath,
     checkedFileCount: result.manifest.checkedFileCount,
     secretScan: result.manifest.secretScan,

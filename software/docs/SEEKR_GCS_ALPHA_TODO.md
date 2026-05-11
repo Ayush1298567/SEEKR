@@ -126,8 +126,8 @@ This is the working checklist for getting the GCS from demo-ready to serious int
 - [x] Add persisted bridge-run evidence for MAVLink serial and live ROS 2 wrappers so bench captures do not rely on terminal output.
 - [x] Add handoff index evidence that verifies the latest demo package, bench packet, audit, acceptance, release, safety scan, hardware archive, policy gate, and overnight pointers agree, with linked-artifact SHA-256 digests.
 - [x] Add handoff verification evidence that rechecks linked-artifact digests without regenerating the handoff index.
-- [x] Add handoff bundle evidence that copies verified local handoff artifacts, latest gstack workflow-status artifact, and source-control handoff artifact for internal review without claiming hardware validation.
-- [x] Add handoff bundle verification evidence that rechecks copied review artifacts, copied workflow-status semantics, copied source-control handoff semantics, and high-confidence secret-scan coverage after packaging without claiming hardware validation.
+- [x] Add handoff bundle evidence that copies verified local handoff artifacts, latest gstack workflow-status artifact, source-control handoff artifact, and strict local AI smoke status for internal review without claiming hardware validation.
+- [x] Add handoff bundle verification evidence that rechecks copied review artifacts, copied strict local AI smoke semantics, copied workflow-status semantics, copied source-control handoff semantics, and high-confidence secret-scan coverage after packaging without claiming hardware validation.
 - [x] Add goal audit evidence that restates the objective as a prompt-to-artifact checklist without clearing real-world blockers.
 
 ## Drone Integration Prerequisites

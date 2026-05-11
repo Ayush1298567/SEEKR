@@ -54,8 +54,8 @@ SEEKR should let a field operator run a search mission rehearsal, ingest real or
 - [x] Demo readiness packages can bundle acceptance, release, command-boundary scan, API-probe, completion-audit, hardware, and policy-gate pointers under `.tmp/demo-readiness/` without claiming real hardware validation.
 - [x] Handoff indexes can verify the latest demo package, bench packet, acceptance, release, audit, safety scan, API-probe, hardware archive, policy gate, and overnight pointers under `.tmp/handoff-index/`, including demo-package-to-safety-scan/API-probe consistency, with SHA-256 digests for linked artifacts.
 - [x] Handoff verification can recheck a latest or specified handoff index digest table under `.tmp/handoff-index/` without clearing real-world blockers.
-- [x] Handoff bundles can copy a verified handoff index, its linked local artifacts, the latest gstack workflow-status artifact, and the latest source-control handoff artifact under `.tmp/handoff-bundles/` for internal review without clearing real-world blockers.
-- [x] Handoff bundle verification can recheck copied bundle artifacts, copied workflow-status semantics, copied source-control handoff semantics, and high-confidence secret-scan coverage under `.tmp/handoff-bundles/` after packaging or transfer without clearing real-world blockers.
+- [x] Handoff bundles can copy a verified handoff index, its linked local artifacts, the latest gstack workflow-status artifact, the latest source-control handoff artifact, and strict local AI smoke status under `.tmp/handoff-bundles/` for internal review without clearing real-world blockers.
+- [x] Handoff bundle verification can recheck copied bundle artifacts, copied strict local AI smoke semantics, copied workflow-status semantics, copied source-control handoff semantics, and high-confidence secret-scan coverage under `.tmp/handoff-bundles/` after packaging or transfer without clearing real-world blockers.
 - [x] Goal audits can restate the objective as a prompt-to-artifact checklist under `.tmp/goal-audit/` without clearing physical hardware blockers.
 
 ## Drone Integration Gate
