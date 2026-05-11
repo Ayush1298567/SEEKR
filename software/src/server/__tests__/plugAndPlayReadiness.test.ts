@@ -688,6 +688,56 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("warns when a ready source-control handoff could not inspect remote refs", async () => {
+    const sourceControlPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
+    const sourceControl = JSON.parse(await readFile(sourceControlPath, "utf8"));
+    sourceControl.status = "ready-source-control-handoff-with-warnings";
+    sourceControl.remoteDefaultBranch = undefined;
+    sourceControl.remoteDefaultBranchSha = undefined;
+    sourceControl.remoteRefCount = 0;
+    sourceControl.warningCheckCount = 3;
+    sourceControl.checks = sourceControl.checks.map((check: { id: string; status: string; details: string }) =>
+      ["github-remote-refs", "fresh-clone-smoke", "local-head-published"].includes(check.id)
+        ? { ...check, status: "warn", details: `${check.id} could not be inspected during transient network failure.` }
+        : check
+    );
+    sourceControl.nextActionChecklist = [
+      {
+        id: "rerun-source-control-audit",
+        status: "verification",
+        details: "Rerun the read-only audit after manual source-control recovery so the handoff can prove Git metadata, origin, and remote refs are current.",
+        commands: ["npm run audit:source-control"],
+        clearsCheckIds: ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "fresh-clone-smoke", "local-head-published", "working-tree-clean"]
+      }
+    ];
+    await writeFile(sourceControlPath, JSON.stringify(sourceControl), "utf8");
+    const verificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
+    const verification = JSON.parse(await readFile(verificationPath, "utf8"));
+    verification.sourceControlHandoffRemoteDefaultBranch = undefined;
+    verification.sourceControlHandoffRemoteDefaultBranchSha = undefined;
+    verification.sourceControlHandoffRemoteRefCount = 0;
+    await writeFile(verificationPath, JSON.stringify(verification), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(true);
+    expect(manifest.status).toBe("ready-local-plug-and-play-real-world-blocked");
+    expect(manifest.summary.warn).toBe(1);
+    expect(manifest.sourceControl).toMatchObject({
+      status: "ready-source-control-handoff-with-warnings",
+      remoteRefCount: 0
+    });
+    expect(manifest.sourceControl.remoteDefaultBranchSha).toBeUndefined();
+    expect(manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha).toBeUndefined();
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("github-remote-refs")
+    });
+  });
+
   it("fails when source-control handoff evidence is unsafe", async () => {
     const sourceControlPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
     const sourceControl = JSON.parse(await readFile(sourceControlPath, "utf8"));
