@@ -5,11 +5,13 @@ import { beforeEach, afterEach, describe, expect, it } from "vitest";
 import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
 import { buildPlugAndPlayReadiness, writePlugAndPlayReadiness } from "../../../scripts/plug-and-play-readiness";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
+import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 const GSTACK_TOOL_ROOT = "~/.gstack/repos/gstack/bin";
 const GSTACK_TOOL_COUNT = 2;
 const GSTACK_TOOL_NAMES = ["gstack-brain-sync", "gstack-slug"];
+const REQUIRED_FRESH_CLONE_PATH_COUNT = REQUIRED_FRESH_CLONE_PATHS.length;
 const GSTACK_HELPER_TOOL_EVIDENCE = `${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} gstack helper tools)`;
 const GSTACK_CLI_UNAVAILABLE_LIMITATION = `gstack CLI is not available on PATH; local gstack helper tools are installed under ${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} executable helper(s)), so workflow status is recorded from installed skill/tool files and local package-script evidence instead of claiming umbrella CLI execution.`;
 
@@ -82,7 +84,7 @@ describe("plug-and-play readiness audit", () => {
         sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffFreshCloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffFreshCloneInstallDryRunOk: true,
-        sourceControlHandoffFreshCloneCheckedPathCount: 7,
+        sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
         localAiPrepareModel: "llama3.2:latest",
         sourceControlHandoffStatus: "ready-source-control-handoff",
         sourceControlHandoffReady: true,
@@ -1857,7 +1859,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffFreshCloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffFreshCloneInstallDryRunOk: true,
-    sourceControlHandoffFreshCloneCheckedPathCount: 7,
+    sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     sourceControlHandoffWorkingTreeClean: true,
     sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
@@ -1923,7 +1925,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffFreshCloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffFreshCloneInstallDryRunOk: true,
-    sourceControlHandoffFreshCloneCheckedPathCount: 7,
+    sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-fresh-clone.json",
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-fresh-clone.json",
@@ -2113,7 +2115,7 @@ async function seedDoctorFiles(root: string) {
     remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     freshCloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     freshCloneInstallDryRunOk: true,
-    freshCloneCheckedPathCount: 7,
+    freshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],

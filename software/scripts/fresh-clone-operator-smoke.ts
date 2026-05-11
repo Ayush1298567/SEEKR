@@ -8,7 +8,7 @@ import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-p
 import { localAiPrepareManifestOk } from "./local-ai-prepare";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
-import { EXPECTED_REPOSITORY_URL, validateSourceControlHandoffManifest } from "./source-control-handoff";
+import { EXPECTED_REPOSITORY_URL, REQUIRED_FRESH_CLONE_PATHS, validateSourceControlHandoffManifest } from "./source-control-handoff";
 
 type FreshCloneOperatorSmokeStatus = "pass" | "fail" | "blocked";
 
@@ -354,7 +354,7 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
     typeof sourceControlFreshCloneHeadSha === "string" &&
     manifest.sourceControlHandoffFreshCloneInstallDryRunOk === true &&
     Number.isInteger(sourceControlFreshCloneCheckedPathCount) &&
-    sourceControlFreshCloneCheckedPathCount >= 7 &&
+    sourceControlFreshCloneCheckedPathCount >= REQUIRED_FRESH_CLONE_PATHS.length &&
     (!localHeadSha || !cloneHeadSha || localHeadSha === cloneHeadSha) &&
     (!cloneHeadSha || sourceControlLocalHeadSha === cloneHeadSha) &&
     (!cloneHeadSha || sourceControlRemoteDefaultBranchSha === cloneHeadSha) &&

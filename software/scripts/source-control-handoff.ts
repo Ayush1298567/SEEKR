@@ -164,7 +164,7 @@ const REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER = [
   "npm run smoke:fresh-clone",
   "npm run audit:plug-and-play"
 ];
-const REQUIRED_FRESH_CLONE_PATHS = [
+export const REQUIRED_FRESH_CLONE_PATHS = [
   "README.md",
   "software/package.json",
   "software/package-lock.json",

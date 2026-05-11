@@ -3,6 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildDemoReadinessPackage, writeDemoReadinessPackage } from "../../../scripts/demo-readiness-package";
+import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
+
+const REQUIRED_FRESH_CLONE_PATH_COUNT = REQUIRED_FRESH_CLONE_PATHS.length;
 
 describe("demo readiness package", () => {
   let root: string;
@@ -453,7 +456,7 @@ async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-
     remoteDefaultBranchSha: "a".repeat(40),
     freshCloneHeadSha: "a".repeat(40),
     freshCloneInstallDryRunOk: true,
-    freshCloneCheckedPathCount: 7,
+    freshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],

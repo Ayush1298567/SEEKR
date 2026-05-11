@@ -8,7 +8,10 @@ import { writeHandoffBundleVerification } from "../../../scripts/handoff-bundle-
 import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
 import { REQUIRED_OPERATOR_QUICKSTART_SIGNALS } from "../../../scripts/operator-quickstart-contract";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
+import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
+
+const REQUIRED_FRESH_CLONE_PATH_COUNT = REQUIRED_FRESH_CLONE_PATHS.length;
 
 describe("handoff bundle", () => {
   let root: string;
@@ -78,7 +81,7 @@ describe("handoff bundle", () => {
       freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk: true,
-      freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: 7,
+      freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
       strictAiSmokeStatusPath: strictAiSmokePath,
       strictAiSmokeProvider: "ollama",
       strictAiSmokeModel: "llama3.2:latest",
@@ -198,7 +201,7 @@ describe("handoff bundle", () => {
       freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk: true,
-      freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: 7,
+      freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
       strictAiSmokeStatusPath: strictAiSmokePath,
       operatorQuickstartPath,
       checkedFileCount: 27,
@@ -3142,7 +3145,7 @@ async function seedBundleEvidence(root: string) {
     sourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
     sourceControlHandoffFreshCloneHeadSha: "a".repeat(40),
     sourceControlHandoffFreshCloneInstallDryRunOk: true,
-    sourceControlHandoffFreshCloneCheckedPathCount: 7,
+    sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-fresh-clone.json",
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-fresh-clone.json",
@@ -3322,7 +3325,7 @@ function markSourceControlReady(manifest: {
   manifest.remoteDefaultBranchSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
   manifest.freshCloneHeadSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
   manifest.freshCloneInstallDryRunOk = true;
-  manifest.freshCloneCheckedPathCount = 7;
+  manifest.freshCloneCheckedPathCount = REQUIRED_FRESH_CLONE_PATH_COUNT;
   manifest.localBranch = "main";
   manifest.remoteDefaultBranch = "main";
   manifest.workingTreeClean = true;

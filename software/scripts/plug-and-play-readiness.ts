@@ -16,7 +16,7 @@ import {
 import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
-import { validateSourceControlHandoffManifest } from "./source-control-handoff";
+import { REQUIRED_FRESH_CLONE_PATHS, validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type PlugAndPlayCheckStatus = "pass" | "warn" | "fail" | "blocked";
@@ -567,7 +567,9 @@ async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCh
     if (sourceControlFreshCloneInstallDryRunOk !== true) {
       problems.push("latest fresh-clone operator smoke artifact must publish source-control fresh-clone npm ci dry-run success");
     }
-    if (typeof sourceControlFreshCloneCheckedPathCount !== "number" || !Number.isInteger(sourceControlFreshCloneCheckedPathCount) || sourceControlFreshCloneCheckedPathCount < 7) {
+    if (typeof sourceControlFreshCloneCheckedPathCount !== "number" ||
+      !Number.isInteger(sourceControlFreshCloneCheckedPathCount) ||
+      sourceControlFreshCloneCheckedPathCount < REQUIRED_FRESH_CLONE_PATHS.length) {
       problems.push("latest fresh-clone operator smoke artifact must publish source-control fresh-clone checked-path count");
     }
     if (sourceControlLocalHeadSha && cloneHeadSha && sourceControlLocalHeadSha !== cloneHeadSha) {

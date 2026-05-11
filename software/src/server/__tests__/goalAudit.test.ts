@@ -6,6 +6,7 @@ import { buildCompletionAudit } from "../../../scripts/completion-audit";
 import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
 import { buildGoalAudit, writeGoalAudit } from "../../../scripts/goal-audit";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
+import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
 import { writeTodoAudit } from "../../../scripts/todo-audit";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
@@ -13,6 +14,7 @@ const GENERATED_AT = "2026-05-09T21:00:00.000Z";
 const GSTACK_TOOL_ROOT = "~/.gstack/repos/gstack/bin";
 const GSTACK_TOOL_COUNT = 2;
 const GSTACK_TOOL_NAMES = ["gstack-brain-sync", "gstack-slug"];
+const REQUIRED_FRESH_CLONE_PATH_COUNT = REQUIRED_FRESH_CLONE_PATHS.length;
 const GSTACK_HELPER_TOOL_EVIDENCE = `${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} gstack helper tools)`;
 const GSTACK_CLI_UNAVAILABLE_LIMITATION = `gstack CLI is not available on PATH; local gstack helper tools are installed under ${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} executable helper(s)), so workflow status is recorded from installed skill/tool files and local package-script evidence instead of claiming umbrella CLI execution.`;
 
@@ -1562,7 +1564,7 @@ async function seedRoot(root: string) {
     sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
     sourceControlHandoffFreshCloneHeadSha: "abc1234567890",
     sourceControlHandoffFreshCloneInstallDryRunOk: true,
-    sourceControlHandoffFreshCloneCheckedPathCount: 7,
+    sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     sourceControlHandoffWorkingTreeClean: true,
     sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath,
@@ -1617,7 +1619,7 @@ async function seedRoot(root: string) {
     sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
     sourceControlHandoffFreshCloneHeadSha: "abc1234567890",
     sourceControlHandoffFreshCloneInstallDryRunOk: true,
-    sourceControlHandoffFreshCloneCheckedPathCount: 7,
+    sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     sourceControlHandoffWorkingTreeClean: true,
     sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath,
@@ -1723,7 +1725,7 @@ async function seedRoot(root: string) {
     remoteDefaultBranchSha: "abc1234567890",
     freshCloneHeadSha: "abc1234567890",
     freshCloneInstallDryRunOk: true,
-    freshCloneCheckedPathCount: 7,
+    freshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
@@ -1880,7 +1882,7 @@ async function seedRoot(root: string) {
     sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
     sourceControlHandoffFreshCloneHeadSha: "abc1234567890",
     sourceControlHandoffFreshCloneInstallDryRunOk: true,
-    sourceControlHandoffFreshCloneCheckedPathCount: 7,
+    sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     plugAndPlayDoctorPath,
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath,
@@ -2065,7 +2067,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       remoteDefaultBranchSha: "abc1234567890",
       freshCloneHeadSha: "abc1234567890",
       freshCloneInstallDryRunOk: true,
-      freshCloneCheckedPathCount: 7,
+      freshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
       workingTreeClean: true,
       workingTreeStatusLineCount: 0
     },
@@ -2089,7 +2091,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
       sourceControlHandoffFreshCloneHeadSha: "abc1234567890",
       sourceControlHandoffFreshCloneInstallDryRunOk: true,
-      sourceControlHandoffFreshCloneCheckedPathCount: 7,
+      sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
       localAiPrepareModel: "llama3.2:latest",
       sourceControlHandoffStatus: "ready-source-control-handoff",
       sourceControlHandoffReady: true,
@@ -2116,7 +2118,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
       sourceControlHandoffFreshCloneHeadSha: "abc1234567890",
       sourceControlHandoffFreshCloneInstallDryRunOk: true,
-      sourceControlHandoffFreshCloneCheckedPathCount: 7,
+      sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
       sourceControlHandoffWorkingTreeClean: true,
       sourceControlHandoffWorkingTreeStatusLineCount: 0
     },

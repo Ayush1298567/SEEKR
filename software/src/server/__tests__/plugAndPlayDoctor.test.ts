@@ -3,6 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildPlugAndPlayDoctor, writePlugAndPlayDoctor } from "../../../scripts/plug-and-play-doctor";
+import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
+
+const REQUIRED_FRESH_CLONE_PATH_COUNT = REQUIRED_FRESH_CLONE_PATHS.length;
 
 describe("plug-and-play doctor", () => {
   let root: string;
@@ -594,7 +597,7 @@ async function seedDoctorProject(root: string) {
     remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     freshCloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     freshCloneInstallDryRunOk: true,
-    freshCloneCheckedPathCount: 7,
+    freshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],

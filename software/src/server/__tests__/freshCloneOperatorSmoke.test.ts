@@ -8,8 +8,10 @@ import {
   freshCloneOperatorSmokeOk,
   writeFreshCloneOperatorSmoke
 } from "../../../scripts/fresh-clone-operator-smoke";
+import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
 
 const SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const REQUIRED_FRESH_CLONE_PATH_COUNT = REQUIRED_FRESH_CLONE_PATHS.length;
 
 describe("fresh clone operator smoke", () => {
   let root: string;
@@ -45,7 +47,7 @@ describe("fresh clone operator smoke", () => {
       sourceControlHandoffRemoteDefaultBranchSha: SHA,
       sourceControlHandoffFreshCloneHeadSha: SHA,
       sourceControlHandoffFreshCloneInstallDryRunOk: true,
-      sourceControlHandoffFreshCloneCheckedPathCount: 7,
+      sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
       plugAndPlayDoctorStatus: "ready-local-start",
       rehearsalStartSmokeStatus: "pass"
     });
@@ -218,7 +220,7 @@ function sourceControlArtifact() {
     remoteDefaultBranchSha: SHA,
     freshCloneHeadSha: SHA,
     freshCloneInstallDryRunOk: true,
-    freshCloneCheckedPathCount: 7,
+    freshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
     workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     blockedCheckCount: 0,

@@ -2,19 +2,11 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildSourceControlHandoff, sourceControlHandoffCliSummary, validateSourceControlHandoffManifest, writeSourceControlHandoff } from "../../../scripts/source-control-handoff";
+import { REQUIRED_FRESH_CLONE_PATHS, buildSourceControlHandoff, sourceControlHandoffCliSummary, validateSourceControlHandoffManifest, writeSourceControlHandoff } from "../../../scripts/source-control-handoff";
 
 const LOCAL_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const REMOTE_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-const FRESH_CLONE_PATHS = [
-  "README.md",
-  "software/package.json",
-  "software/package-lock.json",
-  "software/.env.example",
-  "software/scripts/local-ai-prepare.ts",
-  "software/scripts/rehearsal-start.sh",
-  "software/docs/OPERATOR_QUICKSTART.md"
-];
+const FRESH_CLONE_PATHS = REQUIRED_FRESH_CLONE_PATHS;
 
 describe("source-control handoff audit", () => {
   let root: string;
