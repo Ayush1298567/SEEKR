@@ -150,6 +150,7 @@ export function localAiPrepareManifestOk(manifest: unknown) {
     pullModel !== undefined &&
     manifest.pullAttempted === true &&
     prepareCommand.length >= 3 &&
+    isOllamaCommand(prepareCommand[0]) &&
     prepareCommand[1] === "pull" &&
     prepareCommand.at(-1) === pullModel &&
     checks.some((check) =>
@@ -177,6 +178,11 @@ export function localAiPrepareMatchesAcceptanceModel(manifest: unknown, acceptan
 
 function normalizePullModel(model: string) {
   return model === DEFAULT_OLLAMA_MODEL ? "llama3.2" : model;
+}
+
+function isOllamaCommand(command: string | undefined) {
+  if (!command) return false;
+  return command === DEFAULT_OLLAMA_COMMAND || path.basename(command) === DEFAULT_OLLAMA_COMMAND;
 }
 
 async function defaultExecFile(
