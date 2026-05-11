@@ -110,6 +110,30 @@ describe("plug-and-play artifact contract", () => {
     expect(plugAndPlayDoctorOk(doctorManifest({ checks, summary: { pass: 9, warn: 1, fail: 0 } }))).toBe(true);
   });
 
+  it("accepts auto-recoverable non-SEEKR default-port pass evidence only with listener diagnostics and free-port fallback proof", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ports"
+        ? {
+            ...check,
+            status: "pass",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s).",
+            evidence: [
+              "PORT",
+              "SEEKR_API_PORT",
+              "SEEKR_CLIENT_PORT",
+              "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+              "http://127.0.0.1:8787/api/health",
+              "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+              "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+            ]
+          }
+        : check
+    );
+
+    expect(doctorPortWarningEvidenceOk(checks)).toBe(true);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(true);
+  });
+
   it("rejects non-SEEKR local-port warnings that drop listener diagnostics", () => {
     const checks = doctorChecks().map((check) =>
       check.id === "local-ports"
@@ -124,6 +148,28 @@ describe("plug-and-play artifact contract", () => {
 
     expect(doctorPortWarningEvidenceOk(checks)).toBe(false);
     expect(plugAndPlayDoctorOk(doctorManifest({ checks, summary: { pass: 9, warn: 1, fail: 0 } }))).toBe(false);
+  });
+
+  it("rejects auto-recoverable non-SEEKR default-port pass evidence that drops fallback proof", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ports"
+        ? {
+            ...check,
+            status: "pass",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console.",
+            evidence: [
+              "PORT",
+              "SEEKR_API_PORT",
+              "http://127.0.0.1:8787/api/health",
+              "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+              "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+            ]
+          }
+        : check
+    );
+
+    expect(doctorPortWarningEvidenceOk(checks)).toBe(false);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
   });
 
   it("rejects warning statuses on critical doctor checks", () => {

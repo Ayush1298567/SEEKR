@@ -97,15 +97,17 @@ export function doctorSourceControlEvidenceOk(checks: Record<string, unknown>[],
 export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
   const check = checks.find((item) => item.id === "local-ports");
   if (!check) return false;
-  if (check.status === "pass") return true;
-  if (check.status !== "warn") return false;
+  if (check.status !== "pass" && check.status !== "warn") return false;
   const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
   const details = typeof check.details === "string" ? check.details : "";
   if (!/non-SEEKR or unhealthy listener/.test(details)) return true;
   const hasListenerDetails = /Listener diagnostics: .*pid \d+/.test(details);
   const hasPortInspectorEvidence = evidence.some((item) => item.startsWith("lsof -nP -iTCP:")) &&
     evidence.some((item) => /^listener \d+ (cwd|command) /.test(item));
-  return hasListenerDetails && hasPortInspectorEvidence;
+  if (check.status === "warn") return hasListenerDetails && hasPortInspectorEvidence;
+  const hasAutoFallbackDetails = /auto-selects free local API\/client ports/.test(details);
+  const hasAutoFallbackEvidence = evidence.some((item) => item.includes("auto-selected free local API/client ports"));
+  return hasListenerDetails && hasPortInspectorEvidence && hasAutoFallbackDetails && hasAutoFallbackEvidence;
 }
 
 function timeMs(value: unknown) {
