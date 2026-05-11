@@ -286,6 +286,42 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness source-control summary drifts from latest evidence", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.sourceControl.workingTreeClean = false;
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("source-control clean-worktree summary must match")
+    });
+  });
+
+  it("fails local alpha when plug-and-play readiness review-bundle summary drifts from latest verification", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.reviewBundle.sourceControlHandoffLocalHeadSha = "stale-head";
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("review-bundle source-control local HEAD summary must match")
+    });
+  });
+
   it("fails local alpha when source-control handoff is not published and clean", async () => {
     const artifactPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
     const sourceControl = JSON.parse(await readFile(artifactPath, "utf8"));
@@ -1336,6 +1372,10 @@ async function seedRoot(root: string) {
     sourceControlHandoffPath: sourceControlPath,
     sourceControlHandoffStatus: "ready-source-control-handoff",
     sourceControlHandoffReady: true,
+    sourceControlHandoffLocalHeadSha: "abc1234567890",
+    sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
+    sourceControlHandoffWorkingTreeClean: true,
+    sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath,
     plugAndPlaySetupStatus: "ready-local-setup",
     localAiPreparePath,
@@ -1373,6 +1413,10 @@ async function seedRoot(root: string) {
     gstackQaScreenshotPaths: [qaHomeScreenshotPath, qaMobileScreenshotPath],
     todoAuditPath,
     sourceControlHandoffPath: sourceControlPath,
+    sourceControlHandoffLocalHeadSha: "abc1234567890",
+    sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
+    sourceControlHandoffWorkingTreeClean: true,
+    sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath,
     localAiPreparePath,
     plugAndPlayDoctorPath,
@@ -1738,8 +1782,30 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       provider: "ollama",
       model: "llama3.2:latest",
       ollamaUrl: "http://127.0.0.1:11434",
-        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+    },
+    sourceControl: {
+      path: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+      generatedAt: GENERATED_AT,
+      status: "ready-source-control-handoff",
+      ready: true,
+      localHeadSha: "abc1234567890",
+      remoteDefaultBranchSha: "abc1234567890",
+      workingTreeClean: true,
+      workingTreeStatusLineCount: 0
+    },
+    reviewBundle: {
+      path: ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json",
+      verificationPath: ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
+      status: "pass",
+      checkedFileCount: 12,
+      secretScanStatus: "pass",
+      sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+      sourceControlHandoffLocalHeadSha: "abc1234567890",
+      sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
+      sourceControlHandoffWorkingTreeClean: true,
+      sourceControlHandoffWorkingTreeStatusLineCount: 0
     },
     remainingRealWorldBlockers,
     remainingRealWorldBlockerCount: remainingRealWorldBlockers.length,

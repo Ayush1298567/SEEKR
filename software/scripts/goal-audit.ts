@@ -840,13 +840,18 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
   const doctor = await latestOperatorDoctorJson(root);
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
   const bundleVerification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
+  const bundleVerificationManifest = bundleVerification ? await readJson(bundleVerification.absolutePath) : undefined;
   const workflow = await latestJson(root, ".tmp/gstack-workflow-status", (name) => name.startsWith("seekr-gstack-workflow-status-"));
   const todo = await latestJson(root, ".tmp/todo-audit", (name) => name.startsWith("seekr-todo-audit-"));
   const ai = isRecord(manifest) && isRecord(manifest.ai) ? manifest.ai : {};
+  const readinessSourceControl = isRecord(manifest) && isRecord(manifest.sourceControl) ? manifest.sourceControl : undefined;
+  const readinessReviewBundle = isRecord(manifest) && isRecord(manifest.reviewBundle) ? manifest.reviewBundle : undefined;
+  const bundleSecretScan = isRecord(bundleVerificationManifest) && isRecord(bundleVerificationManifest.secretScan) ? bundleVerificationManifest.secretScan : undefined;
   const blockers = isRecord(manifest) && Array.isArray(manifest.remainingRealWorldBlockers)
     ? manifest.remainingRealWorldBlockers.map(String)
     : [];
@@ -904,6 +909,70 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   }
   if (isRecord(manifest) && !readinessEvidence.has("docs/OPERATOR_QUICKSTART.md")) {
     problems.push("plug-and-play readiness must reference docs/OPERATOR_QUICKSTART.md");
+  }
+  if (isRecord(manifest) && !readinessSourceControl) {
+    problems.push("plug-and-play readiness must publish a source-control summary");
+  }
+  if (readinessSourceControl && sourceControl && normalizeArtifactPath(root, readinessSourceControl.path) !== sourceControl.relativePath) {
+    problems.push("plug-and-play readiness source-control summary must point at the latest source-control handoff");
+  }
+  if (readinessSourceControl && isRecord(sourceControlManifest) && sourceControlManifest.ready === true) {
+    if (stringOrUndefined(readinessSourceControl.generatedAt) !== stringOrUndefined(sourceControlManifest.generatedAt)) {
+      problems.push("plug-and-play readiness source-control generatedAt summary must match the latest source-control handoff");
+    }
+    if (stringOrUndefined(readinessSourceControl.status) !== stringOrUndefined(sourceControlManifest.status)) {
+      problems.push("plug-and-play readiness source-control status summary must match the latest source-control handoff");
+    }
+    if (booleanOrUndefined(readinessSourceControl.ready) !== booleanOrUndefined(sourceControlManifest.ready)) {
+      problems.push("plug-and-play readiness source-control ready summary must match the latest source-control handoff");
+    }
+    if (stringOrUndefined(readinessSourceControl.localHeadSha) !== stringOrUndefined(sourceControlManifest.localHeadSha)) {
+      problems.push("plug-and-play readiness source-control local HEAD summary must match the latest source-control handoff");
+    }
+    if (stringOrUndefined(readinessSourceControl.remoteDefaultBranchSha) !== stringOrUndefined(sourceControlManifest.remoteDefaultBranchSha)) {
+      problems.push("plug-and-play readiness source-control remote default SHA summary must match the latest source-control handoff");
+    }
+    if (booleanOrUndefined(readinessSourceControl.workingTreeClean) !== booleanOrUndefined(sourceControlManifest.workingTreeClean)) {
+      problems.push("plug-and-play readiness source-control clean-worktree summary must match the latest source-control handoff");
+    }
+    if (numberOrUndefined(readinessSourceControl.workingTreeStatusLineCount) !== numberOrUndefined(sourceControlManifest.workingTreeStatusLineCount)) {
+      problems.push("plug-and-play readiness source-control working-tree status line summary must match the latest source-control handoff");
+    }
+  }
+  if (isRecord(manifest) && !readinessReviewBundle) {
+    problems.push("plug-and-play readiness must publish a review-bundle summary");
+  }
+  if (readinessReviewBundle && bundle && normalizeArtifactPath(root, readinessReviewBundle.path) !== bundle.relativePath) {
+    problems.push("plug-and-play readiness review-bundle summary must point at the latest handoff bundle");
+  }
+  if (readinessReviewBundle && bundleVerification && normalizeArtifactPath(root, readinessReviewBundle.verificationPath) !== bundleVerification.relativePath) {
+    problems.push("plug-and-play readiness review-bundle summary must point at the latest bundle verification");
+  }
+  if (readinessReviewBundle && isRecord(bundleVerificationManifest)) {
+    if (stringOrUndefined(readinessReviewBundle.status) !== stringOrUndefined(bundleVerificationManifest.status)) {
+      problems.push("plug-and-play readiness review-bundle status summary must match the latest bundle verification");
+    }
+    if (numberOrUndefined(readinessReviewBundle.checkedFileCount) !== numberOrUndefined(bundleVerificationManifest.checkedFileCount)) {
+      problems.push("plug-and-play readiness review-bundle checked-file summary must match the latest bundle verification");
+    }
+    if (stringOrUndefined(readinessReviewBundle.secretScanStatus) !== (isRecord(bundleSecretScan) ? stringOrUndefined(bundleSecretScan.status) : undefined)) {
+      problems.push("plug-and-play readiness review-bundle secret-scan summary must match the latest bundle verification");
+    }
+    if (normalizeArtifactPath(root, readinessReviewBundle.sourceControlHandoffPath) !== normalizeArtifactPath(root, bundleVerificationManifest.sourceControlHandoffPath)) {
+      problems.push("plug-and-play readiness review-bundle source-control path summary must match the latest bundle verification");
+    }
+    if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffLocalHeadSha) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffLocalHeadSha)) {
+      problems.push("plug-and-play readiness review-bundle source-control local HEAD summary must match the latest bundle verification");
+    }
+    if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffRemoteDefaultBranchSha) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffRemoteDefaultBranchSha)) {
+      problems.push("plug-and-play readiness review-bundle source-control remote default SHA summary must match the latest bundle verification");
+    }
+    if (booleanOrUndefined(readinessReviewBundle.sourceControlHandoffWorkingTreeClean) !== booleanOrUndefined(bundleVerificationManifest.sourceControlHandoffWorkingTreeClean)) {
+      problems.push("plug-and-play readiness review-bundle source-control clean-worktree summary must match the latest bundle verification");
+    }
+    if (numberOrUndefined(readinessReviewBundle.sourceControlHandoffWorkingTreeStatusLineCount) !== numberOrUndefined(bundleVerificationManifest.sourceControlHandoffWorkingTreeStatusLineCount)) {
+      problems.push("plug-and-play readiness review-bundle source-control working-tree status line summary must match the latest bundle verification");
+    }
   }
 
   return {
@@ -1372,6 +1441,15 @@ function isString(value: unknown): value is string {
 
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function booleanOrUndefined(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function numberOrUndefined(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
 }
 
 function timeMs(value: unknown) {
