@@ -492,7 +492,7 @@ function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
     status: problems.length ? "blocked" : "pass",
     details: problems.length
       ? `The GitHub landing README violates fresh-clone plug-and-play guidance: ${problems.join(", ")}.`
-      : "The GitHub landing README gives ordered fenced shell command blocks for a fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke before strict local AI smoke before plug-and-play audit guidance, and preserves disabled command/hardware authority.",
+      : "The GitHub landing README gives ordered fenced shell command lines for a fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke before strict local AI smoke before plug-and-play audit guidance, and preserves disabled command/hardware authority.",
     evidence: problems.length ? ["../README.md"] : [
       "../README.md",
       GITHUB_LANDING_README_COMMAND_ORDER_EVIDENCE,
@@ -505,30 +505,34 @@ function githubLandingReadmeProblems(content: string) {
   const missing = REQUIRED_GITHUB_LANDING_README_SIGNALS.filter((signal) => !content.includes(signal));
   const problems = [...missing];
   if (content && !missing.length && !githubLandingReadmeCommandOrderOk(content)) {
-    problems.push(`fenced shell command block order must be ${REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER.join(" before ")}`);
+    problems.push(`fenced shell command line order must be ${REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER.join(" before ")}`);
   }
   return problems;
 }
 
 function githubLandingReadmeCommandOrderOk(content: string) {
-  const commandText = githubLandingReadmeCommandText(content);
+  const commandLines = githubLandingReadmeCommandLines(content);
   let lastIndex = -1;
   for (const command of REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER) {
-    const index = commandText.indexOf(command);
+    const index = commandLines.indexOf(command);
     if (index <= lastIndex) return false;
     lastIndex = index;
   }
   return true;
 }
 
-function githubLandingReadmeCommandText(content: string) {
-  const blocks: string[] = [];
+function githubLandingReadmeCommandLines(content: string) {
+  const lines: string[] = [];
   const fencePattern = /```([^\n`]*)\n([\s\S]*?)```/g;
   for (const match of content.matchAll(fencePattern)) {
     const language = match[1].trim().toLowerCase();
-    if (!language || ["bash", "sh", "shell"].includes(language)) blocks.push(match[2]);
+    if (!language || ["bash", "sh", "shell"].includes(language)) {
+      lines.push(...match[2].split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#")));
+    }
   }
-  return blocks.join("\n");
+  return lines;
 }
 
 function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffCheck {
