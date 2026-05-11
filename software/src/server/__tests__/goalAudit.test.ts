@@ -1825,7 +1825,7 @@ async function seedRoot(root: string) {
       {
         id: "local-ports",
         status: "pass",
-        details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set. Current free fallback candidate(s): API 8787, client 6100; npm run rehearsal:start prints the actual URLs it selects at startup.",
+        details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run plug-and-play delegates to the rehearsal wrapper, which auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s). Current free fallback candidate(s): API 8787, client 6100; npm run plug-and-play prints the actual URLs it selects at startup.",
         evidence: [
           "scripts/rehearsal-start.sh auto-selected free local API/client ports",
           "fallback client port candidate 6100",
@@ -2083,7 +2083,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       defaultPortsOccupied: true,
       autoRecoverable: true,
       listenerDiagnostics: ["listener 12345 cwd ~/Ayush/Prophet/prophet-console"],
-      details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set. Current free fallback candidate(s): API 8787, client 6100; npm run rehearsal:start prints the actual URLs it selects at startup."
+      details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run plug-and-play delegates to the rehearsal wrapper, which auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s). Current free fallback candidate(s): API 8787, client 6100; npm run plug-and-play prints the actual URLs it selects at startup."
     },
     freshClone: {
       path: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",

@@ -331,6 +331,9 @@ async function operatorStartScriptCheck(root: string): Promise<PlugAndPlayDoctor
   if (scripts["rehearsal:start"] !== "bash scripts/rehearsal-start.sh") {
     problems.push("package.json scripts.rehearsal:start must point at bash scripts/rehearsal-start.sh");
   }
+  if (scripts["plug-and-play"] !== "npm run rehearsal:start") {
+    problems.push("package.json scripts.plug-and-play must delegate to npm run rehearsal:start");
+  }
   if (!startScript) {
     problems.push("scripts/rehearsal-start.sh is missing");
   } else {
@@ -381,8 +384,8 @@ async function operatorStartScriptCheck(root: string): Promise<PlugAndPlayDoctor
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "npm run rehearsal:start is wired to a local wrapper that sets rehearsal defaults, normalizes API/client port environment, auto-selects free local ports when unconfigured defaults are occupied, runs safe setup, refreshes source-control handoff evidence, runs doctor preflight, and then launches npm run dev.",
-    evidence: ["package.json scripts.rehearsal:start", "scripts/rehearsal-start.sh"]
+      : "npm run plug-and-play delegates to npm run rehearsal:start, which is wired to a local wrapper that sets rehearsal defaults, normalizes API/client port environment, auto-selects free local ports when unconfigured defaults are occupied, runs safe setup, refreshes source-control handoff evidence, runs doctor preflight, and then launches npm run dev.",
+    evidence: ["package.json scripts.plug-and-play", "package.json scripts.rehearsal:start", "scripts/rehearsal-start.sh"]
   };
 }
 
@@ -509,7 +512,7 @@ async function localPortCheck(
     ? await fallbackPortCandidates({ api, client, unknown, host, freePort })
     : {};
   const fallbackDetails = fallbackPorts.fallbackApi !== undefined || fallbackPorts.fallbackClient !== undefined
-    ? ` Current free fallback candidate(s): API ${fallbackPorts.fallbackApi ?? api}, client ${fallbackPorts.fallbackClient ?? client}; npm run rehearsal:start prints the actual URLs it selects at startup.`
+    ? ` Current free fallback candidate(s): API ${fallbackPorts.fallbackApi ?? api}, client ${fallbackPorts.fallbackClient ?? client}; npm run plug-and-play prints the actual URLs it selects at startup.`
     : "";
   const fallbackEvidence = [
     fallbackPorts.fallbackApi !== undefined ? `fallback API port candidate ${fallbackPorts.fallbackApi}` : undefined,
@@ -522,7 +525,7 @@ async function localPortCheck(
       status: unknown.length && !autoRecoverableDefaults ? "warn" as const : "pass" as const,
       details: unknown.length
         ? autoRecoverableDefaults
-          ? `Default port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s).${fallbackDetails}`
+          ? `Default port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}npm run plug-and-play delegates to the rehearsal wrapper, which auto-selects free local API/client ports when no explicit port variables are set; stop the existing process only if you want SEEKR to use the default port(s).${fallbackDetails}`
           : `Port(s) already in use on ${host} by a non-SEEKR or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. ${listenerDetails.length ? `Listener diagnostics: ${listenerDetails.join("; ")}. ` : "Listener process diagnostics unavailable. "}Stop the existing process or choose different explicit ports before starting SEEKR.`
         : occupied.length
           ? `Port(s) already have a healthy SEEKR local instance on ${host}: ${occupied.map((item) => `${item.role} ${item.port}`).join(", ")}. Keep using it or stop it before starting a fresh npm run dev.`

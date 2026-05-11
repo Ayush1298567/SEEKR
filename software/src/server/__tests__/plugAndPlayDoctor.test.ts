@@ -63,7 +63,9 @@ describe("plug-and-play doctor", () => {
     });
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("clean worktree");
     expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
-      status: "pass"
+      status: "pass",
+      details: expect.stringContaining("npm run plug-and-play"),
+      evidence: expect.arrayContaining(["package.json scripts.plug-and-play"])
     });
     expect(manifest.checks.find((check) => check.id === "safety-boundary")).toMatchObject({
       status: "pass"
@@ -292,7 +294,7 @@ describe("plug-and-play doctor", () => {
     });
     expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
       status: "pass",
-      details: expect.stringContaining("auto-selects free local API/client ports"),
+      details: expect.stringContaining("npm run plug-and-play delegates to the rehearsal wrapper"),
       evidence: expect.arrayContaining([
         "scripts/rehearsal-start.sh auto-selected free local API/client ports",
         "fallback client port candidate 6100",
@@ -424,6 +426,26 @@ describe("plug-and-play doctor", () => {
     expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("setup:local")
+    });
+  });
+
+  it("fails when the plug-and-play alias stops delegating to the checked rehearsal wrapper", async () => {
+    const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+    packageJson.scripts["plug-and-play"] = "npm run dev";
+    await writeFile(path.join(root, "package.json"), JSON.stringify(packageJson), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("scripts.plug-and-play")
     });
   });
 
