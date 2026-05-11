@@ -10,7 +10,7 @@ This policy covers local internal-alpha runs. It does not authorize cloud sync o
 - `.tmp/overnight/` stores watchdog logs and status for unattended verification.
 - `.tmp/release-evidence/` stores field-laptop install-integrity JSON, SHA-256, and Markdown checksum evidence, including repository-safety files such as `.gitignore` and `.npmrc`.
 - `.tmp/rehearsal-evidence/` stores read-only API snapshots captured before/after local field-laptop rehearsals.
-- `.tmp/rehearsal-start-smoke/` stores bounded local operator-start smoke evidence with exact ordered rows for setup, doctor, API, client, source-health, readiness, and clean shutdown checks.
+- `.tmp/rehearsal-start-smoke/` stores bounded local operator-start smoke evidence with exact ordered rows and artifact pointers for wrapper start, setup, local AI prepare, source-control handoff, smoke-profile doctor, API, client, runtime config, source-health, readiness, and clean shutdown checks.
 - `.tmp/rehearsal-notes/` stores fill-in operator rehearsal notes, completed closeouts, and their JSON manifests.
 - `.tmp/safety-evidence/` stores command-boundary static-scan evidence for local acceptance and readiness reviews.
 - `.tmp/api-probe/` stores final local API probe evidence that `/api/session` read back acceptance release checksum and command-boundary scan summaries after acceptance recording.

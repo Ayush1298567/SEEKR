@@ -576,6 +576,25 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when rehearsal-start smoke evidence drops generated prerequisite artifact pointers", async () => {
+    const smokePath = path.join(root, ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json");
+    const smoke = JSON.parse(await readFile(smokePath, "utf8"));
+    delete smoke.localAiPreparePath;
+    delete smoke.sourceControlHandoffPath;
+    await writeFile(smokePath, JSON.stringify(smoke), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "operator-start-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("localAiPreparePath")
+    });
+  });
+
   it("fails when the operator quickstart omits plug-and-play setup or safety guidance", async () => {
     await writeFile(path.join(root, "docs/OPERATOR_QUICKSTART.md"), [
       "# SEEKR Operator Quickstart",
@@ -1372,10 +1391,16 @@ describe("plug-and-play readiness audit", () => {
       apiPort: 8788,
       clientPort: 5174,
       dataDirPath: ".tmp/rehearsal-start-smoke/run-newer/data",
-      checks: ["wrapper-started", "api-health", "client-shell", "runtime-config", "source-health", "readiness", "shutdown"].map((id) => ({
+      plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+      localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+      sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+      plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-smoke-test.json",
+      checked: [...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS],
+      checks: REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS.map((id) => ({
         id,
         status: "pass",
-        details: `${id} passed.`
+        details: `${id} passed.`,
+        evidence: [id]
       })),
       safetyBoundary: {
         realAircraftCommandUpload: false,
@@ -1777,8 +1802,12 @@ async function seedPlugAndPlayEvidence(root: string) {
     apiPort: 8787,
     clientPort: 5173,
     dataDirPath: ".tmp/rehearsal-start-smoke/run-test/data",
-    checked: ["wrapper-started", "api-health", "client-shell", "runtime-config", "source-health", "readiness", "shutdown"],
-    checks: ["wrapper-started", "api-health", "client-shell", "runtime-config", "source-health", "readiness", "shutdown"].map((id) => ({
+    plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+    localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+    sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+    plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-smoke-test.json",
+    checked: [...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS],
+    checks: REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS.map((id) => ({
       id,
       status: "pass",
       details: `${id} passed.`,

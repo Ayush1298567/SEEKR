@@ -3041,8 +3041,12 @@ async function seedBundleEvidence(root: string) {
     apiPort: 8787,
     clientPort: 5173,
     dataDirPath: ".tmp/rehearsal-start-smoke/run-test/data",
-    checked: ["wrapper-started", "api-health", "client-shell", "runtime-config", "source-health", "readiness", "shutdown"],
-    checks: ["wrapper-started", "api-health", "client-shell", "runtime-config", "source-health", "readiness", "shutdown"].map((id) => ({
+    plugAndPlaySetupPath: setupPath,
+    localAiPreparePath,
+    sourceControlHandoffPath: sourceControlPath,
+    plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-smoke-test.json",
+    checked: [...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS],
+    checks: REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS.map((id) => ({
       id,
       status: "pass",
       details: `${id} passed.`,

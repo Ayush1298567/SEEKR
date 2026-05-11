@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildCompletionAudit } from "../../../scripts/completion-audit";
 import { buildGoalAudit, writeGoalAudit } from "../../../scripts/goal-audit";
+import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { writeTodoAudit } from "../../../scripts/todo-audit";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
@@ -1769,11 +1770,16 @@ async function seedRoot(root: string) {
     apiPort: 8787,
     clientPort: 5173,
     dataDirPath: ".tmp/rehearsal-start-smoke/run-test/data",
-    checked: ["wrapper-started", "api-health", "client-shell", "runtime-config", "source-health", "readiness", "shutdown"],
-    checks: ["wrapper-started", "api-health", "client-shell", "runtime-config", "source-health", "readiness", "shutdown"].map((id) => ({
+    plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+    localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+    sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+    plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-smoke-test.json",
+    checked: [...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS],
+    checks: REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS.map((id) => ({
       id,
       status: "pass",
-      details: `${id} passed.`
+      details: `${id} passed.`,
+      evidence: [id]
     })),
     safetyBoundary: {
       realAircraftCommandUpload: false,

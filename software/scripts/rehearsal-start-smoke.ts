@@ -1,9 +1,19 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { AddressInfo, createServer } from "node:net";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { localAiPrepareManifestOk } from "./local-ai-prepare";
+import {
+  doctorCheckStatusOk,
+  doctorPortWarningEvidenceOk,
+  doctorRuntimeDependencyEvidenceOk,
+  doctorSourceControlEvidenceOk,
+  plugAndPlaySetupOk,
+  REQUIRED_DOCTOR_CHECK_IDS
+} from "./plug-and-play-artifact-contract";
+import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 
 type SmokeCheckStatus = "pass" | "fail";
 
@@ -24,6 +34,10 @@ export interface RehearsalStartSmokeManifest {
   apiPort: number;
   clientPort: number;
   dataDirPath: string;
+  plugAndPlaySetupPath?: string;
+  localAiPreparePath?: string;
+  sourceControlHandoffPath?: string;
+  plugAndPlayDoctorPath?: string;
   checked: string[];
   checks: RehearsalStartSmokeCheck[];
   logTail: string;
@@ -38,6 +52,10 @@ export interface RehearsalStartSmokeManifest {
 const DEFAULT_OUT_DIR = ".tmp/rehearsal-start-smoke";
 export const REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS = [
   "wrapper-started",
+  "setup-artifact",
+  "local-ai-prepare-artifact",
+  "source-control-handoff-artifact",
+  "doctor-artifact",
   "api-health",
   "client-shell",
   "runtime-config",
@@ -86,6 +104,11 @@ export async function writeRehearsalStartSmoke(options: {
   });
   const logs: string[] = [];
   const checks: RehearsalStartSmokeCheck[] = [];
+  const startedAtMs = Date.parse(generatedAt);
+  let plugAndPlaySetupPath: string | undefined;
+  let localAiPreparePath: string | undefined;
+  let sourceControlHandoffPath: string | undefined;
+  let plugAndPlayDoctorPath: string | undefined;
   child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
   child.stdout.on("data", (chunk: string) => logs.push(chunk));
@@ -96,6 +119,39 @@ export async function writeRehearsalStartSmoke(options: {
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(`wrapper exited before serving: ${tail(logs)}`);
     }
+  });
+  await recordDynamicCheck(checks, "setup-artifact", "The wrapper writes fresh local setup evidence before serving.", async () => {
+    const artifact = await waitForLatestJson(root, ".tmp/plug-and-play-setup", "seekr-local-setup-", startedAtMs, timeoutMs, logs);
+    if (!plugAndPlaySetupOk(artifact.manifest)) {
+      throw new Error("latest local setup artifact is missing required env/data/safety evidence");
+    }
+    plugAndPlaySetupPath = artifact.relativePath;
+    return [artifact.relativePath];
+  });
+  await recordDynamicCheck(checks, "local-ai-prepare-artifact", "The wrapper writes fresh local AI prepare evidence before serving.", async () => {
+    const artifact = await waitForLatestJson(root, ".tmp/local-ai-prepare", "seekr-local-ai-prepare-", startedAtMs, timeoutMs, logs);
+    if (!localAiPrepareManifestOk(artifact.manifest)) {
+      throw new Error("latest local AI prepare artifact does not prove a passing Ollama model preparation run");
+    }
+    localAiPreparePath = artifact.relativePath;
+    return [artifact.relativePath];
+  });
+  await recordDynamicCheck(checks, "source-control-handoff-artifact", "The wrapper writes source-control handoff evidence before serving.", async () => {
+    const artifact = await waitForLatestJson(root, ".tmp/source-control-handoff", "seekr-source-control-handoff-", startedAtMs, timeoutMs, logs);
+    const validation = validateSourceControlHandoffManifest(artifact.manifest);
+    if (!validation.ok || !isRecord(artifact.manifest) || artifact.manifest.commandUploadEnabled !== false) {
+      throw new Error(`latest source-control handoff artifact is malformed or unsafe: ${validation.problems.join("; ")}`);
+    }
+    sourceControlHandoffPath = artifact.relativePath;
+    return [artifact.relativePath];
+  });
+  await recordDynamicCheck(checks, "doctor-artifact", "The wrapper writes a smoke-profile doctor artifact before serving.", async () => {
+    const artifact = await waitForLatestJson(root, ".tmp/plug-and-play-doctor", "seekr-plug-and-play-doctor-", startedAtMs, timeoutMs, logs);
+    if (!rehearsalStartDoctorOk(artifact.manifest, sourceControlHandoffPath)) {
+      throw new Error("latest rehearsal-start doctor artifact is missing required runtime/source-control/AI/port/data/safety evidence");
+    }
+    plugAndPlayDoctorPath = artifact.relativePath;
+    return [artifact.relativePath, sourceControlHandoffPath ?? ".tmp/source-control-handoff"];
   });
   await recordCheck(checks, "api-health", "The API becomes healthy through the rehearsal start command.", [`http://127.0.0.1:${apiPort}/api/health`], async () => {
     await waitForOk(`http://127.0.0.1:${apiPort}/api/health`, timeoutMs, logs);
@@ -154,6 +210,10 @@ export async function writeRehearsalStartSmoke(options: {
     apiPort,
     clientPort,
     dataDirPath,
+    plugAndPlaySetupPath,
+    localAiPreparePath,
+    sourceControlHandoffPath,
+    plugAndPlayDoctorPath,
     checked: checks.map((check) => check.id),
     checks,
     logTail: tail(logs),
@@ -194,6 +254,10 @@ export function validateRehearsalStartSmokeManifest(manifest: unknown) {
   if (!Number.isFinite(Number(manifest.apiPort)) || Number(manifest.apiPort) <= 0) problems.push("apiPort must be positive");
   if (!Number.isFinite(Number(manifest.clientPort)) || Number(manifest.clientPort) <= 0) problems.push("clientPort must be positive");
   if (typeof manifest.dataDirPath !== "string" || !manifest.dataDirPath.includes(".tmp/rehearsal-start-smoke/")) problems.push("dataDirPath must be project-local rehearsal-start-smoke storage");
+  if (typeof manifest.plugAndPlaySetupPath !== "string" || !manifest.plugAndPlaySetupPath.includes(".tmp/plug-and-play-setup/")) problems.push("plugAndPlaySetupPath must reference local setup evidence");
+  if (typeof manifest.localAiPreparePath !== "string" || !manifest.localAiPreparePath.includes(".tmp/local-ai-prepare/")) problems.push("localAiPreparePath must reference local AI prepare evidence");
+  if (typeof manifest.sourceControlHandoffPath !== "string" || !manifest.sourceControlHandoffPath.includes(".tmp/source-control-handoff/")) problems.push("sourceControlHandoffPath must reference source-control handoff evidence");
+  if (typeof manifest.plugAndPlayDoctorPath !== "string" || !manifest.plugAndPlayDoctorPath.includes(".tmp/plug-and-play-doctor/")) problems.push("plugAndPlayDoctorPath must reference smoke-profile doctor evidence");
   if (!arraysEqual(checked, REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS)) {
     problems.push("checked must exactly match the required rehearsal-start smoke check IDs in order");
   }
@@ -223,6 +287,20 @@ async function recordCheck(
   }
 }
 
+async function recordDynamicCheck(
+  checks: RehearsalStartSmokeCheck[],
+  id: string,
+  requirement: string,
+  fn: () => Promise<string[]>
+) {
+  try {
+    const evidence = await fn();
+    checks.push({ id, status: "pass", details: requirement, evidence });
+  } catch (error) {
+    checks.push({ id, status: "fail", details: `${requirement} Failed: ${error instanceof Error ? error.message : String(error)}`, evidence: [id] });
+  }
+}
+
 async function waitForOk(url: string, timeoutMs: number, logs: string[]) {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown;
@@ -239,10 +317,80 @@ async function waitForOk(url: string, timeoutMs: number, logs: string[]) {
   throw new Error(`${url} did not become ready: ${String(lastError)}\n${tail(logs)}`);
 }
 
+async function waitForLatestJson(
+  root: string,
+  directory: string,
+  prefix: string,
+  sinceMs: number,
+  timeoutMs: number,
+  logs: string[]
+) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      const artifact = await latestJson(root, directory, prefix, sinceMs);
+      if (artifact) return artifact;
+      lastError = new Error(`No ${directory}/${prefix}*.json artifact generated after smoke start.`);
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(200);
+  }
+  throw new Error(`${String(lastError)}\n${tail(logs)}`);
+}
+
+async function latestJson(root: string, directory: string, prefix: string, sinceMs: number) {
+  const absoluteDirectory = path.join(root, directory);
+  const names = await readdir(absoluteDirectory).catch(() => []);
+  const jsonNames = names
+    .filter((name) => name.startsWith(prefix) && name.endsWith(".json"))
+    .sort((left, right) => right.localeCompare(left));
+  for (const name of jsonNames) {
+    const absolutePath = path.join(absoluteDirectory, name);
+    const manifest = JSON.parse(await readFile(absolutePath, "utf8")) as unknown;
+    const generatedAtMs = timeMs(isRecord(manifest) ? manifest.generatedAt : undefined);
+    if (generatedAtMs !== undefined && generatedAtMs >= sinceMs) {
+      return {
+        relativePath: path.posix.join(directory, name),
+        absolutePath,
+        manifest
+      };
+    }
+  }
+  return undefined;
+}
+
 async function json<T>(url: string) {
   const response = await fetch(url);
   assert(response.ok, `${url} returned ${response.status}`);
   return await response.json() as T;
+}
+
+function rehearsalStartDoctorOk(manifest: unknown, expectedSourceControlPath?: string) {
+  if (!isRecord(manifest)) return false;
+  const ai = isRecord(manifest.ai) ? manifest.ai : {};
+  const summary = isRecord(manifest.summary) ? manifest.summary : {};
+  const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
+  return manifest.ok === true &&
+    manifest.status === "ready-local-start" &&
+    manifest.profile === "rehearsal-start-smoke" &&
+    manifest.commandUploadEnabled === false &&
+    ai.provider === "ollama" &&
+    ai.status === "pass" &&
+    Number(summary.fail) === 0 &&
+    checkIdsAreExact(checks, REQUIRED_DOCTOR_CHECK_IDS) &&
+    REQUIRED_DOCTOR_CHECK_IDS.every((id) => doctorCheckStatusOk(checks, id)) &&
+    doctorRuntimeDependencyEvidenceOk(checks) &&
+    doctorSourceControlEvidenceOk(checks, expectedSourceControlPath) &&
+    doctorPortWarningEvidenceOk(checks);
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 async function stopProcessGroup(child: ChildProcess) {
@@ -286,6 +434,10 @@ function renderMarkdown(manifest: RehearsalStartSmokeManifest) {
     `API port: ${manifest.apiPort}`,
     `Client port: ${manifest.clientPort}`,
     `Data directory: ${manifest.dataDirPath}`,
+    manifest.plugAndPlaySetupPath ? `Setup artifact: ${manifest.plugAndPlaySetupPath}` : undefined,
+    manifest.localAiPreparePath ? `Local AI prepare artifact: ${manifest.localAiPreparePath}` : undefined,
+    manifest.sourceControlHandoffPath ? `Source-control handoff artifact: ${manifest.sourceControlHandoffPath}` : undefined,
+    manifest.plugAndPlayDoctorPath ? `Smoke doctor artifact: ${manifest.plugAndPlayDoctorPath}` : undefined,
     "",
     "Checks:",
     "",
@@ -297,7 +449,7 @@ function renderMarkdown(manifest: RehearsalStartSmokeManifest) {
     "",
     ...manifest.limitations.map((limitation) => `- ${limitation}`),
     ""
-  ].join("\n")}\n`;
+  ].filter((line): line is string => typeof line === "string").join("\n")}\n`;
 }
 
 function safetyBoundaryFalse(manifest: Record<string, unknown>) {
