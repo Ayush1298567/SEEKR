@@ -140,6 +140,7 @@ export function localAiPrepareManifestOk(manifest: unknown) {
   if (!isRecord(manifest)) return false;
   const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
   const prepareCommand = Array.isArray(manifest.prepareCommand) ? manifest.prepareCommand.map(String) : [];
+  const prepareCommandText = prepareCommand.join(" ");
   const model = typeof manifest.model === "string" && manifest.model.length > 0 ? manifest.model : undefined;
   const pullModel = typeof manifest.pullModel === "string" && manifest.pullModel.length > 0 ? manifest.pullModel : undefined;
   return manifest.ok === true &&
@@ -149,15 +150,16 @@ export function localAiPrepareManifestOk(manifest: unknown) {
     model !== undefined &&
     pullModel !== undefined &&
     manifest.pullAttempted === true &&
-    prepareCommand.length >= 3 &&
+    prepareCommand.length === 3 &&
     isOllamaCommand(prepareCommand[0]) &&
     prepareCommand[1] === "pull" &&
-    prepareCommand.at(-1) === pullModel &&
+    prepareCommand[2] === pullModel &&
     checks.some((check) =>
       check.id === "ollama-model-prep" &&
       check.status === "pass" &&
       Array.isArray(check.evidence) &&
-      check.evidence.some((item) => item === "package.json scripts.ai:prepare")
+      check.evidence.some((item) => item === "package.json scripts.ai:prepare") &&
+      check.evidence.some((item) => item === prepareCommandText)
     );
 }
 

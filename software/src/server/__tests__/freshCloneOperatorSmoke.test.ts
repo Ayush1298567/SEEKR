@@ -183,21 +183,23 @@ function setupArtifact() {
 }
 
 function localAiArtifact(model: string) {
+  const pullModel = model === "llama3.2:latest" ? "llama3.2" : model;
+  const prepareCommand = ["ollama", "pull", pullModel];
   return {
     ok: true,
     status: "ready-local-ai-model",
     commandUploadEnabled: false,
     provider: "ollama",
     model,
-    pullModel: model === "llama3.2:latest" ? "llama3.2" : model,
+    pullModel,
     pullAttempted: true,
-    prepareCommand: ["ollama", "pull", model === "llama3.2:latest" ? "llama3.2" : model],
+    prepareCommand,
     checks: [
       {
         id: "ollama-model-prep",
         status: "pass",
         details: "model ready",
-        evidence: ["package.json scripts.ai:prepare"]
+        evidence: ["package.json scripts.ai:prepare", prepareCommand.join(" ")]
       }
     ]
   };

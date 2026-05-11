@@ -106,6 +106,36 @@ describe("local AI model preparation", () => {
     expect(localAiPrepareMatchesAcceptanceModel(manifest, acceptance)).toBe(false);
   });
 
+  it("rejects local AI prepare evidence with extra pull arguments or missing command evidence", async () => {
+    const manifest = await buildLocalAiPrepare({
+      root,
+      execFileImpl: async () => ({ stdout: "success", stderr: "" })
+    });
+    const acceptance = {
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest"
+      }
+    };
+
+    expect(localAiPrepareManifestOk({
+      ...manifest,
+      prepareCommand: ["ollama", "pull", "--insecure", "llama3.2"]
+    })).toBe(false);
+    expect(localAiPrepareManifestOk({
+      ...manifest,
+      checks: manifest.checks.map((check) => ({
+        ...check,
+        evidence: ["package.json scripts.ai:prepare"]
+      }))
+    })).toBe(false);
+    expect(localAiPrepareMatchesAcceptanceModel({
+      ...manifest,
+      prepareCommand: ["ollama", "pull", "--insecure", "llama3.2"]
+    }, acceptance)).toBe(false);
+  });
+
   it("can record the required command without pulling in check-only mode", async () => {
     const manifest = await buildLocalAiPrepare({
       root,
