@@ -91,6 +91,11 @@ export interface PlugAndPlayReadinessManifest {
     sourceControlHandoffFreshCloneInstallDryRunOk?: boolean;
     sourceControlHandoffFreshCloneCheckedPathCount?: number;
     localAiPrepareModel?: string;
+    strictAiSmokeStatusPath?: string;
+    strictAiSmokeProvider?: string;
+    strictAiSmokeModel?: string;
+    strictAiSmokeOllamaUrl?: string;
+    strictAiSmokeCaseCount?: number;
     sourceControlHandoffStatus?: string;
     sourceControlHandoffReady?: boolean;
     plugAndPlayDoctorStatus?: string;
@@ -568,7 +573,7 @@ async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCh
   const problems: string[] = [];
 
   if (!script) problems.push("scripts/fresh-clone-operator-smoke.ts is missing");
-  for (const signal of ["git clone", "npm ci", "npm run smoke:rehearsal:start", "npm run doctor", "commandUploadEnabled: false"]) {
+  for (const signal of ["git clone", "npm ci", "npm run smoke:rehearsal:start", "npm run test:ai:local", "npm run doctor", "commandUploadEnabled: false"]) {
     if (script && !script.includes(signal)) problems.push(`scripts/fresh-clone-operator-smoke.ts missing ${signal}`);
   }
   if (isRecord(manifest)) {
@@ -627,7 +632,7 @@ async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCh
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "Latest fresh-clone operator smoke artifact proves clone, lockfile install, bounded operator-start smoke, final doctor, local AI prepare evidence, and disabled command upload.",
+      : "Latest fresh-clone operator smoke artifact proves clone, lockfile install, bounded operator-start smoke, strict local AI smoke, final doctor, local AI prepare evidence, and disabled command upload.",
     evidence: [
       "scripts/fresh-clone-operator-smoke.ts",
       artifact?.relativePath ?? ".tmp/fresh-clone-smoke"
@@ -1276,6 +1281,11 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     typeof manifest.freshClone.sourceControlHandoffFreshCloneInstallDryRunOk === "boolean" ? `- Source-control fresh-clone npm ci dry-run: ${manifest.freshClone.sourceControlHandoffFreshCloneInstallDryRunOk}` : undefined,
     typeof manifest.freshClone.sourceControlHandoffFreshCloneCheckedPathCount === "number" ? `- Source-control fresh-clone checked paths: ${manifest.freshClone.sourceControlHandoffFreshCloneCheckedPathCount}` : undefined,
     manifest.freshClone.localAiPrepareModel ? `- Local AI model: ${manifest.freshClone.localAiPrepareModel}` : undefined,
+    manifest.freshClone.strictAiSmokeStatusPath ? `- Strict AI smoke: ${manifest.freshClone.strictAiSmokeStatusPath}` : undefined,
+    manifest.freshClone.strictAiSmokeProvider ? `- Strict AI provider: ${manifest.freshClone.strictAiSmokeProvider}` : undefined,
+    manifest.freshClone.strictAiSmokeModel ? `- Strict AI model: ${manifest.freshClone.strictAiSmokeModel}` : undefined,
+    manifest.freshClone.strictAiSmokeOllamaUrl ? `- Strict AI Ollama URL: ${manifest.freshClone.strictAiSmokeOllamaUrl}` : undefined,
+    typeof manifest.freshClone.strictAiSmokeCaseCount === "number" ? `- Strict AI smoke cases: ${manifest.freshClone.strictAiSmokeCaseCount}` : undefined,
     manifest.freshClone.sourceControlHandoffStatus ? `- Source-control handoff status: ${manifest.freshClone.sourceControlHandoffStatus}` : undefined,
     typeof manifest.freshClone.sourceControlHandoffReady === "boolean" ? `- Source-control handoff ready: ${manifest.freshClone.sourceControlHandoffReady}` : undefined,
     manifest.freshClone.plugAndPlayDoctorStatus ? `- Doctor status: ${manifest.freshClone.plugAndPlayDoctorStatus}` : undefined,
@@ -1464,6 +1474,11 @@ async function freshCloneSummary(root: string): Promise<PlugAndPlayReadinessMani
     sourceControlHandoffFreshCloneInstallDryRunOk: booleanOrUndefined(manifest.sourceControlHandoffFreshCloneInstallDryRunOk),
     sourceControlHandoffFreshCloneCheckedPathCount: numberOrUndefined(manifest.sourceControlHandoffFreshCloneCheckedPathCount),
     localAiPrepareModel: stringOrUndefined(manifest.localAiPrepareModel),
+    strictAiSmokeStatusPath: stringOrUndefined(manifest.strictAiSmokeStatusPath),
+    strictAiSmokeProvider: stringOrUndefined(manifest.strictAiSmokeProvider),
+    strictAiSmokeModel: stringOrUndefined(manifest.strictAiSmokeModel),
+    strictAiSmokeOllamaUrl: stringOrUndefined(manifest.strictAiSmokeOllamaUrl),
+    strictAiSmokeCaseCount: numberOrUndefined(manifest.strictAiSmokeCaseCount),
     sourceControlHandoffStatus: stringOrUndefined(manifest.sourceControlHandoffStatus),
     sourceControlHandoffReady: booleanOrUndefined(manifest.sourceControlHandoffReady),
     plugAndPlayDoctorStatus: stringOrUndefined(manifest.plugAndPlayDoctorStatus),

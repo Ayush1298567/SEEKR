@@ -532,7 +532,7 @@ export async function buildHandoffBundleVerification(options: {
     freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk = copiedFreshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk ?? freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk;
     freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount = copiedFreshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount ?? freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount;
     if (!freshCloneOperatorSmokeOk(freshCloneSmoke, copiedAcceptance)) {
-      blockers.push("Copied fresh-clone operator smoke must pass clone/install/operator-start/final-doctor checks, match the copied acceptance strict AI model, and keep commandUploadEnabled false.");
+      blockers.push("Copied fresh-clone operator smoke must pass clone/install/operator-start/strict-local-AI/final-doctor checks, match the copied acceptance strict AI model, and keep commandUploadEnabled false.");
     }
     if (manifestFreshCloneSmokeLocalHeadSha !== copiedFreshCloneSmokeLocalHeadSha) {
       blockers.push("Handoff bundle fresh-clone local HEAD must match the copied fresh-clone operator smoke artifact.");

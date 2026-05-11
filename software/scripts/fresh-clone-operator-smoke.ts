@@ -9,6 +9,7 @@ import { localAiPrepareManifestOk } from "./local-ai-prepare";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { EXPECTED_REPOSITORY_URL, REQUIRED_FRESH_CLONE_PATHS, validateSourceControlHandoffManifest } from "./source-control-handoff";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type FreshCloneOperatorSmokeStatus = "pass" | "fail" | "blocked";
 
@@ -33,6 +34,11 @@ export interface FreshCloneOperatorSmokeManifest {
   plugAndPlaySetupPath?: string;
   localAiPreparePath?: string;
   localAiPrepareModel?: string;
+  strictAiSmokeStatusPath?: string;
+  strictAiSmokeProvider?: string;
+  strictAiSmokeModel?: string;
+  strictAiSmokeOllamaUrl?: string;
+  strictAiSmokeCaseCount?: number;
   sourceControlHandoffPath?: string;
   sourceControlHandoffStatus?: string;
   sourceControlHandoffReady?: boolean;
@@ -74,6 +80,7 @@ export const REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS = [
   "operator-start-smoke",
   "setup-artifact",
   "local-ai-prepare-artifact",
+  "strict-ai-smoke",
   "source-control-handoff-artifact",
   "rehearsal-start-smoke-artifact",
   "final-doctor",
@@ -105,6 +112,8 @@ export async function buildFreshCloneOperatorSmoke(options: {
   let setupManifest: unknown;
   let localAiPreparePath: string | undefined;
   let localAiPrepareManifest: unknown;
+  let strictAiSmokeStatusPath: string | undefined;
+  let strictAiSmokeStatusManifest: unknown;
   let sourceControlHandoffPath: string | undefined;
   let sourceControlHandoffManifest: unknown;
   let doctorPath: string | undefined;
@@ -191,6 +200,24 @@ export async function buildFreshCloneOperatorSmoke(options: {
     localAiPrepareManifest = localAiPrepareArtifact ? await readJson(localAiPrepareArtifact.absolutePath) : undefined;
     checks.push(semanticCheck("local-ai-prepare-artifact", "Fresh clone smoke must create passing local AI prepare evidence.", localAiPrepareManifestOk(localAiPrepareManifest), localAiPreparePath ?? ".tmp/local-ai-prepare"));
 
+    checks.push(await runCheck("strict-ai-smoke", "Run strict local AI smoke in the fresh clone.", async () => {
+      await execImpl("npm", ["run", "test:ai:local"], {
+        cwd: softwareDir,
+        timeout: timeoutMs,
+        env,
+        maxBuffer: 8 * 1024 * 1024
+      });
+      strictAiSmokeStatusPath = ".tmp/ai-smoke-status.json";
+      strictAiSmokeStatusManifest = await readJson(path.join(softwareDir, strictAiSmokeStatusPath));
+      if (!strictAiSmokeStatusOk(strictAiSmokeStatusManifest, localAiPrepareManifest)) {
+        throw new Error("fresh-clone strict local AI smoke evidence does not satisfy the command-boundary contract");
+      }
+      return {
+        details: "Fresh clone strict local AI smoke passed with Ollama, required safety cases, and commandUploadEnabled false.",
+        evidence: ["npm run test:ai:local", strictAiSmokeStatusPath]
+      };
+    }));
+
     const sourceControlArtifact = await latestJson(softwareDir, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
     sourceControlHandoffPath = sourceControlArtifact?.relativePath;
     sourceControlHandoffManifest = sourceControlArtifact ? await readJson(sourceControlArtifact.absolutePath) : undefined;
@@ -237,6 +264,7 @@ export async function buildFreshCloneOperatorSmoke(options: {
     const safetyOk = [
       setupManifest,
       localAiPrepareManifest,
+      strictAiSmokeStatusManifest,
       sourceControlHandoffManifest,
       doctorManifest,
       rehearsalStartSmokeManifest
@@ -259,6 +287,7 @@ export async function buildFreshCloneOperatorSmoke(options: {
     checks.every((check, index) => check.id === REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS[index] && check.status === "pass");
   const sourceControl = isRecord(sourceControlHandoffManifest) ? sourceControlHandoffManifest : undefined;
   const localAi = isRecord(localAiPrepareManifest) ? localAiPrepareManifest : undefined;
+  const strictAiSmoke = isRecord(strictAiSmokeStatusManifest) ? strictAiSmokeStatusManifest : undefined;
   const doctor = isRecord(doctorManifest) ? doctorManifest : undefined;
   const smoke = isRecord(rehearsalStartSmokeManifest) ? rehearsalStartSmokeManifest : undefined;
 
@@ -276,6 +305,11 @@ export async function buildFreshCloneOperatorSmoke(options: {
     plugAndPlaySetupPath: setupPath,
     localAiPreparePath,
     localAiPrepareModel: typeof localAi?.model === "string" ? localAi.model : undefined,
+    strictAiSmokeStatusPath,
+    strictAiSmokeProvider: typeof strictAiSmoke?.provider === "string" ? strictAiSmoke.provider : undefined,
+    strictAiSmokeModel: typeof strictAiSmoke?.model === "string" ? strictAiSmoke.model : undefined,
+    strictAiSmokeOllamaUrl: typeof strictAiSmoke?.ollamaUrl === "string" ? strictAiSmoke.ollamaUrl : undefined,
+    strictAiSmokeCaseCount: typeof strictAiSmoke?.caseCount === "number" ? strictAiSmoke.caseCount : undefined,
     sourceControlHandoffPath,
     sourceControlHandoffStatus: typeof sourceControl?.status === "string" ? sourceControl.status : undefined,
     sourceControlHandoffReady: typeof sourceControl?.ready === "boolean" ? sourceControl.ready : undefined,
@@ -338,6 +372,7 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
   const acceptanceStrictAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
   const acceptanceModel = typeof acceptanceStrictAi?.model === "string" ? acceptanceStrictAi.model : undefined;
   const modelMatches = !acceptanceModel || manifest.localAiPrepareModel === acceptanceModel;
+  const strictAiModelMatches = !acceptanceModel || manifest.strictAiSmokeModel === acceptanceModel;
   const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
   const generatedAt = timeMs(manifest.generatedAt);
   const freshForAcceptance = acceptanceGeneratedAt === undefined || (generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt);
@@ -349,6 +384,11 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
     exactCheckOrder &&
     typeof manifest.plugAndPlaySetupPath === "string" &&
     typeof manifest.localAiPreparePath === "string" &&
+    typeof manifest.strictAiSmokeStatusPath === "string" &&
+    manifest.strictAiSmokeProvider === "ollama" &&
+    typeof manifest.strictAiSmokeModel === "string" &&
+    isLocalOllamaUrl(manifest.strictAiSmokeOllamaUrl) &&
+    Number(manifest.strictAiSmokeCaseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
     typeof manifest.sourceControlHandoffPath === "string" &&
     typeof manifest.plugAndPlayDoctorPath === "string" &&
     typeof manifest.rehearsalStartSmokePath === "string" &&
@@ -363,8 +403,36 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
     (!cloneHeadSha || sourceControlRemoteDefaultBranchSha === cloneHeadSha) &&
     (!cloneHeadSha || sourceControlFreshCloneHeadSha === cloneHeadSha) &&
     modelMatches &&
+    strictAiModelMatches &&
     freshForAcceptance &&
     safetyBoundaryFalse(manifest);
+}
+
+function strictAiSmokeStatusOk(manifest: unknown, localAiPrepare: unknown) {
+  if (!isRecord(manifest)) return false;
+  const cases = Array.isArray(manifest.cases) ? manifest.cases.filter(isRecord) : [];
+  const caseNames = cases.map((testCase) => String(testCase.name ?? ""));
+  const localAiModel = isRecord(localAiPrepare) && typeof localAiPrepare.model === "string" ? localAiPrepare.model : undefined;
+  return manifest.ok === true &&
+    manifest.commandUploadEnabled === false &&
+    manifest.provider === "ollama" &&
+    manifest.requireOllama === true &&
+    typeof manifest.model === "string" &&
+    (!localAiModel || manifest.model === localAiModel) &&
+    isLocalOllamaUrl(manifest.ollamaUrl) &&
+    Number(manifest.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
+    cases.length === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
+    arraysEqual(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]) &&
+    cases.every((testCase) =>
+      testCase.provider === "ollama" &&
+      testCase.model === manifest.model &&
+      typeof testCase.planKind === "string" &&
+      testCase.planKind.length > 0 &&
+      testCase.planKind !== "hold-drone" &&
+      testCase.validatorOk === true &&
+      testCase.unsafeOperatorTextPresent === false &&
+      testCase.mutatedWhileThinking === false
+    );
 }
 
 function semanticCheck(id: string, requirement: string, ok: boolean, evidencePath: string, problem?: string): FreshCloneOperatorSmokeCheck {
@@ -455,6 +523,11 @@ function renderMarkdown(manifest: FreshCloneOperatorSmokeManifest) {
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
     manifest.localAiPreparePath ? `Local AI prepare: ${manifest.localAiPreparePath}` : undefined,
     manifest.localAiPrepareModel ? `Local AI model: ${manifest.localAiPrepareModel}` : undefined,
+    manifest.strictAiSmokeStatusPath ? `Strict AI smoke: ${manifest.strictAiSmokeStatusPath}` : undefined,
+    manifest.strictAiSmokeProvider ? `Strict AI provider: ${manifest.strictAiSmokeProvider}` : undefined,
+    manifest.strictAiSmokeModel ? `Strict AI model: ${manifest.strictAiSmokeModel}` : undefined,
+    manifest.strictAiSmokeOllamaUrl ? `Strict AI Ollama URL: ${manifest.strictAiSmokeOllamaUrl}` : undefined,
+    typeof manifest.strictAiSmokeCaseCount === "number" ? `Strict AI smoke cases: ${manifest.strictAiSmokeCaseCount}` : undefined,
     manifest.sourceControlHandoffPath ? `Source-control handoff: ${manifest.sourceControlHandoffPath}` : undefined,
     manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.sourceControlHandoffRemoteDefaultBranchSha ? `Source-control remote default SHA: ${manifest.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
@@ -502,6 +575,10 @@ function safetyBoundaryFalse(manifest: Record<string, unknown>) {
     safety.runtimePolicyInstalled === false;
 }
 
+function arraysEqual(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function timeMs(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value !== "string" || !value.trim()) return undefined;
@@ -524,6 +601,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       localHeadSha: result.manifest.localHeadSha,
       checked: result.manifest.checked,
       localAiPrepareModel: result.manifest.localAiPrepareModel,
+      strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
+      strictAiSmokeProvider: result.manifest.strictAiSmokeProvider,
+      strictAiSmokeModel: result.manifest.strictAiSmokeModel,
+      strictAiSmokeOllamaUrl: result.manifest.strictAiSmokeOllamaUrl,
+      strictAiSmokeCaseCount: result.manifest.strictAiSmokeCaseCount,
       sourceControlHandoffStatus: result.manifest.sourceControlHandoffStatus,
       sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,
       sourceControlHandoffRemoteDefaultBranchSha: result.manifest.sourceControlHandoffRemoteDefaultBranchSha,

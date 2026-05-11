@@ -9,6 +9,7 @@ import {
   writeFreshCloneOperatorSmoke
 } from "../../../scripts/fresh-clone-operator-smoke";
 import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 const SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const REQUIRED_FRESH_CLONE_PATH_COUNT = REQUIRED_FRESH_CLONE_PATHS.length;
@@ -42,6 +43,11 @@ describe("fresh clone operator smoke", () => {
       localHeadSha: SHA,
       cloneHeadSha: SHA,
       localAiPrepareModel: "llama3.2:latest",
+      strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
+      strictAiSmokeProvider: "ollama",
+      strictAiSmokeModel: "llama3.2:latest",
+      strictAiSmokeOllamaUrl: "http://127.0.0.1:11434",
+      strictAiSmokeCaseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       sourceControlHandoffStatus: "ready-source-control-handoff",
       sourceControlHandoffLocalHeadSha: SHA,
       sourceControlHandoffRemoteDefaultBranchSha: SHA,
@@ -65,6 +71,7 @@ describe("fresh clone operator smoke", () => {
       "git rev-parse HEAD",
       "npm ci --ignore-scripts --no-audit --fund=false --prefer-offline",
       "npm run smoke:rehearsal:start",
+      "npm run test:ai:local",
       "npm run doctor"
     ]);
   });
@@ -84,6 +91,42 @@ describe("fresh clone operator smoke", () => {
         model: "llama3.2:latest"
       }
     })).toBe(false);
+  });
+
+  it("fails closed when strict local AI smoke evidence enables command upload", async () => {
+    const manifest = await buildFreshCloneOperatorSmoke({
+      root,
+      generatedAt: "2026-05-11T17:00:00.000Z",
+      execFileImpl: fakeExec({ strictAiCommandUploadEnabled: true })
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked");
+    expect(manifest.checks.find((check) => check.id === "strict-ai-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("command-boundary contract")
+    });
+    expect(freshCloneOperatorSmokeOk(manifest, {
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest"
+      }
+    })).toBe(false);
+  });
+
+  it("fails closed when strict local AI smoke evidence does not match the prepared model", async () => {
+    const manifest = await buildFreshCloneOperatorSmoke({
+      root,
+      generatedAt: "2026-05-11T17:00:00.000Z",
+      execFileImpl: fakeExec({ model: "llama3.2:latest", strictAiModel: "llama3.1:latest" })
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "strict-ai-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("command-boundary contract")
+    });
   });
 
   it("fails closed when source-control HEAD summaries are not preserved", async () => {
@@ -122,8 +165,9 @@ describe("fresh clone operator smoke", () => {
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Fresh Clone Operator Smoke");
   });
 
-  function fakeExec(options: { model?: string } = {}) {
+  function fakeExec(options: { model?: string; strictAiModel?: string; strictAiCommandUploadEnabled?: boolean } = {}) {
     const model = options.model ?? "llama3.2:latest";
+    const strictAiModel = options.strictAiModel ?? model;
     return async (file: string, args: string[], commandOptions: { cwd: string }) => {
       commands.push([file, ...args].join(" "));
       if (file === "git" && args.join(" ") === "rev-parse HEAD") {
@@ -142,6 +186,14 @@ describe("fresh clone operator smoke", () => {
       }
       if (file === "npm" && args.join(" ") === "run smoke:rehearsal:start") {
         await seedSmokeArtifacts(commandOptions.cwd, model);
+        return { stdout: "", stderr: "" };
+      }
+      if (file === "npm" && args.join(" ") === "run test:ai:local") {
+        await mkdir(path.join(commandOptions.cwd, ".tmp"), { recursive: true });
+        await writeFile(path.join(commandOptions.cwd, ".tmp/ai-smoke-status.json"), JSON.stringify(strictAiSmokeArtifact({
+          model: strictAiModel,
+          commandUploadEnabled: options.strictAiCommandUploadEnabled ?? false
+        })), "utf8");
         return { stdout: "", stderr: "" };
       }
       if (file === "npm" && args.join(" ") === "run doctor") {
@@ -202,6 +254,30 @@ function localAiArtifact(model: string) {
         evidence: ["package.json scripts.ai:prepare", prepareCommand.join(" ")]
       }
     ]
+  };
+}
+
+function strictAiSmokeArtifact(options: { model: string; commandUploadEnabled: boolean }) {
+  return {
+    ok: true,
+    generatedAt: Date.parse("2026-05-11T17:00:00.000Z"),
+    softwareVersion: "0.2.0",
+    provider: "ollama",
+    model: options.model,
+    ollamaUrl: "http://127.0.0.1:11434",
+    requireOllama: true,
+    commandUploadEnabled: options.commandUploadEnabled,
+    caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+    cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name, index) => ({
+      name,
+      provider: "ollama",
+      model: options.model,
+      planKind: index === 2 ? "set-no-fly-zone" : index === 0 ? "assign-zone" : "focused-search",
+      validatorOk: true,
+      elapsedMs: 1,
+      unsafeOperatorTextPresent: false,
+      mutatedWhileThinking: false
+    }))
   };
 }
 

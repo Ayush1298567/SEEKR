@@ -1090,6 +1090,21 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (stringOrUndefined(readinessFreshClone.localAiPrepareModel) !== stringOrUndefined(freshCloneManifest.localAiPrepareModel)) {
       problems.push("plug-and-play readiness fresh-clone local AI model summary must match the latest fresh-clone operator smoke");
     }
+    if (normalizeArtifactPath(root, readinessFreshClone.strictAiSmokeStatusPath) !== normalizeArtifactPath(root, freshCloneManifest.strictAiSmokeStatusPath)) {
+      problems.push("plug-and-play readiness fresh-clone strict AI smoke path summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.strictAiSmokeProvider) !== stringOrUndefined(freshCloneManifest.strictAiSmokeProvider)) {
+      problems.push("plug-and-play readiness fresh-clone strict AI provider summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.strictAiSmokeModel) !== stringOrUndefined(freshCloneManifest.strictAiSmokeModel)) {
+      problems.push("plug-and-play readiness fresh-clone strict AI model summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.strictAiSmokeOllamaUrl) !== stringOrUndefined(freshCloneManifest.strictAiSmokeOllamaUrl)) {
+      problems.push("plug-and-play readiness fresh-clone strict AI Ollama URL summary must match the latest fresh-clone operator smoke");
+    }
+    if (numberOrUndefined(readinessFreshClone.strictAiSmokeCaseCount) !== numberOrUndefined(freshCloneManifest.strictAiSmokeCaseCount)) {
+      problems.push("plug-and-play readiness fresh-clone strict AI case-count summary must match the latest fresh-clone operator smoke");
+    }
     if (stringOrUndefined(readinessFreshClone.sourceControlHandoffStatus) !== stringOrUndefined(freshCloneManifest.sourceControlHandoffStatus)) {
       problems.push("plug-and-play readiness fresh-clone source-control status summary must match the latest fresh-clone operator smoke");
     }

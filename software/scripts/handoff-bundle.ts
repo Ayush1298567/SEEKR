@@ -246,7 +246,7 @@ export async function writeHandoffBundle(options: {
   if (!freshCloneSmoke) {
     blockers.push("No fresh-clone operator smoke artifact exists; run npm run smoke:fresh-clone before bundling for final internal-alpha review.");
   } else if (!freshCloneOperatorSmokeOk(freshCloneSmokeManifest, acceptanceManifest)) {
-    blockers.push("Fresh-clone operator smoke artifact must pass clone/install/operator-start/final-doctor checks, match the latest acceptance strict AI model, and keep commandUploadEnabled false before bundling.");
+    blockers.push("Fresh-clone operator smoke artifact must pass clone/install/operator-start/strict-local-AI/final-doctor checks, match the latest acceptance strict AI model, and keep commandUploadEnabled false before bundling.");
   }
   if (!strictAiSmokePath) {
     blockers.push("No strict local AI smoke status exists; run npm run test:ai:local before bundling for final internal-alpha review.");
