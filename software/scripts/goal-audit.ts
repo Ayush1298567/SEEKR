@@ -3,6 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
 import { buildCompletionAudit, type CompletionAuditManifest } from "./completion-audit";
+import { EXPECTED_REPOSITORY_URL, validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { buildTodoAudit, type TodoAuditManifest } from "./todo-audit";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
@@ -177,6 +178,7 @@ export async function buildGoalAudit(options: {
   checklist.push(await safetyBoundaryItem(root));
   checklist.push(await acceptanceItem(root));
   checklist.push(await apiProbeItem(root));
+  checklist.push(await sourceControlHandoffItem(root));
   checklist.push(await completionAuditItem(root, completionAudit));
   checklist.push(await demoAndHandoffItem(root, completionAudit.complete));
   checklist.push(await docsGoalItem(root));
@@ -468,6 +470,35 @@ async function completionAuditItem(root: string, computed: { localAlphaOk: boole
         : `Completion audit is current enough for local alpha and still incomplete on real-world evidence: ${latest.relativePath}.`
       : "Latest completion audit must match the current computed audit, keep commandUploadEnabled false, report localAlphaOk true, and match the computed complete status.",
     evidence: [latest.relativePath]
+  };
+}
+
+async function sourceControlHandoffItem(root: string): Promise<GoalAuditItem> {
+  const latest = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
+  const manifest = latest ? await readJson(latest.absolutePath) : undefined;
+  const validation = validateSourceControlHandoffManifest(manifest);
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
+  const generatedAt = isRecord(manifest) ? timeMs(manifest.generatedAt) : undefined;
+  const problems = [
+    ...(!latest ? ["source-control handoff artifact is missing"] : []),
+    ...(validation.ok ? [] : validation.problems),
+    ...(isRecord(manifest) && manifest.ready !== true ? ["source-control handoff must be ready"] : []),
+    ...(isRecord(manifest) && manifest.status !== "ready-source-control-handoff" ? ["source-control handoff must have no warning or blocked checks"] : []),
+    ...(isRecord(manifest) && Number(manifest.blockedCheckCount) !== 0 ? ["source-control handoff blockedCheckCount must be 0"] : []),
+    ...(isRecord(manifest) && Number(manifest.warningCheckCount) !== 0 ? ["source-control handoff warningCheckCount must be 0"] : []),
+    ...(isRecord(manifest) && acceptanceGeneratedAt !== undefined && generatedAt === undefined ? ["source-control handoff must record a parseable generatedAt timestamp"] : []),
+    ...(generatedAt !== undefined && acceptanceGeneratedAt !== undefined && generatedAt < acceptanceGeneratedAt ? ["source-control handoff must be newer than or equal to the latest acceptance record"] : [])
+  ];
+
+  return {
+    id: "source-control-handoff",
+    requirement: "GitHub/source-control handoff proves the checked local source is published, clean, and separate from hardware readiness.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : `Source-control handoff is ready for ${EXPECTED_REPOSITORY_URL}, local HEAD matches the GitHub default branch, and the worktree is clean.`,
+    evidence: [latest?.relativePath, "package.json", "../README.md", "docs/OPERATOR_QUICKSTART.md"].filter(isString)
   };
 }
 

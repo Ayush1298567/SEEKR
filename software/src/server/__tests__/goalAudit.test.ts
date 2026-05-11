@@ -281,6 +281,38 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when source-control handoff is not published and clean", async () => {
+    const artifactPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
+    const sourceControl = JSON.parse(await readFile(artifactPath, "utf8"));
+    sourceControl.status = "blocked-source-control-handoff";
+    sourceControl.ready = false;
+    sourceControl.localHeadSha = "local-only";
+    sourceControl.remoteDefaultBranchSha = "published";
+    sourceControl.workingTreeStatusLineCount = 1;
+    sourceControl.blockedCheckCount = 2;
+    sourceControl.checks = sourceControl.checks.map((check: { id: string; status: string; details: string }) => {
+      if (check.id === "local-head-published") {
+        return { ...check, status: "blocked", details: "Local HEAD is not published." };
+      }
+      if (check.id === "working-tree-clean") {
+        return { ...check, status: "blocked", details: "Worktree has source changes." };
+      }
+      return check;
+    });
+    await writeFile(artifactPath, JSON.stringify(sourceControl), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "source-control-handoff")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("source-control handoff must be ready")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness does not reference the latest API probe", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
@@ -1269,8 +1301,8 @@ async function seedRoot(root: string) {
     todoAuditPath,
     todoAuditStatus: "pass-real-world-blockers-tracked",
     sourceControlHandoffPath: sourceControlPath,
-    sourceControlHandoffStatus: "blocked-source-control-handoff",
-    sourceControlHandoffReady: false,
+    sourceControlHandoffStatus: "ready-source-control-handoff",
+    sourceControlHandoffReady: true,
     plugAndPlaySetupPath,
     plugAndPlaySetupStatus: "ready-local-setup",
     plugAndPlayDoctorPath,
@@ -1391,29 +1423,50 @@ async function seedRoot(root: string) {
   await writeFile(path.join(root, sourceControlPath), JSON.stringify({
     schemaVersion: 1,
     generatedAt: GENERATED_AT,
-    status: "blocked-source-control-handoff",
-    ready: false,
+    status: "ready-source-control-handoff",
+    ready: true,
     commandUploadEnabled: false,
     repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
-    configuredRemoteUrls: [],
-    remoteRefCount: 0,
-    blockedCheckCount: 2,
-    warningCheckCount: 4,
+    packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+    gitMetadataPath: "../.git",
+    localBranch: "main",
+    localHeadSha: "abc1234567890",
+    remoteDefaultBranch: "main",
+    remoteDefaultBranchSha: "abc1234567890",
+    workingTreeStatusLineCount: 0,
+    configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+    remoteRefCount: 1,
+    blockedCheckCount: 0,
+    warningCheckCount: 0,
     checks: [
-      { id: "repository-reference", status: "pass", details: "Package metadata or README names the repository." },
+      { id: "repository-reference", status: "pass", details: "Package metadata or README names the repository.", evidence: ["package.json", "README.md"] },
       { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order", "github-landing-readme-ai-readiness-proof"] },
-      { id: "local-git-metadata", status: "blocked", details: "This workspace is not a Git worktree." },
-      { id: "configured-github-remote", status: "warn", details: "No local Git metadata exists." },
-      { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs/default branch." },
-      { id: "fresh-clone-smoke", status: "warn", details: "Fresh clone startup-file and npm ci dry-run coverage could not be proven while remote refs are missing." },
-      { id: "local-head-published", status: "warn", details: "No local Git metadata exists, so the published commit cannot be compared to local HEAD." },
-      { id: "working-tree-clean", status: "warn", details: "No local Git metadata exists, so the worktree cleanliness cannot be inspected." }
+      { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present.", evidence: ["../.git"] },
+      { id: "configured-github-remote", status: "pass", details: "Origin points at GitHub.", evidence: ["https://github.com/Ayush1298567/SEEKR.git"] },
+      { id: "github-remote-refs", status: "pass", details: "GitHub remote has a default branch.", evidence: ["main"] },
+      {
+        id: "fresh-clone-smoke",
+        status: "pass",
+        details: "Fresh clone contract passed.",
+        evidence: [
+          "https://github.com/Ayush1298567/SEEKR",
+          "git clone --depth 1",
+          "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
+          "fresh-clone-github-landing-readme-contract",
+          "fresh-clone-operator-quickstart-contract",
+          "fresh-clone:README.md",
+          "fresh-clone:software/package.json",
+          "fresh-clone:software/package-lock.json",
+          "fresh-clone:software/.env.example",
+          "fresh-clone:software/scripts/rehearsal-start.sh",
+          "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
+        ]
+      },
+      { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub default branch.", evidence: ["abc1234567890"] },
+      { id: "working-tree-clean", status: "pass", details: "Worktree is clean.", evidence: ["git status --short"] }
     ],
     nextActionChecklist: [
-      { id: "restore-or-initialize-local-git", status: "required", details: "Restore or initialize local Git metadata.", commands: ["git init"], clearsCheckIds: ["local-git-metadata"] },
-      { id: "configure-github-origin", status: "required", details: "Configure the GitHub origin remote.", commands: ["git remote add origin git@github.com:Ayush1298567/SEEKR.git"], clearsCheckIds: ["configured-github-remote"] },
-      { id: "publish-reviewed-main", status: "required", details: "Publish the reviewed main branch.", commands: ["git push -u origin main"], clearsCheckIds: ["github-remote-refs"] },
-      { id: "rerun-source-control-audit", status: "verification", details: "Rerun the source-control audit after publication.", commands: ["npm run audit:source-control"], clearsCheckIds: ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "fresh-clone-smoke", "local-head-published", "working-tree-clean"] }
+      { id: "verify-source-control-before-bundle", status: "verification", details: "Rerun the read-only audit before final bundling.", commands: ["npm run audit:source-control"], clearsCheckIds: ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "fresh-clone-smoke", "local-head-published", "working-tree-clean"] }
     ],
     limitations: [
       "This audit is read-only and does not initialize Git, commit files, push branches, or change GitHub settings.",
@@ -1895,8 +1948,8 @@ async function seedCompletedHandoffArtifacts(root: string) {
     todoAuditPath: ".tmp/todo-audit/seekr-todo-audit-2026-05-09T21-00-00-000Z.json",
     todoAuditStatus: "pass-complete-no-blockers",
     sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
-    sourceControlHandoffStatus: "blocked-source-control-handoff",
-    sourceControlHandoffReady: false,
+    sourceControlHandoffStatus: "ready-source-control-handoff",
+    sourceControlHandoffReady: true,
     plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
     plugAndPlaySetupStatus: "ready-local-setup",
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
