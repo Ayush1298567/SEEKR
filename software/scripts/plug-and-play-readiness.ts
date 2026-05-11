@@ -118,6 +118,9 @@ export interface PlugAndPlayReadinessManifest {
     sourceControlHandoffFreshCloneCheckedPathCount?: number;
     sourceControlHandoffWorkingTreeClean?: boolean;
     sourceControlHandoffWorkingTreeStatusLineCount?: number;
+    plugAndPlaySetupPath?: string;
+    plugAndPlaySetupGeneratedAt?: string;
+    plugAndPlaySetupStatus?: string;
   };
   summary: {
     pass: number;
@@ -996,6 +999,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
+  const setupManifest = setup ? await readJson(setup.absolutePath) : undefined;
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const doctor = await latestOperatorDoctorJson(root);
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
@@ -1006,6 +1010,8 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const todoAuditPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.todoAuditPath) : undefined;
   const sourceControlHandoffPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.sourceControlHandoffPath) : undefined;
   const plugAndPlaySetupPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlaySetupPath) : undefined;
+  const plugAndPlaySetupGeneratedAt = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlaySetupGeneratedAt) : undefined;
+  const plugAndPlaySetupStatus = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlaySetupStatus) : undefined;
   const localAiPreparePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.localAiPreparePath) : undefined;
   const plugAndPlayDoctorPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlayDoctorPath) : undefined;
   const rehearsalStartSmokePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.rehearsalStartSmokePath) : undefined;
@@ -1085,6 +1091,14 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
     }
   }
   if (!setup || plugAndPlaySetupPath !== setup.relativePath) problems.push("review bundle verification must point at the latest plug-and-play setup");
+  if (isRecord(setupManifest)) {
+    if (plugAndPlaySetupGeneratedAt !== stringOrUndefined(setupManifest.generatedAt)) {
+      problems.push("review bundle setup generatedAt summary must match the latest plug-and-play setup artifact");
+    }
+    if (plugAndPlaySetupStatus !== stringOrUndefined(setupManifest.status)) {
+      problems.push("review bundle setup status summary must match the latest plug-and-play setup artifact");
+    }
+  }
   if (!localAiPrepare || localAiPreparePath !== localAiPrepare.relativePath) problems.push("review bundle verification must point at the latest local AI prepare artifact");
   if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest operator-start plug-and-play doctor");
   if (!rehearsalStartSmoke || rehearsalStartSmokePath !== rehearsalStartSmoke.relativePath) problems.push("review bundle verification must point at the latest rehearsal-start smoke");
@@ -1279,6 +1293,9 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     typeof manifest.reviewBundle.sourceControlHandoffFreshCloneCheckedPathCount === "number" ? `- Source-control fresh-clone checked paths: ${manifest.reviewBundle.sourceControlHandoffFreshCloneCheckedPathCount}` : undefined,
     typeof manifest.reviewBundle.sourceControlHandoffWorkingTreeClean === "boolean" ? `- Source-control working tree clean: ${manifest.reviewBundle.sourceControlHandoffWorkingTreeClean}` : undefined,
     typeof manifest.reviewBundle.sourceControlHandoffWorkingTreeStatusLineCount === "number" ? `- Source-control working tree status lines: ${manifest.reviewBundle.sourceControlHandoffWorkingTreeStatusLineCount}` : undefined,
+    manifest.reviewBundle.plugAndPlaySetupPath ? `- Plug-and-play setup: ${manifest.reviewBundle.plugAndPlaySetupPath}` : undefined,
+    manifest.reviewBundle.plugAndPlaySetupGeneratedAt ? `- Plug-and-play setup generated at: ${manifest.reviewBundle.plugAndPlaySetupGeneratedAt}` : undefined,
+    manifest.reviewBundle.plugAndPlaySetupStatus ? `- Plug-and-play setup status: ${manifest.reviewBundle.plugAndPlaySetupStatus}` : undefined,
     "",
     "Checks:",
     "",
@@ -1469,7 +1486,10 @@ async function reviewBundleSummary(root: string): Promise<PlugAndPlayReadinessMa
     sourceControlHandoffFreshCloneInstallDryRunOk: booleanOrUndefined(manifest.sourceControlHandoffFreshCloneInstallDryRunOk),
     sourceControlHandoffFreshCloneCheckedPathCount: numberOrUndefined(manifest.sourceControlHandoffFreshCloneCheckedPathCount),
     sourceControlHandoffWorkingTreeClean: booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean),
-    sourceControlHandoffWorkingTreeStatusLineCount: numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount)
+    sourceControlHandoffWorkingTreeStatusLineCount: numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount),
+    plugAndPlaySetupPath: normalizeArtifactPath(root, manifest.plugAndPlaySetupPath),
+    plugAndPlaySetupGeneratedAt: stringOrUndefined(manifest.plugAndPlaySetupGeneratedAt),
+    plugAndPlaySetupStatus: stringOrUndefined(manifest.plugAndPlaySetupStatus)
   };
 }
 

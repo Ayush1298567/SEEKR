@@ -111,7 +111,10 @@ describe("plug-and-play readiness audit", () => {
         sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffWorkingTreeClean: true,
-        sourceControlHandoffWorkingTreeStatusLineCount: 0
+        sourceControlHandoffWorkingTreeStatusLineCount: 0,
+        plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+        plugAndPlaySetupGeneratedAt: "2026-05-10T07:02:00.000Z",
+        plugAndPlaySetupStatus: "ready-local-setup"
       },
       safetyBoundary: {
         realAircraftCommandUpload: false,
@@ -1106,6 +1109,28 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when review bundle setup freshness summary drifts from the copied setup artifact", async () => {
+    const verificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
+    const verification = JSON.parse(await readFile(verificationPath, "utf8"));
+    verification.plugAndPlaySetupGeneratedAt = "2026-05-10T07:01:59.999Z";
+    verification.plugAndPlaySetupStatus = "stale-local-setup";
+    await writeFile(verificationPath, JSON.stringify(verification), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.reviewBundle.plugAndPlaySetupGeneratedAt).toBe("2026-05-10T07:01:59.999Z");
+    expect(manifest.reviewBundle.plugAndPlaySetupStatus).toBe("stale-local-setup");
+    expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("setup generatedAt summary must match")
+    });
+    expect(manifest.checks.find((check) => check.id === "review-bundle")?.details).toContain("setup status summary must match");
+  });
+
   it("fails when review bundle verification points at a stale local AI prepare artifact", async () => {
     await writeFile(path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-zz-newer.json"), JSON.stringify({
       schemaVersion: 1,
@@ -1990,6 +2015,8 @@ async function seedPlugAndPlayEvidence(root: string) {
     sourceControlHandoffWorkingTreeClean: true,
     sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+    plugAndPlaySetupGeneratedAt: "2026-05-10T07:02:00.000Z",
+    plugAndPlaySetupStatus: "ready-local-setup",
     localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
