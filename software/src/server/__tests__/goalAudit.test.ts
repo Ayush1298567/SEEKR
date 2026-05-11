@@ -293,6 +293,7 @@ describe("goal audit", () => {
     sourceControl.ready = false;
     sourceControl.localHeadSha = "local-only";
     sourceControl.remoteDefaultBranchSha = "published";
+    sourceControl.workingTreeClean = false;
     sourceControl.workingTreeStatusLineCount = 1;
     sourceControl.blockedCheckCount = 2;
     sourceControl.checks = sourceControl.checks.map((check: { id: string; status: string; details: string }) => {
@@ -1472,6 +1473,7 @@ async function seedRoot(root: string) {
     localHeadSha: "abc1234567890",
     remoteDefaultBranch: "main",
     remoteDefaultBranchSha: "abc1234567890",
+    workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
     remoteRefCount: 1,

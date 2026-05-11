@@ -450,6 +450,7 @@ async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-
     localBranch: "main",
     localHeadSha: "a".repeat(40),
     remoteDefaultBranchSha: "a".repeat(40),
+    workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
     remoteDefaultBranch: "main",

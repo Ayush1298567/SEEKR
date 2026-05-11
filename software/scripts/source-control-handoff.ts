@@ -37,6 +37,7 @@ export interface SourceControlHandoffManifest {
   localBranch?: string;
   localHeadSha?: string;
   remoteDefaultBranchSha?: string;
+  workingTreeClean?: boolean;
   workingTreeStatusLineCount?: number;
   configuredRemoteUrls: string[];
   remoteDefaultBranch?: string;
@@ -172,6 +173,7 @@ export async function buildSourceControlHandoff(options: {
   const remoteDefaultBranchSha = remoteState.defaultBranch ? remoteState.refs.get(`refs/heads/${remoteState.defaultBranch}`) : undefined;
   const localHeadPublished = Boolean(localGit.headSha && remoteDefaultBranchSha && localGit.headSha === remoteDefaultBranchSha);
   const workingTreeStatusLineCount = localGit.statusLines?.length;
+  const workingTreeClean = localGit.statusLines ? localGit.statusLines.length === 0 : undefined;
 
   const checks: SourceControlHandoffCheck[] = [
     {
@@ -275,6 +277,7 @@ export async function buildSourceControlHandoff(options: {
     localBranch: localGit.branch,
     localHeadSha: localGit.headSha,
     remoteDefaultBranchSha,
+    workingTreeClean,
     workingTreeStatusLineCount,
     configuredRemoteUrls,
     remoteDefaultBranch: remoteState.defaultBranch,
@@ -474,6 +477,7 @@ function renderMarkdown(manifest: SourceControlHandoffManifest) {
     `Remote default branch: ${manifest.remoteDefaultBranch ?? "none"}`,
     manifest.remoteDefaultBranchSha ? `Remote default branch SHA: ${manifest.remoteDefaultBranchSha}` : undefined,
     `Remote ref count: ${manifest.remoteRefCount}`,
+    typeof manifest.workingTreeClean === "boolean" ? `Working tree clean: ${manifest.workingTreeClean}` : undefined,
     typeof manifest.workingTreeStatusLineCount === "number" ? `Working tree status lines: ${manifest.workingTreeStatusLineCount}` : undefined,
     `Blocked checks: ${manifest.blockedCheckCount}`,
     `Warning checks: ${manifest.warningCheckCount}`,
@@ -720,7 +724,8 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if (ready && (!Array.isArray(manifest.configuredRemoteUrls) || !manifest.configuredRemoteUrls.some((url) => pointsAtExpectedRepository(String(url))))) {
     problems.push("ready source-control handoff must include a configured remote pointing at Ayush1298567/SEEKR");
   }
-  if (ready && manifest.workingTreeStatusLineCount !== 0) problems.push("ready source-control handoff must record a clean working tree");
+  if (ready && manifest.workingTreeClean !== true) problems.push("ready source-control handoff must record workingTreeClean true");
+  if (ready && manifest.workingTreeStatusLineCount !== 0) problems.push("ready source-control handoff must record zero working tree status lines");
   if (!Array.isArray(manifest.checks)) {
     problems.push("checks must be an array");
   } else if (rawChecks.length !== checks.length) {

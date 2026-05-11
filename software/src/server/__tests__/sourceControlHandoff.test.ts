@@ -61,6 +61,7 @@ describe("source-control handoff audit", () => {
       remoteDefaultBranch: "main",
       remoteDefaultBranchSha: LOCAL_SHA,
       remoteRefCount: 1,
+      workingTreeClean: true,
       workingTreeStatusLineCount: 0,
       blockedCheckCount: 0,
       warningCheckCount: 0,
@@ -106,6 +107,7 @@ describe("source-control handoff audit", () => {
 
     expect(manifest.ready).toBe(false);
     expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.workingTreeClean).toBe(false);
     expect(manifest.blockedCheckCount).toBe(2);
     expect(manifest.warningCheckCount).toBe(0);
     expect(manifest.checks).toEqual(expect.arrayContaining([
@@ -951,7 +953,9 @@ describe("source-control handoff audit", () => {
 
     expect(result.jsonPath).toContain(`${path.sep}.tmp${path.sep}source-control-handoff${path.sep}`);
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"workingTreeClean\": true");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Source-Control Handoff");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Working tree clean: true");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Publication Next Steps");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("does not initialize Git");
   });
@@ -1005,6 +1009,12 @@ describe("source-control handoff audit", () => {
       remoteDefaultBranchSha: REMOTE_SHA
     }).problems).toEqual(expect.arrayContaining([
       expect.stringContaining("localHeadSha equal remoteDefaultBranchSha")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      workingTreeClean: false
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("workingTreeClean true")
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,

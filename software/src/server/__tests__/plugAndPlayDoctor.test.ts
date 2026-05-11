@@ -549,6 +549,7 @@ async function seedDoctorProject(root: string) {
     localBranch: "main",
     localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
     remoteDefaultBranch: "main",
