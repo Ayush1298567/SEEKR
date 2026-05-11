@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildHandoffIndex, writeHandoffIndex } from "../../../scripts/handoff-index";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 describe("handoff index", () => {
   let root: string;
@@ -196,6 +197,24 @@ describe("handoff index", () => {
       expect.stringContaining("API probe path does not point at the latest API probe evidence")
     ]));
   });
+
+  it("blocks when API probe strict AI scenario readback drifts from acceptance", async () => {
+    const apiProbe = JSON.parse(await readFile(path.join(root, apiProbePath), "utf8"));
+    apiProbe.sessionAcceptance.strictLocalAi.caseNames = REQUIRED_STRICT_AI_SMOKE_CASES.filter((name) => name !== "prompt-injection-spatial-metadata");
+    apiProbe.sessionAcceptance.strictLocalAi.caseCount = apiProbe.sessionAcceptance.strictLocalAi.caseNames.length;
+    await writeFile(path.join(root, apiProbePath), JSON.stringify(apiProbe), "utf8");
+
+    const manifest = await buildHandoffIndex({
+      root,
+      generatedAt: "2026-05-09T20:00:00.000Z"
+    });
+
+    expect(manifest.status).toBe("blocked-local-alpha-handoff");
+    expect(manifest.commandUploadEnabled).toBe(false);
+    expect(manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("probe strict local AI scenario names do not exactly match acceptance status")
+    ]));
+  });
 });
 
 const releasePath = ".tmp/release-evidence/seekr-release-0.2.0-2026-05-09T19-00-00-000Z.json";
@@ -216,6 +235,14 @@ async function seedHandoffEvidence(root: string) {
   await writeFile(path.join(root, ".tmp/acceptance-status.json"), JSON.stringify({
     ok: true,
     generatedAt: Date.parse("2026-05-09T19:00:00.000Z"),
+    completedCommands: ["npm run check", "npm run release:checksum"],
+    strictLocalAi: {
+      ok: true,
+      provider: "ollama",
+      model: "llama3.2:latest",
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+    },
     releaseChecksum: {
       overallSha256: releaseChecksum,
       fileCount: 42,
@@ -260,7 +287,16 @@ async function seedHandoffEvidence(root: string) {
     checked: ["config", "session-acceptance", "session-acceptance-evidence", "readiness", "hardware-readiness", "source-health", "verify", "replays", "malformed-json"],
     sessionAcceptance: {
       status: "pass",
+      generatedAt: Date.parse("2026-05-09T19:00:00.000Z"),
+      commandCount: 2,
       commandUploadEnabled: false,
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
+      },
       releaseChecksum: {
         overallSha256: releaseChecksum,
         fileCount: 42,

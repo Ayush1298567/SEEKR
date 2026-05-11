@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
 
 type ChainStatus = "pass" | "warn" | "fail";
 
@@ -378,7 +379,19 @@ function validateApiProbe(apiProbe: LatestJson | undefined, apiProbeManifest: un
     const probeRelease = isRecord(sessionAcceptance.releaseChecksum) ? sessionAcceptance.releaseChecksum : {};
     const acceptanceScan = isRecord(acceptance.commandBoundaryScan) ? acceptance.commandBoundaryScan : {};
     const probeScan = isRecord(sessionAcceptance.commandBoundaryScan) ? sessionAcceptance.commandBoundaryScan : {};
+    const acceptanceAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
+    const probeAi = isRecord(sessionAcceptance.strictLocalAi) ? sessionAcceptance.strictLocalAi : {};
+    const acceptanceCommandCount = Array.isArray(acceptance.completedCommands) ? acceptance.completedCommands.length : undefined;
     if (sessionAcceptance.status !== "pass") problems.push("probe did not read back passing acceptance status");
+    if (Number(sessionAcceptance.generatedAt) !== Number(acceptance.generatedAt)) {
+      problems.push("probe generatedAt does not match acceptance status");
+    }
+    if (acceptanceCommandCount !== undefined && Number(sessionAcceptance.commandCount) !== acceptanceCommandCount) {
+      problems.push("probe command count does not match acceptance status");
+    }
+    if (!strictLocalAiReadbackMatches(probeAi, acceptanceAi)) {
+      problems.push("probe strict local AI scenario names do not exactly match acceptance status");
+    }
     if (probeRelease.overallSha256 !== acceptanceRelease.overallSha256 ||
       Number(probeRelease.fileCount) !== Number(acceptanceRelease.fileCount) ||
       Number(probeRelease.totalBytes) !== Number(acceptanceRelease.totalBytes)) {
@@ -401,6 +414,22 @@ function validateApiProbe(apiProbe: LatestJson | undefined, apiProbeManifest: un
       : `Latest API probe evidence read back session-visible acceptance evidence: ${apiProbe.relativePath}.`,
     evidence: [apiProbe.relativePath]
   };
+}
+
+function strictLocalAiReadbackMatches(probeAi: Record<string, unknown>, acceptanceAi: Record<string, unknown>) {
+  const probeCaseNames = stringArray(probeAi.caseNames);
+  const acceptanceCaseNames = stringArray(acceptanceAi.caseNames);
+  return probeAi.ok === acceptanceAi.ok &&
+    probeAi.provider === acceptanceAi.provider &&
+    probeAi.model === acceptanceAi.model &&
+    Number(probeAi.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
+    Number(probeAi.caseCount) === Number(acceptanceAi.caseCount) &&
+    arraysEqual(acceptanceCaseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]) &&
+    arraysEqual(probeCaseNames, acceptanceCaseNames);
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
 }
 
 function validateDemoPackage(options: {
