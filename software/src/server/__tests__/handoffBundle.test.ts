@@ -2808,6 +2808,7 @@ function markSourceControlReady(manifest: {
   checks: Array<{ id: string; status: string; details: string; evidence: string[] }>;
   localHeadSha?: string;
   remoteDefaultBranchSha?: string;
+  remoteDefaultBranch?: string;
   workingTreeStatusLineCount?: number;
 }) {
   manifest.status = "ready-source-control-handoff";
@@ -2818,6 +2819,7 @@ function markSourceControlReady(manifest: {
   manifest.warningCheckCount = 0;
   manifest.localHeadSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
   manifest.remoteDefaultBranchSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
+  manifest.remoteDefaultBranch = "main";
   manifest.workingTreeStatusLineCount = 0;
   manifest.checks = manifest.checks.map((check) => ({
     ...check,

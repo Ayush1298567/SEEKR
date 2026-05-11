@@ -913,6 +913,7 @@ describe("plug-and-play readiness audit", () => {
       remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       workingTreeStatusLineCount: 0,
       configuredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
+      remoteDefaultBranch: "main",
       remoteRefCount: 1,
       blockedCheckCount: 0,
       warningCheckCount: 0,

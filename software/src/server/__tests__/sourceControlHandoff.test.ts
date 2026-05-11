@@ -414,6 +414,30 @@ describe("source-control handoff audit", () => {
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,
+      remoteDefaultBranchSha: REMOTE_SHA
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("localHeadSha equal remoteDefaultBranchSha")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      remoteRefCount: 0
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("at least one GitHub remote ref")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      remoteDefaultBranch: undefined
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("remoteDefaultBranch")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      configuredRemoteUrls: ["https://github.com/example/not-seekr.git"]
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("configured remote pointing at Ayush1298567/SEEKR")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
       checks: manifest.checks.map((check) => check.id === "fresh-clone-smoke"
         ? {
           ...check,

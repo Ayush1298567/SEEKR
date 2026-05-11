@@ -593,6 +593,14 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if (!Array.isArray(manifest.configuredRemoteUrls)) problems.push("configuredRemoteUrls must be an array");
   if (ready && typeof manifest.localHeadSha !== "string") problems.push("ready source-control handoff must include localHeadSha");
   if (ready && typeof manifest.remoteDefaultBranchSha !== "string") problems.push("ready source-control handoff must include remoteDefaultBranchSha");
+  if (ready && typeof manifest.localHeadSha === "string" && typeof manifest.remoteDefaultBranchSha === "string" && manifest.localHeadSha !== manifest.remoteDefaultBranchSha) {
+    problems.push("ready source-control handoff must have localHeadSha equal remoteDefaultBranchSha");
+  }
+  if (ready && !String(manifest.remoteDefaultBranch ?? "")) problems.push("ready source-control handoff must include remoteDefaultBranch");
+  if (ready && Number(manifest.remoteRefCount) < 1) problems.push("ready source-control handoff must include at least one GitHub remote ref");
+  if (ready && (!Array.isArray(manifest.configuredRemoteUrls) || !manifest.configuredRemoteUrls.some((url) => pointsAtExpectedRepository(String(url))))) {
+    problems.push("ready source-control handoff must include a configured remote pointing at Ayush1298567/SEEKR");
+  }
   if (ready && manifest.workingTreeStatusLineCount !== 0) problems.push("ready source-control handoff must record a clean working tree");
   if (!Array.isArray(manifest.checks)) {
     problems.push("checks must be an array");
