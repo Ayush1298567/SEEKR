@@ -496,8 +496,8 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && rehearsalStartSmokePath) {
     const rehearsalStartSmoke = await readCopiedJson(bundleDirectory, rehearsalStartSmokePath);
-    if (!rehearsalStartSmokeOk(rehearsalStartSmoke)) {
-      blockers.push("Copied rehearsal-start smoke must pass local API/client startup, source-health, readiness, clean shutdown, and commandUploadEnabled false semantic checks.");
+    if (!rehearsalStartSmokeOk(rehearsalStartSmoke, copiedAcceptance)) {
+      blockers.push("Copied rehearsal-start smoke must pass local API/client startup, source-health, readiness, clean shutdown, commandUploadEnabled false, and acceptance-freshness semantic checks.");
     }
   }
   if (!freshCloneSmokePath) {
@@ -1285,8 +1285,16 @@ function sourceControlHandoffFreshForAcceptance(manifest: unknown, acceptance: u
   return generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt;
 }
 
-function rehearsalStartSmokeOk(manifest: unknown) {
-  return validateRehearsalStartSmokeManifest(manifest).ok;
+function rehearsalStartSmokeOk(manifest: unknown, acceptance: unknown) {
+  return validateRehearsalStartSmokeManifest(manifest).ok && artifactFreshForAcceptance(manifest, acceptance);
+}
+
+function artifactFreshForAcceptance(manifest: unknown, acceptance: unknown) {
+  if (!isRecord(manifest) || !isRecord(acceptance)) return false;
+  const acceptanceGeneratedAt = timeMs(acceptance.generatedAt);
+  if (acceptanceGeneratedAt === undefined) return false;
+  const generatedAt = timeMs(manifest.generatedAt);
+  return generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt;
 }
 
 function timeMs(value: unknown) {

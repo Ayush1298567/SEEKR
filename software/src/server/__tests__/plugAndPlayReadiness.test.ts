@@ -421,6 +421,44 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when rehearsal-start smoke evidence predates acceptance", async () => {
+    const smokePath = path.join(root, ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json");
+    const smoke = JSON.parse(await readFile(smokePath, "utf8"));
+    smoke.generatedAt = "2026-05-10T06:59:59.999Z";
+    await writeFile(smokePath, JSON.stringify(smoke), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "operator-start-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("newer than or equal to the latest acceptance record")
+    });
+  });
+
+  it("fails when fresh-clone operator smoke evidence predates acceptance", async () => {
+    const smokePath = path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json");
+    const smoke = JSON.parse(await readFile(smokePath, "utf8"));
+    smoke.generatedAt = "2026-05-10T06:59:59.999Z";
+    await writeFile(smokePath, JSON.stringify(smoke), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-operator-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("newer than or equal to the latest acceptance record")
+    });
+  });
+
   it("fails when local AI prepare evidence does not prove safe model preparation", async () => {
     const preparePath = path.join(root, ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json");
     const prepare = JSON.parse(await readFile(preparePath, "utf8"));
@@ -1081,6 +1119,29 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("latest local AI prepare artifact")
+    });
+  });
+
+  it("fails when review bundle evidence predates acceptance", async () => {
+    const bundlePath = path.join(root, ".tmp/handoff-bundles/seekr-handoff-bundle-test.json");
+    const verificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
+    const bundle = JSON.parse(await readFile(bundlePath, "utf8"));
+    const verification = JSON.parse(await readFile(verificationPath, "utf8"));
+    bundle.generatedAt = "2026-05-10T06:59:59.999Z";
+    verification.generatedAt = "2026-05-10T06:59:59.999Z";
+    await writeFile(bundlePath, JSON.stringify(bundle), "utf8");
+    await writeFile(verificationPath, JSON.stringify(verification), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("newer than or equal to the latest acceptance record")
     });
   });
 
@@ -1880,10 +1941,12 @@ async function seedPlugAndPlayEvidence(root: string) {
     commandUploadEnabled: false
   }), "utf8");
   await writeFile(path.join(root, ".tmp/handoff-bundles/seekr-handoff-bundle-test.json"), JSON.stringify({
+    generatedAt: "2026-05-10T07:03:00.000Z",
     status: "ready-local-alpha-review-bundle",
     commandUploadEnabled: false
   }), "utf8");
   await writeFile(path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json"), JSON.stringify({
+    generatedAt: "2026-05-10T07:03:30.000Z",
     status: "pass",
     commandUploadEnabled: false,
     sourceBundlePath: ".tmp/handoff-bundles/seekr-handoff-bundle-test.json",

@@ -547,6 +547,7 @@ async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCh
   const artifact = await latestJson(root, ".tmp/fresh-clone-smoke", (name) => name.startsWith("seekr-fresh-clone-smoke-"));
   const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
   const script = await readText(path.join(root, "scripts/fresh-clone-operator-smoke.ts"));
   const problems: string[] = [];
 
@@ -590,6 +591,14 @@ async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCh
     }
     if (localHeadSha && cloneHeadSha && localHeadSha !== cloneHeadSha) {
       problems.push("latest fresh-clone operator smoke local HEAD summary must match clone HEAD");
+    }
+  }
+  if (artifact && isRecord(manifest) && acceptanceGeneratedAt !== undefined) {
+    const smokeGeneratedAt = timeMs(manifest.generatedAt);
+    if (smokeGeneratedAt === undefined) {
+      problems.push("latest fresh-clone operator smoke artifact must record a parseable generatedAt timestamp");
+    } else if (smokeGeneratedAt < acceptanceGeneratedAt) {
+      problems.push("latest fresh-clone operator smoke artifact must be newer than or equal to the latest acceptance record");
     }
   }
   if (!freshCloneOperatorSmokeOk(manifest, acceptance)) {
@@ -681,6 +690,8 @@ async function operatorStartSmokeCheck(root: string): Promise<PlugAndPlayCheck> 
   const script = await readText(path.join(root, "scripts/rehearsal-start-smoke.ts"));
   const artifact = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
   const validation = validateRehearsalStartSmokeManifest(manifest);
   const problems: string[] = [];
 
@@ -696,6 +707,14 @@ async function operatorStartSmokeCheck(root: string): Promise<PlugAndPlayCheck> 
   }
   if (!artifact) problems.push("latest rehearsal-start smoke artifact is missing");
   if (artifact && !validation.ok) problems.push(`latest rehearsal-start smoke artifact is unsafe or malformed: ${validation.problems.join("; ")}`);
+  if (artifact && isRecord(manifest) && acceptanceGeneratedAt !== undefined) {
+    const smokeGeneratedAt = timeMs(manifest.generatedAt);
+    if (smokeGeneratedAt === undefined) {
+      problems.push("latest rehearsal-start smoke artifact must record a parseable generatedAt timestamp");
+    } else if (smokeGeneratedAt < acceptanceGeneratedAt) {
+      problems.push("latest rehearsal-start smoke artifact must be newer than or equal to the latest acceptance record");
+    }
+  }
 
   return {
     id: "operator-start-smoke",
@@ -958,8 +977,11 @@ async function workflowQaCheck(root: string): Promise<PlugAndPlayCheck> {
 
 async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
+  const bundleManifest = bundle ? await readJson(bundle.absolutePath) : undefined;
   const verification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
   const manifest = verification ? await readJson(verification.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
   const secretScan = isRecord(manifest) && isRecord(manifest.secretScan) ? manifest.secretScan : undefined;
   const checkedFileCount = isRecord(manifest) ? Number(manifest.checkedFileCount) : Number.NaN;
   const workflow = await latestJson(root, ".tmp/gstack-workflow-status", (name) => name.startsWith("seekr-gstack-workflow-status-"));
@@ -991,6 +1013,22 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!isRecord(manifest) || manifest.status !== "pass") problems.push("review bundle verification must pass");
   if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("review bundle verification must keep commandUploadEnabled false");
   if (!bundle || sourceBundlePath !== bundle.relativePath) problems.push("review bundle verification must point at the latest handoff bundle");
+  if (acceptanceGeneratedAt !== undefined && isRecord(bundleManifest)) {
+    const bundleGeneratedAt = timeMs(bundleManifest.generatedAt);
+    if (bundleGeneratedAt === undefined) {
+      problems.push("latest handoff bundle must record a parseable generatedAt timestamp");
+    } else if (bundleGeneratedAt < acceptanceGeneratedAt) {
+      problems.push("latest handoff bundle must be newer than or equal to the latest acceptance record");
+    }
+  }
+  if (acceptanceGeneratedAt !== undefined && isRecord(manifest)) {
+    const verificationGeneratedAt = timeMs(manifest.generatedAt);
+    if (verificationGeneratedAt === undefined) {
+      problems.push("review bundle verification must record a parseable generatedAt timestamp");
+    } else if (verificationGeneratedAt < acceptanceGeneratedAt) {
+      problems.push("review bundle verification must be newer than or equal to the latest acceptance record");
+    }
+  }
   if (!workflow || gstackWorkflowStatusPath !== workflow.relativePath) problems.push("review bundle verification must point at the latest gstack workflow status");
   if (!todoAudit || todoAuditPath !== todoAudit.relativePath) problems.push("review bundle verification must point at the latest TODO audit");
   if (!sourceControl || sourceControlHandoffPath !== sourceControl.relativePath) problems.push("review bundle verification must point at the latest source-control handoff");

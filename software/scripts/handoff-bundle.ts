@@ -238,8 +238,8 @@ export async function writeHandoffBundle(options: {
   }
   if (!rehearsalStartSmoke) {
     blockers.push("No rehearsal-start smoke artifact exists; run npm run smoke:rehearsal:start before bundling for final internal-alpha review.");
-  } else if (!rehearsalStartSmokeOk(rehearsalStartSmokeManifest)) {
-    blockers.push("Rehearsal-start smoke artifact must pass API/client startup, source-health, readiness, clean shutdown, and commandUploadEnabled false before bundling.");
+  } else if (!rehearsalStartSmokeOk(rehearsalStartSmokeManifest, acceptanceManifest)) {
+    blockers.push("Rehearsal-start smoke artifact must pass API/client startup, source-health, readiness, clean shutdown, commandUploadEnabled false, and freshness against acceptance before bundling.");
   }
   if (!freshCloneSmoke) {
     blockers.push("No fresh-clone operator smoke artifact exists; run npm run smoke:fresh-clone before bundling for final internal-alpha review.");
@@ -956,8 +956,16 @@ function sourceControlHandoffFreshForAcceptance(manifest: unknown, acceptance: u
   return generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt;
 }
 
-function rehearsalStartSmokeOk(manifest: unknown) {
-  return validateRehearsalStartSmokeManifest(manifest).ok;
+function rehearsalStartSmokeOk(manifest: unknown, acceptance: unknown) {
+  return validateRehearsalStartSmokeManifest(manifest).ok && artifactFreshForAcceptance(manifest, acceptance);
+}
+
+function artifactFreshForAcceptance(manifest: unknown, acceptance: unknown) {
+  if (!isRecord(manifest) || !isRecord(acceptance)) return false;
+  const acceptanceGeneratedAt = timeMs(acceptance.generatedAt);
+  if (acceptanceGeneratedAt === undefined) return false;
+  const generatedAt = timeMs(manifest.generatedAt);
+  return generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt;
 }
 
 function timeMs(value: unknown) {

@@ -338,6 +338,9 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
   const acceptanceStrictAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
   const acceptanceModel = typeof acceptanceStrictAi?.model === "string" ? acceptanceStrictAi.model : undefined;
   const modelMatches = !acceptanceModel || manifest.localAiPrepareModel === acceptanceModel;
+  const acceptanceGeneratedAt = isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined;
+  const generatedAt = timeMs(manifest.generatedAt);
+  const freshForAcceptance = acceptanceGeneratedAt === undefined || (generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt);
 
   return manifest.ok === true &&
     manifest.status === "pass" &&
@@ -360,6 +363,7 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
     (!cloneHeadSha || sourceControlRemoteDefaultBranchSha === cloneHeadSha) &&
     (!cloneHeadSha || sourceControlFreshCloneHeadSha === cloneHeadSha) &&
     modelMatches &&
+    freshForAcceptance &&
     safetyBoundaryFalse(manifest);
 }
 
@@ -496,6 +500,13 @@ function safetyBoundaryFalse(manifest: Record<string, unknown>) {
   return safety.realAircraftCommandUpload === false &&
     safety.hardwareActuationEnabled === false &&
     safety.runtimePolicyInstalled === false;
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
