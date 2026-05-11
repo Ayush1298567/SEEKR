@@ -53,6 +53,8 @@ export interface HandoffBundleVerificationManifest {
   sourceControlHandoffWorkingTreeClean?: boolean;
   sourceControlHandoffWorkingTreeStatusLineCount?: number;
   plugAndPlaySetupPath?: string;
+  plugAndPlaySetupGeneratedAt?: string;
+  plugAndPlaySetupStatus?: string;
   localAiPreparePath?: string;
   plugAndPlayDoctorPath?: string;
   rehearsalStartSmokePath?: string;
@@ -434,6 +436,8 @@ export async function buildHandoffBundleVerification(options: {
   }
   const plugAndPlayDoctorPath = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlayDoctorPath) : undefined;
   const plugAndPlaySetupPath = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlaySetupPath) : undefined;
+  let plugAndPlaySetupGeneratedAt = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlaySetupGeneratedAt) : undefined;
+  let plugAndPlaySetupStatus = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlaySetupStatus) : undefined;
   const localAiPreparePath = isRecord(manifest) ? stringOrUndefined(manifest.localAiPreparePath) : undefined;
   const rehearsalStartSmokePath = isRecord(manifest) ? stringOrUndefined(manifest.rehearsalStartSmokePath) : undefined;
   const freshCloneSmokePath = isRecord(manifest) ? stringOrUndefined(manifest.freshCloneSmokePath) : undefined;
@@ -459,6 +463,10 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && plugAndPlaySetupPath) {
     const setup = await readCopiedJson(bundleDirectory, plugAndPlaySetupPath);
+    if (isRecord(setup)) {
+      plugAndPlaySetupGeneratedAt = stringOrUndefined(setup.generatedAt);
+      plugAndPlaySetupStatus = stringOrUndefined(setup.status);
+    }
     if (!plugAndPlaySetupOk(setup)) {
       blockers.push("Copied plug-and-play setup must pass local env/data preparation and keep commandUploadEnabled false.");
     } else if (!plugAndPlaySetupFreshForAcceptance(setup, copiedAcceptance)) {
@@ -591,6 +599,8 @@ export async function buildHandoffBundleVerification(options: {
     sourceControlHandoffWorkingTreeClean,
     sourceControlHandoffWorkingTreeStatusLineCount,
     plugAndPlaySetupPath,
+    plugAndPlaySetupGeneratedAt,
+    plugAndPlaySetupStatus,
     localAiPreparePath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
@@ -857,6 +867,8 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     typeof manifest.sourceControlHandoffWorkingTreeClean === "boolean" ? `Source-control working tree clean: ${manifest.sourceControlHandoffWorkingTreeClean}` : undefined,
     typeof manifest.sourceControlHandoffWorkingTreeStatusLineCount === "number" ? `Source-control working tree status lines: ${manifest.sourceControlHandoffWorkingTreeStatusLineCount}` : undefined,
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
+    manifest.plugAndPlaySetupGeneratedAt ? `Plug-and-play setup generated at: ${manifest.plugAndPlaySetupGeneratedAt}` : undefined,
+    manifest.plugAndPlaySetupStatus ? `Plug-and-play setup verdict: ${manifest.plugAndPlaySetupStatus}` : undefined,
     manifest.localAiPreparePath ? `Local AI prepare: ${manifest.localAiPreparePath}` : undefined,
     manifest.plugAndPlayDoctorPath ? `Plug-and-play doctor: ${manifest.plugAndPlayDoctorPath}` : undefined,
     manifest.rehearsalStartSmokePath ? `Rehearsal-start smoke: ${manifest.rehearsalStartSmokePath}` : undefined,
@@ -1403,6 +1415,8 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,
     sourceControlHandoffWorkingTreeStatusLineCount: result.manifest.sourceControlHandoffWorkingTreeStatusLineCount,
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
+    plugAndPlaySetupGeneratedAt: result.manifest.plugAndPlaySetupGeneratedAt,
+    plugAndPlaySetupStatus: result.manifest.plugAndPlaySetupStatus,
     localAiPreparePath: result.manifest.localAiPreparePath,
     plugAndPlayDoctorPath: result.manifest.plugAndPlayDoctorPath,
     rehearsalStartSmokePath: result.manifest.rehearsalStartSmokePath,

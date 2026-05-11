@@ -192,6 +192,8 @@ describe("handoff bundle", () => {
       todoAuditPath: todoPath,
       sourceControlHandoffPath: sourceControlPath,
       plugAndPlaySetupPath: setupPath,
+      plugAndPlaySetupGeneratedAt: "2026-05-09T20:58:00.000Z",
+      plugAndPlaySetupStatus: "ready-local-setup",
       localAiPreparePath,
       plugAndPlayDoctorPath: doctorPath,
       rehearsalStartSmokePath,
@@ -212,6 +214,8 @@ describe("handoff bundle", () => {
       }
     });
     expect(verification.manifest.files.every((file) => file.status === "pass")).toBe(true);
+    await expect(readFile(verification.markdownPath, "utf8")).resolves.toContain("Plug-and-play setup generated at: 2026-05-09T20:58:00.000Z");
+    await expect(readFile(verification.markdownPath, "utf8")).resolves.toContain("Plug-and-play setup verdict: ready-local-setup");
     await expect(readFile(verification.markdownPath, "utf8")).resolves.toContain("does not validate Jetson/Pi hardware");
   });
 
