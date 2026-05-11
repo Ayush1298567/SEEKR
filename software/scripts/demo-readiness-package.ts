@@ -193,6 +193,7 @@ export async function buildDemoReadinessPackage(options: {
   const perspectiveReview = buildPerspectiveReview({
     localAlphaOk,
     complete,
+    acceptanceManifest: acceptance,
     apiProbeManifest,
     auditManifest,
     sourceControlPath: sourceControl?.relativePath,
@@ -484,6 +485,7 @@ function checklistLabel(id: string, fallback: string) {
 function buildPerspectiveReview(options: {
   localAlphaOk: boolean;
   complete: boolean;
+  acceptanceManifest: unknown;
   apiProbeManifest: unknown;
   auditManifest: unknown;
   sourceControlPath?: string;
@@ -509,7 +511,7 @@ function buildPerspectiveReview(options: {
     if (!options.localAlphaOk) return "needs-attention";
     return hasRealWorldGap || !options.complete ? "blocked-real-world" : "ready-local-alpha";
   };
-  const sourceControlState = sourceControlReviewState(options.sourceControlManifest, options.sourceControlPath);
+  const sourceControlState = sourceControlReviewState(options.sourceControlManifest, options.sourceControlPath, options.acceptanceManifest);
   const hasChecklist = (id: string) => options.nextEvidenceChecklist.some((item) => item.id === id);
   const apiProbeOk = checked.includes("session-acceptance-evidence") && checked.includes("verify") && checked.includes("replays");
   const overnightOk = options.overnightStatus?.ok === true && options.overnightStatus.stale === false;
@@ -689,7 +691,7 @@ function apiProbeManifestOk(manifest: unknown) {
     sessionAcceptance.commandUploadEnabled === false;
 }
 
-function sourceControlReviewState(manifest: unknown, sourceControlPath?: string) {
+function sourceControlReviewState(manifest: unknown, sourceControlPath?: string, acceptanceManifest?: unknown) {
   const evidence = [sourceControlPath ?? ".tmp/source-control-handoff"];
   const validation = validateSourceControlHandoffManifest(manifest);
   if (!isRecord(manifest)) {
@@ -717,12 +719,36 @@ function sourceControlReviewState(manifest: unknown, sourceControlPath?: string)
       nextAction: "Resolve source-control handoff gaps, publish the current local HEAD, and rerun npm run audit:source-control."
     };
   }
+  if (!sourceControlHandoffFreshForAcceptance(manifest, acceptanceManifest)) {
+    return {
+      ready: false,
+      gaps: ["Ready source-control handoff evidence was generated before the latest acceptance record."],
+      evidence,
+      nextAction: "Rerun npm run audit:source-control after the latest acceptance record before claiming GitHub review readiness."
+    };
+  }
   return {
     ready: true,
     gaps: [],
     evidence,
     nextAction: "Keep source-control handoff evidence current after every commit before internal review."
   };
+}
+
+function sourceControlHandoffFreshForAcceptance(manifest: unknown, acceptanceManifest: unknown) {
+  if (!isRecord(manifest) || manifest.ready !== true) return true;
+  if (!isRecord(acceptanceManifest)) return false;
+  const acceptanceGeneratedAt = timeMs(acceptanceManifest.generatedAt);
+  if (acceptanceGeneratedAt === undefined) return false;
+  const generatedAt = timeMs(manifest.generatedAt);
+  return generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt;
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function replaceExtension(filePath: string, extension: string) {

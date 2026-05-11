@@ -160,6 +160,32 @@ describe("demo readiness package", () => {
     expect(manifest.artifacts.sourceControlHandoffMarkdownPath).toBe(".tmp/source-control-handoff/seekr-source-control-handoff-test.md");
   });
 
+  it("reports a DX gap when ready source-control handoff evidence predates acceptance", async () => {
+    await writeReadySourceControlHandoff(root, "2026-05-09T18:59:00.000Z");
+
+    const manifest = await buildDemoReadinessPackage({
+      root,
+      generatedAt: "2026-05-09T20:00:00.000Z",
+      label: "alpha-demo"
+    });
+
+    const dx = manifest.perspectiveReview.find((item) => item.id === "dx");
+    expect(manifest.status).toBe("ready-local-alpha");
+    expect(dx).toMatchObject({
+      status: "ready-local-alpha",
+      gaps: expect.arrayContaining([
+        expect.stringContaining("generated before the latest acceptance")
+      ]),
+      evidence: expect.arrayContaining([
+        ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"
+      ]),
+      nextAction: expect.stringContaining("audit:source-control")
+    });
+    expect(dx?.strengths).not.toEqual(expect.arrayContaining([
+      expect.stringContaining("local HEAD is published to GitHub")
+    ]));
+  });
+
   it("writes JSON and Markdown package artifacts", async () => {
     const result = await writeDemoReadinessPackage({
       root,
@@ -393,11 +419,11 @@ async function seedPackageEvidence(root: string) {
   await writeFile(path.join(root, ".tmp/overnight/STATUS.md"), "- Last update: 2026-05-09T19:30:00Z\n- Cycle: 12\n- Verdict: pass\n", "utf8");
 }
 
-async function writeReadySourceControlHandoff(root: string) {
+async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-05-09T19:30:00.000Z") {
   const sourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-test.json";
   const manifest = {
     schemaVersion: 1,
-    generatedAt: "2026-05-09T19:30:00.000Z",
+    generatedAt,
     status: "ready-source-control-handoff",
     ready: true,
     commandUploadEnabled: false,
