@@ -58,6 +58,7 @@ describe("handoff bundle", () => {
       sourceControlHandoffReady: false,
       sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       sourceControlHandoffConfiguredRemoteUrls: [],
+      sourceControlHandoffRemoteRefCount: 0,
       plugAndPlaySetupPath: setupPath,
       plugAndPlaySetupStatus: "ready-local-setup",
       localAiPreparePath,
@@ -691,6 +692,8 @@ describe("handoff bundle", () => {
       sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
       sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      sourceControlHandoffRemoteDefaultBranch: "main",
+      sourceControlHandoffRemoteRefCount: 1,
       sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffWorkingTreeClean: true,
@@ -710,6 +713,8 @@ describe("handoff bundle", () => {
       sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
       sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      sourceControlHandoffRemoteDefaultBranch: "main",
+      sourceControlHandoffRemoteRefCount: 1,
       sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffWorkingTreeClean: true,
@@ -730,6 +735,7 @@ describe("handoff bundle", () => {
     });
     const bundleManifest = JSON.parse(await readFile(result.jsonPath, "utf8"));
     bundleManifest.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
+    bundleManifest.sourceControlHandoffRemoteDefaultBranch = "release";
     bundleManifest.sourceControlHandoffWorkingTreeClean = false;
     await writeFile(result.jsonPath, JSON.stringify(bundleManifest), "utf8");
 
@@ -743,6 +749,7 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
       expect.stringContaining("repository URL must match"),
+      expect.stringContaining("remote default branch must match"),
       expect.stringContaining("clean-worktree flag must match")
     ]));
   });

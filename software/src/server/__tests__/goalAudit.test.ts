@@ -308,6 +308,7 @@ describe("goal audit", () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
     readiness.sourceControl.repositoryUrl = "https://github.com/example/not-seekr";
+    readiness.sourceControl.remoteDefaultBranch = "release";
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
     const manifest = await buildGoalAudit({
@@ -326,6 +327,7 @@ describe("goal audit", () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
     readiness.reviewBundle.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
+    readiness.reviewBundle.sourceControlHandoffRemoteDefaultBranch = "release";
     readiness.reviewBundle.sourceControlHandoffLocalHeadSha = "stale-head";
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
@@ -1394,6 +1396,8 @@ async function seedRoot(root: string) {
     sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
     sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
     sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+    sourceControlHandoffRemoteDefaultBranch: "main",
+    sourceControlHandoffRemoteRefCount: 1,
     sourceControlHandoffLocalHeadSha: "abc1234567890",
     sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
     sourceControlHandoffWorkingTreeClean: true,
@@ -1438,6 +1442,8 @@ async function seedRoot(root: string) {
     sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
     sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
     sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+    sourceControlHandoffRemoteDefaultBranch: "main",
+    sourceControlHandoffRemoteRefCount: 1,
     sourceControlHandoffLocalHeadSha: "abc1234567890",
     sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
     sourceControlHandoffWorkingTreeClean: true,
@@ -1818,6 +1824,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
       configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      remoteDefaultBranch: "main",
+      remoteRefCount: 1,
       localHeadSha: "abc1234567890",
       remoteDefaultBranchSha: "abc1234567890",
       workingTreeClean: true,
@@ -1833,6 +1841,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
       sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      sourceControlHandoffRemoteDefaultBranch: "main",
+      sourceControlHandoffRemoteRefCount: 1,
       sourceControlHandoffLocalHeadSha: "abc1234567890",
       sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
       sourceControlHandoffWorkingTreeClean: true,
