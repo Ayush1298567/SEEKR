@@ -49,6 +49,30 @@ export interface SourceControlHandoffManifest {
   limitations: string[];
 }
 
+export function sourceControlHandoffCliSummary(manifest: SourceControlHandoffManifest, jsonPath: string, markdownPath: string) {
+  return {
+    ok: true,
+    status: manifest.status,
+    ready: manifest.ready,
+    commandUploadEnabled: manifest.commandUploadEnabled,
+    repositoryUrl: manifest.repositoryUrl,
+    packageRepositoryUrl: manifest.packageRepositoryUrl,
+    gitMetadataPath: manifest.gitMetadataPath,
+    configuredRemoteUrls: manifest.configuredRemoteUrls,
+    localBranch: manifest.localBranch,
+    remoteDefaultBranch: manifest.remoteDefaultBranch,
+    remoteRefCount: manifest.remoteRefCount,
+    localHeadSha: manifest.localHeadSha,
+    remoteDefaultBranchSha: manifest.remoteDefaultBranchSha,
+    workingTreeClean: manifest.workingTreeClean,
+    workingTreeStatusLineCount: manifest.workingTreeStatusLineCount,
+    blockedCheckCount: manifest.blockedCheckCount,
+    warningCheckCount: manifest.warningCheckCount,
+    jsonPath,
+    markdownPath
+  };
+}
+
 interface LsRemoteResult {
   ok: boolean;
   output: string;
@@ -1019,24 +1043,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   writeSourceControlHandoff()
     .then(({ manifest, jsonPath, markdownPath }) => {
-      console.log(JSON.stringify({
-        ok: true,
-        status: manifest.status,
-        ready: manifest.ready,
-        commandUploadEnabled: manifest.commandUploadEnabled,
-        repositoryUrl: manifest.repositoryUrl,
-        packageRepositoryUrl: manifest.packageRepositoryUrl,
-        gitMetadataPath: manifest.gitMetadataPath,
-        configuredRemoteUrls: manifest.configuredRemoteUrls,
-        remoteDefaultBranch: manifest.remoteDefaultBranch,
-        remoteRefCount: manifest.remoteRefCount,
-        workingTreeClean: manifest.workingTreeClean,
-        workingTreeStatusLineCount: manifest.workingTreeStatusLineCount,
-        blockedCheckCount: manifest.blockedCheckCount,
-        warningCheckCount: manifest.warningCheckCount,
-        jsonPath,
-        markdownPath
-      }, null, 2));
+      console.log(JSON.stringify(sourceControlHandoffCliSummary(manifest, jsonPath, markdownPath), null, 2));
     })
     .catch((error) => {
       console.error(error);

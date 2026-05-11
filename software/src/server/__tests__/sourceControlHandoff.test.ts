@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildSourceControlHandoff, validateSourceControlHandoffManifest, writeSourceControlHandoff } from "../../../scripts/source-control-handoff";
+import { buildSourceControlHandoff, sourceControlHandoffCliSummary, validateSourceControlHandoffManifest, writeSourceControlHandoff } from "../../../scripts/source-control-handoff";
 
 const LOCAL_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const REMOTE_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -82,6 +82,17 @@ describe("source-control handoff audit", () => {
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("operator quickstart contract");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.evidence).toContain("fresh-clone-github-landing-readme-contract");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.evidence).toContain("fresh-clone-operator-quickstart-contract");
+    expect(sourceControlHandoffCliSummary(manifest, ".tmp/source.json", ".tmp/source.md")).toMatchObject({
+      ok: true,
+      status: "ready-source-control-handoff",
+      localBranch: "main",
+      localHeadSha: LOCAL_SHA,
+      remoteDefaultBranch: "main",
+      remoteDefaultBranchSha: LOCAL_SHA,
+      workingTreeClean: true,
+      jsonPath: ".tmp/source.json",
+      markdownPath: ".tmp/source.md"
+    });
   });
 
   it("blocks when local HEAD is unpublished or the worktree is dirty", async () => {
