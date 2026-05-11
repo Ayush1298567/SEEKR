@@ -88,6 +88,7 @@ export interface PlugAndPlayReadinessManifest {
     blocked: number;
   };
   checks: PlugAndPlayCheck[];
+  remainingRealWorldBlockerIds: string[];
   remainingRealWorldBlockers: string[];
   remainingRealWorldBlockerCount: number;
   safetyBoundary: {
@@ -178,6 +179,10 @@ export async function buildPlugAndPlayReadiness(options: {
   };
   const completion = await latestJson(root, ".tmp/completion-audit", (name) => name.startsWith("seekr-completion-audit-"));
   const completionManifest = completion ? await readJson(completion.absolutePath) : undefined;
+  const completionItems = isRecord(completionManifest) && Array.isArray(completionManifest.items) ? completionManifest.items.filter(isRecord) : [];
+  const remainingRealWorldBlockerIds = isRecord(completionManifest) && Array.isArray(completionManifest.realWorldBlockerIds)
+    ? completionManifest.realWorldBlockerIds.map(String)
+    : completionItems.filter((item) => item.status === "blocked").map((item) => String(item.id ?? ""));
   const remainingRealWorldBlockers = isRecord(completionManifest) && Array.isArray(completionManifest.realWorldBlockers)
     ? completionManifest.realWorldBlockers.map(String)
     : [];
@@ -208,6 +213,7 @@ export async function buildPlugAndPlayReadiness(options: {
     reviewBundle,
     summary,
     checks,
+    remainingRealWorldBlockerIds,
     remainingRealWorldBlockers,
     remainingRealWorldBlockerCount: remainingRealWorldBlockers.length,
     safetyBoundary: {
@@ -951,6 +957,10 @@ async function completionBoundaryCheck(root: string): Promise<PlugAndPlayCheck> 
   const blockedItemDetails = items
     .filter((item) => item.status === "blocked")
     .map((item) => String(item.details ?? ""));
+  const blockedItemIds = items
+    .filter((item) => item.status === "blocked")
+    .map((item) => String(item.id ?? ""));
+  const blockerIds = isRecord(manifest) && Array.isArray(manifest.realWorldBlockerIds) ? manifest.realWorldBlockerIds.map(String) : [];
   const summary = isRecord(manifest) && isRecord(manifest.summary) ? manifest.summary : undefined;
   const summaryBlocked = summary ? numberOrUndefined(summary.blocked) : undefined;
   const adapterBoundary = items.find((item) => item.id === "adapter-command-boundary");
@@ -971,6 +981,9 @@ async function completionBoundaryCheck(root: string): Promise<PlugAndPlayCheck> 
   }
   if (isRecord(manifest) && summaryBlocked !== blockedItemDetails.length) {
     completionContradictions.push("completion audit summary.blocked must match the blocked item count");
+  }
+  if (isRecord(manifest) && !sameStringArray(blockerIds, blockedItemIds)) {
+    completionContradictions.push("completion audit realWorldBlockerIds must exactly mirror blocked item IDs");
   }
   if (isRecord(manifest) && !sameStringArray(blockers, blockedItemDetails)) {
     completionContradictions.push("completion audit realWorldBlockers must exactly mirror blocked item details");
@@ -1064,6 +1077,8 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     "Remaining real-world blockers:",
     "",
     `Count: ${manifest.remainingRealWorldBlockerCount}`,
+    "",
+    ...(manifest.remainingRealWorldBlockerIds.length ? manifest.remainingRealWorldBlockerIds.map((id) => `- ID: ${id}`) : ["- ID: None"]),
     "",
     ...(manifest.remainingRealWorldBlockers.length ? manifest.remainingRealWorldBlockers.map((blocker) => `- ${blocker}`) : ["- None"]),
     "",

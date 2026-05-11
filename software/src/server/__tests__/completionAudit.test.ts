@@ -27,6 +27,14 @@ describe("completion audit", () => {
     expect(manifest.status).toBe("blocked-real-world-evidence");
     expect(manifest.commandUploadEnabled).toBe(false);
     expect(manifest.summary.blocked).toBe(8);
+    expect(manifest.realWorldBlockerIds).toHaveLength(8);
+    expect(manifest.realWorldBlockerIds).toEqual(expect.arrayContaining([
+      "actual-jetson-orin-nano-hardware-evidence",
+      "actual-raspberry-pi-5-hardware-evidence",
+      "real-mavlink-bench",
+      "real-ros2-bench",
+      "hardware-actuation-policy-review"
+    ]));
     expect(manifest.realWorldBlockers).toHaveLength(8);
     expect(manifest.realWorldBlockers).toEqual(expect.arrayContaining([
       expect.stringContaining("jetson-orin-nano"),
@@ -57,6 +65,8 @@ describe("completion audit", () => {
     expect(result.jsonPath).toContain(`${path.sep}.tmp${path.sep}completion-audit${path.sep}`);
     expect(result.markdownPath).toContain(`${path.sep}.tmp${path.sep}completion-audit${path.sep}`);
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"realWorldBlockerIds\"");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("actual-jetson-orin-nano-hardware-evidence");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("fixture/SITL evidence");
   });
 

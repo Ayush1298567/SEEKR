@@ -32,6 +32,7 @@ export interface GoalAuditManifest {
     blocked: number;
   };
   promptToArtifactChecklist: GoalAuditItem[];
+  remainingRealWorldBlockerIds: string[];
   remainingRealWorldBlockers: string[];
   remainingRealWorldBlockerCount: number;
   safetyBoundary: {
@@ -198,6 +199,7 @@ export async function buildGoalAudit(options: {
   const localAlphaOk = summary.fail === 0 && completionAudit.localAlphaOk;
   const complete = localAlphaOk && summary.blocked === 0 && completionAudit.complete;
   const blockers = remainingRealWorldBlockers(completionAudit);
+  const blockerIds = remainingRealWorldBlockerIds(completionAudit);
 
   return {
     schemaVersion: 1,
@@ -209,6 +211,7 @@ export async function buildGoalAudit(options: {
     commandUploadEnabled: false,
     summary,
     promptToArtifactChecklist: checklist,
+    remainingRealWorldBlockerIds: blockerIds,
     remainingRealWorldBlockers: blockers,
     remainingRealWorldBlockerCount: blockers.length,
     safetyBoundary: {
@@ -439,7 +442,7 @@ async function apiProbeItem(root: string): Promise<GoalAuditItem> {
   };
 }
 
-async function completionAuditItem(root: string, computed: { localAlphaOk: boolean; complete: boolean; status: string; summary: Record<string, number> }): Promise<GoalAuditItem> {
+async function completionAuditItem(root: string, computed: CompletionAuditManifest): Promise<GoalAuditItem> {
   const latest = await latestJson(root, ".tmp/completion-audit", (name) => name.startsWith("seekr-completion-audit-"));
   if (!latest) {
     return {
@@ -453,6 +456,8 @@ async function completionAuditItem(root: string, computed: { localAlphaOk: boole
 
   const manifest = await readJson(latest.absolutePath);
   const summary = isRecord(manifest) && isRecord(manifest.summary) ? manifest.summary : {};
+  const blockerIds = isRecord(manifest) && Array.isArray(manifest.realWorldBlockerIds) ? manifest.realWorldBlockerIds.map(String) : [];
+  const blockers = isRecord(manifest) && Array.isArray(manifest.realWorldBlockers) ? manifest.realWorldBlockers.map(String) : [];
   const ok = isRecord(manifest) &&
     manifest.commandUploadEnabled === false &&
     manifest.localAlphaOk === true &&
@@ -460,7 +465,9 @@ async function completionAuditItem(root: string, computed: { localAlphaOk: boole
     manifest.status === computed.status &&
     Number(summary.pass) === Number(computed.summary.pass) &&
     Number(summary.fail) === Number(computed.summary.fail) &&
-    Number(summary.blocked) === Number(computed.summary.blocked);
+    Number(summary.blocked) === Number(computed.summary.blocked) &&
+    sameStringArray(blockerIds, computed.realWorldBlockerIds) &&
+    sameStringArray(blockers, computed.realWorldBlockers);
 
   return {
     id: "completion-audit",
@@ -470,7 +477,7 @@ async function completionAuditItem(root: string, computed: { localAlphaOk: boole
       ? computed.complete
         ? `Completion audit is current and complete with all real-world evidence present: ${latest.relativePath}.`
         : `Completion audit is current enough for local alpha and still incomplete on real-world evidence: ${latest.relativePath}.`
-      : "Latest completion audit must match the current computed audit, keep commandUploadEnabled false, report localAlphaOk true, and match the computed complete status.",
+      : "Latest completion audit must match the current computed audit, keep commandUploadEnabled false, report localAlphaOk true, match the computed complete status, and preserve computed blocker IDs/details.",
     evidence: [latest.relativePath]
   };
 }
@@ -855,6 +862,9 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const blockers = isRecord(manifest) && Array.isArray(manifest.remainingRealWorldBlockers)
     ? manifest.remainingRealWorldBlockers.map(String)
     : [];
+  const blockerIds = isRecord(manifest) && Array.isArray(manifest.remainingRealWorldBlockerIds)
+    ? manifest.remainingRealWorldBlockerIds.map(String)
+    : [];
   const readinessEvidence = plugAndPlayReadinessEvidencePaths(root, manifest);
   const readinessWarnings = plugAndPlayReadinessWarningDetails(manifest);
   const problems: string[] = [];
@@ -881,6 +891,9 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   }
   if (isRecord(manifest) && !sameStringArray(blockers, completionAudit.realWorldBlockers)) {
     problems.push("plug-and-play readiness must preserve the current real-world blocker list");
+  }
+  if (isRecord(manifest) && !sameStringArray(blockerIds, completionAudit.realWorldBlockerIds)) {
+    problems.push("plug-and-play readiness must preserve the current real-world blocker ID list");
   }
   if (completionAudit.realWorldBlockers.length && isRecord(manifest) && manifest.status !== "ready-local-plug-and-play-real-world-blocked") {
     problems.push("plug-and-play readiness must stay real-world-blocked while physical evidence is missing");
@@ -1072,6 +1085,11 @@ function plugAndPlayReadinessEvidencePaths(root: string, manifest: unknown) {
     for (const item of normalizeArtifactPaths(root, check.evidence)) paths.add(item);
   }
   return paths;
+}
+
+function remainingRealWorldBlockerIds(completionAudit: { complete: boolean; realWorldBlockerIds: string[]; realWorldBlockers: string[] }) {
+  if (completionAudit.complete && completionAudit.realWorldBlockers.length === 0) return [];
+  return completionAudit.realWorldBlockerIds;
 }
 
 function remainingRealWorldBlockers(completionAudit: { complete: boolean; realWorldBlockers: string[] }) {
@@ -1301,6 +1319,8 @@ function renderMarkdown(manifest: GoalAuditManifest) {
     "",
     `Count: ${manifest.remainingRealWorldBlockerCount}`,
     "",
+    ...(manifest.remainingRealWorldBlockerIds.length ? manifest.remainingRealWorldBlockerIds.map((id) => `- ID: ${id}`) : ["- ID: None"]),
+    "",
     ...manifest.remainingRealWorldBlockers.map((blocker) => `- ${blocker}`),
     "",
     "## Safety Boundary",
@@ -1523,6 +1543,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
         status: manifest.status,
         commandUploadEnabled: manifest.commandUploadEnabled,
         summary: manifest.summary,
+        remainingRealWorldBlockerIds: manifest.remainingRealWorldBlockerIds,
         remainingRealWorldBlockerCount: manifest.remainingRealWorldBlockerCount,
         jsonPath,
         markdownPath

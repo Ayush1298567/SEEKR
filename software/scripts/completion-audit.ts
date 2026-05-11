@@ -27,6 +27,7 @@ export interface CompletionAuditManifest {
     blocked: number;
   };
   items: CompletionAuditItem[];
+  realWorldBlockerIds: string[];
   realWorldBlockers: string[];
 }
 
@@ -178,6 +179,7 @@ export async function buildCompletionAudit(options: {
     fail: items.filter((item) => item.status === "fail").length,
     blocked: items.filter((item) => item.status === "blocked").length
   };
+  const blockedItems = items.filter((item) => item.status === "blocked");
   const localAlphaOk = summary.fail === 0;
   const complete = localAlphaOk && summary.blocked === 0;
 
@@ -190,7 +192,8 @@ export async function buildCompletionAudit(options: {
     commandUploadEnabled: false,
     summary,
     items,
-    realWorldBlockers: items.filter((item) => item.status === "blocked").map((item) => item.details)
+    realWorldBlockerIds: blockedItems.map((item) => item.id),
+    realWorldBlockers: blockedItems.map((item) => item.details)
   };
 }
 
@@ -1221,6 +1224,10 @@ function renderMarkdown(manifest: CompletionAuditManifest) {
     "| --- | --- | --- |",
     ...rows,
     "",
+    "Real-world blocker IDs:",
+    "",
+    ...(manifest.realWorldBlockerIds.length ? manifest.realWorldBlockerIds.map((id) => `- ${id}`) : ["- None"]),
+    "",
     "Real-world blockers:",
     "",
     ...(manifest.realWorldBlockers.length ? manifest.realWorldBlockers.map((blocker) => `- ${blocker}`) : ["- None"]),
@@ -1258,6 +1265,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     status: result.manifest.status,
     commandUploadEnabled: result.manifest.commandUploadEnabled,
     summary: result.manifest.summary,
+    realWorldBlockerIds: result.manifest.realWorldBlockerIds,
     realWorldBlockerCount: result.manifest.realWorldBlockers.length,
     jsonPath: result.jsonPath,
     markdownPath: result.markdownPath

@@ -89,6 +89,11 @@ describe("plug-and-play readiness audit", () => {
     });
     expect(manifest.summary.fail).toBe(0);
     expect(manifest.summary.blocked).toBe(1);
+    expect(manifest.remainingRealWorldBlockerIds).toHaveLength(8);
+    expect(manifest.remainingRealWorldBlockerIds).toEqual(expect.arrayContaining([
+      "actual-jetson-orin-nano-hardware-evidence",
+      "actual-raspberry-pi-5-hardware-evidence"
+    ]));
     expect(manifest.remainingRealWorldBlockers).toHaveLength(8);
     expect(manifest.remainingRealWorldBlockerCount).toBe(8);
     expect(manifest.checks.find((check) => check.id === "real-world-boundary")).toMatchObject({
@@ -186,6 +191,25 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "real-world-boundary")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("realWorldBlockers must exactly mirror blocked item details")
+    });
+  });
+
+  it("fails closed when completion audit under-reports blocked item IDs", async () => {
+    const completionPath = path.join(root, ".tmp/completion-audit/seekr-completion-audit-test.json");
+    const completion = JSON.parse(await readFile(completionPath, "utf8"));
+    completion.realWorldBlockerIds = completion.realWorldBlockerIds.slice(1);
+    await writeFile(completionPath, JSON.stringify(completion), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "real-world-boundary")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("realWorldBlockerIds must exactly mirror blocked item IDs")
     });
   });
 
@@ -1636,6 +1660,7 @@ async function seedPlugAndPlayEvidence(root: string) {
         details: blocker.details
       }))
     ],
+    realWorldBlockerIds: completionBlockers.map((blocker) => blocker.id),
     realWorldBlockers: completionBlockers.map((blocker) => blocker.details)
   }), "utf8");
   await writeFile(path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json"), JSON.stringify({

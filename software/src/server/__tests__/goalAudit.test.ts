@@ -522,6 +522,48 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness blocker ID list drifts from the completion audit", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.remainingRealWorldBlockerIds = [
+      "stale-placeholder-blocker",
+      ...readiness.remainingRealWorldBlockerIds.slice(1)
+    ];
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("blocker ID list")
+    });
+  });
+
+  it("fails local alpha when persisted completion audit blocker IDs drift from the computed audit", async () => {
+    const completionPath = path.join(root, ".tmp/completion-audit/seekr-completion-audit-test.json");
+    const completion = JSON.parse(await readFile(completionPath, "utf8"));
+    completion.realWorldBlockerIds = [
+      "stale-placeholder-blocker",
+      ...completion.realWorldBlockerIds.slice(1)
+    ];
+    await writeFile(completionPath, JSON.stringify(completion), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "completion-audit")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("blocker IDs")
+    });
+  });
+
   it("fails local alpha when completion audit is complete but the handoff chain is stale", async () => {
     await seedCompletedRealWorldEvidence(root);
     await seedCompletedTodoDocs(root);
@@ -1872,6 +1914,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
     root,
     generatedAt: GENERATED_AT
   });
+  const remainingRealWorldBlockerIds = complete ? [] : completionAudit.realWorldBlockerIds;
   const remainingRealWorldBlockers = complete ? [] : completionAudit.realWorldBlockers;
   await writeFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), JSON.stringify({
     schemaVersion: 1,
@@ -1926,6 +1969,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffWorkingTreeClean: true,
       sourceControlHandoffWorkingTreeStatusLineCount: 0
     },
+    remainingRealWorldBlockerIds,
     remainingRealWorldBlockers,
     remainingRealWorldBlockerCount: remainingRealWorldBlockers.length,
     safetyBoundary: {

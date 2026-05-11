@@ -199,6 +199,16 @@ function blockedCompletionAudit(): CompletionAuditManifest {
     commandUploadEnabled: false,
     summary: { pass: 9, warn: 0, fail: 0, blocked: 8 },
     items: [],
+    realWorldBlockerIds: [
+      "actual-jetson-orin-nano-hardware-evidence",
+      "actual-raspberry-pi-5-hardware-evidence",
+      "fresh-operator-rehearsal",
+      "real-mavlink-bench",
+      "real-ros2-bench",
+      "hil-failsafe-manual-override",
+      "isaac-sim-jetson-capture",
+      "hardware-actuation-policy-review"
+    ],
     realWorldBlockers: [
       "Hardware archives exist, but no actual-target host-platform pass was found for: jetson-orin-nano.",
       "Hardware archives exist, but no actual-target host-platform pass was found for: raspberry-pi-5.",
@@ -222,6 +232,7 @@ function completeCompletionAudit(): CompletionAuditManifest {
     commandUploadEnabled: false,
     summary: { pass: 17, warn: 0, fail: 0, blocked: 0 },
     items: [],
+    realWorldBlockerIds: [],
     realWorldBlockers: []
   };
 }
