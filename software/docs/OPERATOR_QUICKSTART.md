@@ -2,7 +2,16 @@
 
 ## Start
 
-1. Install dependencies and prepare local operator files:
+1. Clone the GitHub handoff repository and enter the runnable app directory:
+
+   ```bash
+   git clone https://github.com/Ayush1298567/SEEKR.git
+   cd SEEKR/software
+   ```
+
+   The runnable internal-alpha app lives under `software/`; the repository root also contains decision docs. If you already have the repo, run `git pull --ff-only` from the repository root before entering `software/` so the local start path matches the published handoff.
+
+2. Install dependencies and prepare local operator files:
 
    ```bash
    npm ci
@@ -13,7 +22,7 @@
 
    `setup:local` creates `.env` only when missing and prepares project-local rehearsal data. `audit:source-control` records the current GitHub handoff state, including local HEAD publication and clean-worktree status, plus manual publication next steps without initializing Git, committing, or pushing. `doctor` checks package/runtime metadata, local Ollama, ports, data directory, source-control handoff state, and safety flags without starting the app; if the default ports are already occupied by a healthy SEEKR API/client, the port check passes and records those probe URLs. If default ports are occupied by a non-SEEKR or unhealthy listener and no port variables are explicitly set, the port check also passes because `npm run rehearsal:start` auto-selects free local API/client ports and prints the URLs it chose. Use the Listener diagnostics line to identify the process ID and working directory when you want to free the default ports. Stop the existing process or choose different explicit ports when explicitly configured occupied ports remain warnings. For final review packaging, rerun `doctor` after the bounded smoke proof so the operator-start doctor references the latest source-control handoff artifact.
 
-2. Start the local rehearsal wrapper:
+3. Start the local rehearsal wrapper:
 
    ```bash
    npm run rehearsal:start
@@ -21,7 +30,7 @@
 
    The wrapper prepares local files without overwriting `.env`, normalizes `PORT` and `SEEKR_API_PORT` so the server and Vite proxy agree, fails fast if both are explicitly set to different values, refreshes source-control handoff evidence, runs the startup doctor, then starts the local server and client.
 
-3. For a bounded preflight proof of the same path, run:
+4. For a bounded preflight proof of the same path, run:
 
    ```bash
    npm run smoke:rehearsal:start
@@ -29,9 +38,9 @@
 
    This starts the wrapper on temporary local ports, checks API/client/readiness/source-health, writes `.tmp/rehearsal-start-smoke/`, then shuts down. It is local startup evidence only, not hardware validation. The smoke run refreshes source-control evidence and writes a smoke-profile doctor, so final review packaging should rerun standalone `npm run doctor` afterward.
 
-4. Open the client URL printed by `npm run rehearsal:start`; by default it is `http://127.0.0.1:5173`.
+5. Open the client URL printed by `npm run rehearsal:start`; by default it is `http://127.0.0.1:5173`.
 
-5. If the run uses `SEEKR_INTERNAL_TOKEN`, open browser dev tools and set:
+6. If the run uses `SEEKR_INTERNAL_TOKEN`, open browser dev tools and set:
 
    ```js
    localStorage.setItem("seekr.internalToken", "the-token")

@@ -1,6 +1,10 @@
 export const OPERATOR_QUICKSTART_PATH = "docs/OPERATOR_QUICKSTART.md";
 
 export const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
+  "git clone https://github.com/Ayush1298567/SEEKR.git",
+  "cd SEEKR/software",
+  "git pull --ff-only",
+  "software/",
   "npm ci",
   "npm run setup:local",
   "npm run audit:source-control",
@@ -35,6 +39,8 @@ export const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
 ] as const;
 
 export const REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER = [
+  "git clone https://github.com/Ayush1298567/SEEKR.git",
+  "cd SEEKR/software",
   "npm run setup:local",
   "npm run audit:source-control",
   "npm run doctor",

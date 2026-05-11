@@ -18,6 +18,7 @@ The local plug-and-play path keeps command upload and hardware actuation disable
 
 Key docs:
 
+- [`software/docs/OPERATOR_QUICKSTART.md`](software/docs/OPERATOR_QUICKSTART.md): clone, setup, local AI, startup, evidence, and safety boundary instructions for an operator.
 - [`software/README.md`](software/README.md): operator and evidence command guide.
 - [`software/docs/DEVELOPER_QUICKSTART.md`](software/docs/DEVELOPER_QUICKSTART.md): local development and audit workflow.
 - [`software/docs/goal.md`](software/docs/goal.md): current goal evidence, verification history, and remaining blockers.

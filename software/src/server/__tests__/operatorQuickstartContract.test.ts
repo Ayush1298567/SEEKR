@@ -39,6 +39,15 @@ describe("operator quickstart contract", () => {
     ]));
   });
 
+  it("pins GitHub clone and software directory entry guidance as required signals", () => {
+    expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
+      "git clone https://github.com/Ayush1298567/SEEKR.git",
+      "cd SEEKR/software",
+      "git pull --ff-only",
+      "software/"
+    ]));
+  });
+
   it("pins occupied-port recovery guidance as required signals", () => {
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
       "non-SEEKR or unhealthy listener",
@@ -64,6 +73,10 @@ describe("operator quickstart contract", () => {
 
   it("rejects quickstarts that put source-control audit after startup", () => {
     const content = [
+      "git clone https://github.com/Ayush1298567/SEEKR.git",
+      "cd SEEKR/software",
+      "git pull --ff-only",
+      "software/",
       "npm ci",
       "npm run setup:local",
       "npm run doctor",
@@ -76,6 +89,13 @@ describe("operator quickstart contract", () => {
 
     expect(operatorQuickstartOk(content)).toBe(false);
     expect(operatorQuickstartProblems(content)).toContain(REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER.join(" before "));
+  });
+
+  it("rejects quickstarts that omit GitHub clone guidance", () => {
+    const content = validQuickstartContent().replace("git clone https://github.com/Ayush1298567/SEEKR.git\n", "");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toContain("git clone https://github.com/Ayush1298567/SEEKR.git");
   });
 });
 
