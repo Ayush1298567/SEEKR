@@ -62,6 +62,7 @@ writeAcceptanceStatus({
     ok: strictAi.ok,
     provider: strictAi.status.provider,
     model: strictAi.status.model,
+    ollamaUrl: strictAi.status.ollamaUrl,
     caseCount: strictAi.status.caseCount,
     caseNames: strictAi.status.cases.map((testCase) => testCase.name),
     generatedAt: strictAi.status.generatedAt

@@ -189,6 +189,28 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when acceptance strict AI points at a non-loopback Ollama URL", async () => {
+    const acceptancePath = path.join(root, ".tmp/acceptance-status.json");
+    const probePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const acceptance = JSON.parse(await readFile(acceptancePath, "utf8"));
+    const probe = JSON.parse(await readFile(probePath, "utf8"));
+    acceptance.strictLocalAi.ollamaUrl = "https://api.example.com:11434";
+    probe.sessionAcceptance.strictLocalAi.ollamaUrl = acceptance.strictLocalAi.ollamaUrl;
+    await writeFile(acceptancePath, JSON.stringify(acceptance), "utf8");
+    await writeFile(probePath, JSON.stringify(probe), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "acceptance-and-release")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("loopback Ollama URL")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness does not reference the latest setup artifact", async () => {
     await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-zz-newer.json"), JSON.stringify({
       ok: true,
@@ -1063,7 +1085,8 @@ async function seedRoot(root: string) {
       ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      ollamaUrl: "http://127.0.0.1:11434",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     releaseChecksum: {
@@ -1123,6 +1146,7 @@ async function seedRoot(root: string) {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
@@ -1570,7 +1594,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       implemented: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      ollamaUrl: "http://127.0.0.1:11434",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     remainingRealWorldBlockers,

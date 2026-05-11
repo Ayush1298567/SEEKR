@@ -41,6 +41,7 @@ describe("acceptance evidence", () => {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
@@ -81,6 +82,18 @@ describe("acceptance evidence", () => {
       reason: expect.stringContaining("prompt-injection-spatial-metadata")
     });
 
+    writeAcceptanceStatus(status({
+      strictLocalAi: {
+        ...status({}).strictLocalAi,
+        ollamaUrl: "https://api.example.com:11434"
+      }
+    }), statusPath);
+    expect(readAcceptanceEvidence(1_800_000_001_000, 1_799_999_999_000, statusPath)).toMatchObject({
+      ok: false,
+      status: "unsafe",
+      reason: expect.stringContaining("loopback Ollama URL")
+    });
+
     writeAcceptanceStatus({
       ...status({}),
       safetyBoundary: { realHardwareCommandUpload: "blocked", mavlink: "read-only", ros2: "read-only", px4ArdupilotHardwareTransport: "enabled" as never }
@@ -110,7 +123,8 @@ function status(overrides: Partial<AcceptanceRunStatus>): AcceptanceRunStatus {
       ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      ollamaUrl: "http://127.0.0.1:11434",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
       generatedAt: 1_800_000_000_000
     },

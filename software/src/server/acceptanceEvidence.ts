@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { REQUIRED_STRICT_AI_SMOKE_CASES } from "./ai/localAiEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "./ai/localAiEvidence";
 import { SEEKR_SCHEMA_VERSION, SEEKR_SOFTWARE_VERSION } from "../shared/constants";
 
 export const REQUIRED_ACCEPTANCE_COMMANDS = [
@@ -36,6 +36,7 @@ export interface AcceptanceRunStatus {
     ok: boolean;
     provider: string;
     model: string;
+    ollamaUrl: string;
     caseCount: number;
     caseNames: string[];
     generatedAt: number;
@@ -78,6 +79,7 @@ export interface AcceptanceEvidence {
     ok: boolean;
     provider: string;
     model: string;
+    ollamaUrl: string;
     caseCount: number;
     caseNames: string[];
   };
@@ -130,6 +132,7 @@ export function readAcceptanceEvidence(
             ok: status.strictLocalAi.ok,
             provider: status.strictLocalAi.provider,
             model: status.strictLocalAi.model,
+            ollamaUrl: status.strictLocalAi.ollamaUrl,
             caseCount: status.strictLocalAi.caseCount,
             caseNames: strictAiCaseNames
           }
@@ -183,6 +186,9 @@ export function readAcceptanceEvidence(
           ? `Acceptance status is missing required strict local AI scenario(s): ${missingStrictAiCases.join(", ")}.`
           : "Acceptance status strict local AI case names do not match the recorded case count."
       };
+    }
+    if (status.strictLocalAi?.provider !== "ollama" || !isLocalOllamaUrl(status.strictLocalAi.ollamaUrl)) {
+      return { ok: false, status: "unsafe", ...base, reason: "Acceptance status strict local AI evidence must use a loopback Ollama URL." };
     }
     if (
       status.commandBoundaryScan?.status !== "pass" ||

@@ -15,7 +15,7 @@ import {
 } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
-import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type PlugAndPlayCheckStatus = "pass" | "warn" | "fail" | "blocked";
 
@@ -38,6 +38,7 @@ export interface PlugAndPlayReadinessManifest {
     implemented: boolean;
     provider?: string;
     model?: string;
+    ollamaUrl?: string;
     caseCount?: number;
     caseNames?: string[];
   };
@@ -155,6 +156,7 @@ export async function buildPlugAndPlayReadiness(options: {
       implemented: Boolean(strictLocalAi?.ok),
       provider: stringOrUndefined(strictLocalAi?.provider),
       model: stringOrUndefined(strictLocalAi?.model),
+      ollamaUrl: stringOrUndefined(strictLocalAi?.ollamaUrl),
       caseCount: typeof strictLocalAi?.caseCount === "number" ? strictLocalAi.caseCount : undefined,
       caseNames: stringArray(strictLocalAi?.caseNames)
     },
@@ -607,6 +609,7 @@ async function acceptanceAndAiCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!isRecord(strictLocalAi) || strictLocalAi.ok !== true) problems.push("strict local AI evidence must pass");
   if (isRecord(strictLocalAi) && strictLocalAi.provider !== "ollama") problems.push("strict local AI should use the local Ollama provider for plug-and-play AI readiness");
   if (isRecord(strictLocalAi) && typeof strictLocalAi.model !== "string") problems.push("strict local AI must record the model");
+  if (isRecord(strictLocalAi) && !isLocalOllamaUrl(strictLocalAi.ollamaUrl)) problems.push("strict local AI must record a loopback Ollama URL");
   if (isRecord(strictLocalAi) && Number(strictLocalAi.caseCount) !== expectedStrictCaseNames.length) {
     problems.push("strict local AI case count must exactly match the required smoke cases");
   }
@@ -672,6 +675,8 @@ async function apiProbeCheck(root: string): Promise<PlugAndPlayCheck> {
       probeAi.ok !== acceptanceAi.ok ||
       probeAi.provider !== acceptanceAi.provider ||
       probeAi.model !== acceptanceAi.model ||
+      probeAi.ollamaUrl !== acceptanceAi.ollamaUrl ||
+      !isLocalOllamaUrl(acceptanceAi.ollamaUrl) ||
       Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount) ||
       !sameStringArray(probeAiCaseNames, acceptanceAiCaseNames)
     ) {

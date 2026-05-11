@@ -8,7 +8,7 @@ import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
-import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type BundleStatus = "ready-local-alpha-review-bundle" | "blocked";
 
@@ -56,6 +56,7 @@ export interface HandoffBundleManifest {
   strictAiSmokeGeneratedAt?: number;
   strictAiSmokeProvider?: string;
   strictAiSmokeModel?: string;
+  strictAiSmokeOllamaUrl?: string;
   strictAiSmokeCaseCount?: number;
   operatorQuickstartPath?: string;
   copiedFileCount: number;
@@ -191,7 +192,7 @@ export async function writeHandoffBundle(options: {
   if (!strictAiSmokePath) {
     blockers.push("No strict local AI smoke status exists; run npm run test:ai:local before bundling for final internal-alpha review.");
   } else if (!strictAiSmokeStatusOk(strictAiSmokeManifest, acceptanceManifest)) {
-    blockers.push("Strict local AI smoke status must match copied acceptance, use Ollama, require the exact strict AI scenario set, include per-case planKind and validatorOk proof, avoid hold-drone plans, avoid unsafe operator-facing text, avoid state mutation while thinking, and keep command upload disabled.");
+    blockers.push("Strict local AI smoke status must match copied acceptance, use a loopback Ollama URL, require the exact strict AI scenario set, include per-case planKind and validatorOk proof, avoid hold-drone plans, avoid unsafe operator-facing text, avoid state mutation while thinking, and keep command upload disabled.");
   }
   const operatorQuickstartMissingSignals = operatorQuickstartProblems(operatorQuickstart);
   if (operatorQuickstartMissingSignals.length) {
@@ -259,6 +260,7 @@ export async function writeHandoffBundle(options: {
     strictAiSmokeGeneratedAt: isRecord(strictAiSmokeManifest) ? numberOrUndefined(strictAiSmokeManifest.generatedAt) : undefined,
     strictAiSmokeProvider: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.provider) : undefined,
     strictAiSmokeModel: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.model) : undefined,
+    strictAiSmokeOllamaUrl: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.ollamaUrl) : undefined,
     strictAiSmokeCaseCount: isRecord(strictAiSmokeManifest) ? numberOrUndefined(strictAiSmokeManifest.caseCount) : undefined,
     operatorQuickstartPath: OPERATOR_QUICKSTART_PATH,
     copiedFileCount: files.length,
@@ -464,6 +466,7 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     typeof manifest.strictAiSmokeGeneratedAt === "number" ? `Strict AI smoke generated at: ${manifest.strictAiSmokeGeneratedAt}` : undefined,
     manifest.strictAiSmokeProvider ? `Strict AI smoke provider: ${manifest.strictAiSmokeProvider}` : undefined,
     manifest.strictAiSmokeModel ? `Strict AI smoke model: ${manifest.strictAiSmokeModel}` : undefined,
+    manifest.strictAiSmokeOllamaUrl ? `Strict AI smoke Ollama URL: ${manifest.strictAiSmokeOllamaUrl}` : undefined,
     typeof manifest.strictAiSmokeCaseCount === "number" ? `Strict AI smoke cases: ${manifest.strictAiSmokeCaseCount}` : undefined,
     manifest.operatorQuickstartPath ? `Operator quickstart: ${manifest.operatorQuickstartPath}` : undefined,
     "",
@@ -709,9 +712,11 @@ function strictAiSmokeStatusOk(manifest: unknown, acceptance: unknown) {
     manifest.requireOllama === true &&
     typeof manifest.model === "string" &&
     manifest.model.length > 0 &&
+    isLocalOllamaUrl(manifest.ollamaUrl) &&
     strictLocalAi.ok === true &&
     strictLocalAi.provider === manifest.provider &&
     strictLocalAi.model === manifest.model &&
+    strictLocalAi.ollamaUrl === manifest.ollamaUrl &&
     generatedAt !== undefined &&
     acceptanceAiGeneratedAt === generatedAt &&
     Number(manifest.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
@@ -897,6 +902,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
     strictAiSmokeProvider: result.manifest.strictAiSmokeProvider,
     strictAiSmokeModel: result.manifest.strictAiSmokeModel,
+    strictAiSmokeOllamaUrl: result.manifest.strictAiSmokeOllamaUrl,
     strictAiSmokeCaseCount: result.manifest.strictAiSmokeCaseCount,
     operatorQuickstartPath: result.manifest.operatorQuickstartPath,
     copiedFileCount: result.manifest.copiedFileCount,

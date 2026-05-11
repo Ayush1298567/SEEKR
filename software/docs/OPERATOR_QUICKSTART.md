@@ -58,7 +58,7 @@
   npm run test:ai:local
   ```
 
-  This writes `.tmp/ai-smoke-status.json` with strict local AI smoke evidence: named Ollama scenarios, selected plan kinds, validator pass, no unsafe operator-facing text, and no mutation while thinking.
+  This writes `.tmp/ai-smoke-status.json` with strict local AI smoke evidence: loopback Ollama URL, named Ollama scenarios, selected plan kinds, validator pass, no unsafe operator-facing text, and no mutation while thinking.
 - AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.
 
 ## Run A Rehearsal

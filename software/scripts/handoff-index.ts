@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
-import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type ChainStatus = "pass" | "warn" | "fail";
 
@@ -422,6 +422,8 @@ function strictLocalAiReadbackMatches(probeAi: Record<string, unknown>, acceptan
   return probeAi.ok === acceptanceAi.ok &&
     probeAi.provider === acceptanceAi.provider &&
     probeAi.model === acceptanceAi.model &&
+    probeAi.ollamaUrl === acceptanceAi.ollamaUrl &&
+    isLocalOllamaUrl(acceptanceAi.ollamaUrl) &&
     Number(probeAi.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
     Number(probeAi.caseCount) === Number(acceptanceAi.caseCount) &&
     arraysEqual(acceptanceCaseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]) &&

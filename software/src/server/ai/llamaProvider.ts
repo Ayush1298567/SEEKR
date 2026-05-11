@@ -18,7 +18,7 @@ export const chooseProposalWithLocalLlama: ProposalDecisionProvider = async ({ s
   if (!candidates.length) return undefined;
 
   const model = process.env.SEEKR_OLLAMA_MODEL ?? DEFAULT_MODEL;
-  const url = process.env.SEEKR_OLLAMA_URL ?? DEFAULT_OLLAMA_URL;
+  const url = configuredOllamaUrl();
   const prompt = buildPrompt(stateSummary, candidates, nowMs);
 
   try {
@@ -56,20 +56,21 @@ export const chooseProposalWithLocalLlama: ProposalDecisionProvider = async ({ s
 };
 
 export async function localLlamaStatus() {
+  const ollamaUrl = configuredOllamaUrl();
   if (process.env.SEEKR_AI_PROVIDER === "rules") {
-    return { ok: false, provider: "local-rule-engine", model: "deterministic-v1", reason: "SEEKR_AI_PROVIDER=rules" };
+    return { ok: false, provider: "local-rule-engine", model: "deterministic-v1", ollamaUrl, reason: "SEEKR_AI_PROVIDER=rules" };
   }
   const model = process.env.SEEKR_OLLAMA_MODEL ?? DEFAULT_MODEL;
-  const url = process.env.SEEKR_OLLAMA_URL ?? DEFAULT_OLLAMA_URL;
   try {
-    const response = await fetchWithTimeout(`${url}/api/tags`, { method: "GET" }, 700);
-    if (!response.ok) return { ok: false, provider: "ollama", model, reason: `HTTP ${response.status}` };
+    const response = await fetchWithTimeout(`${ollamaUrl}/api/tags`, { method: "GET" }, 700);
+    if (!response.ok) return { ok: false, provider: "ollama", model, ollamaUrl, reason: `HTTP ${response.status}` };
     const body = (await response.json()) as { models?: Array<{ name?: string }> };
     const availableModels = body.models?.map((candidate) => candidate.name).filter(Boolean) ?? [];
     return {
       ok: availableModels.includes(model),
       provider: "ollama",
       model,
+      ollamaUrl,
       availableModels,
       reason: availableModels.includes(model) ? undefined : "Configured model not found"
     };
@@ -78,9 +79,14 @@ export async function localLlamaStatus() {
       ok: false,
       provider: "ollama",
       model,
+      ollamaUrl,
       reason: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+export function configuredOllamaUrl() {
+  return (process.env.SEEKR_OLLAMA_URL ?? DEFAULT_OLLAMA_URL).replace(/\/+$/, "");
 }
 
 export function summarizeStateForAi(state: MissionState) {

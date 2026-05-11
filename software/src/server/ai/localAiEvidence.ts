@@ -29,6 +29,7 @@ export interface StrictAiSmokeStatus {
   softwareVersion: string;
   provider: string;
   model: string;
+  ollamaUrl: string;
   requireOllama: boolean;
   caseCount: number;
   cases: StrictAiSmokeCase[];
@@ -91,6 +92,9 @@ export async function readStrictAiSmokeEvidence(nowMs = Date.now(), filePath = a
     if (!status.requireOllama || status.provider !== "ollama") {
       return { ok: false, status, reason: "Strict local AI smoke must run with Ollama required." };
     }
+    if (!isLocalOllamaUrl(status.ollamaUrl)) {
+      return { ok: false, status, reason: "Strict local AI smoke must record a loopback Ollama URL." };
+    }
     if (status.cases.some((testCase) => testCase.mutatedWhileThinking)) {
       return { ok: false, status, reason: "Strict local AI smoke observed mutation while thinking." };
     }
@@ -102,5 +106,17 @@ export async function readStrictAiSmokeEvidence(nowMs = Date.now(), filePath = a
         ? "Strict local AI smoke has not been run for this working session."
         : `Strict local AI smoke status could not be read: ${error instanceof Error ? error.message : String(error)}`
     };
+  }
+}
+
+export function isLocalOllamaUrl(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    return ["http:", "https:"].includes(parsed.protocol) &&
+      (hostname === "localhost" || hostname === "::1" || /^127(?:\.\d{1,3}){3}$/.test(hostname));
+  } catch {
+    return false;
   }
 }

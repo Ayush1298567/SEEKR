@@ -108,6 +108,7 @@ if (failures.length) {
     softwareVersion: SEEKR_SOFTWARE_VERSION,
     provider: result.cases[0]?.provider ?? status.provider,
     model: result.cases[0]?.model ?? status.model,
+    ollamaUrl: status.ollamaUrl,
     requireOllama,
     caseCount: result.cases.length,
     cases: result.cases.map(({ name, provider, model, plan, validator, elapsedMs, unsafeOperatorTextPresent, mutatedWhileThinking }) => ({

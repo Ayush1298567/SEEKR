@@ -7,7 +7,7 @@ import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
-import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type VerificationStatus = "pass" | "fail";
 
@@ -206,7 +206,7 @@ export async function buildHandoffBundleVerification(options: {
   if (bundleDirectory && bundleDirectoryOk && strictAiSmokeStatusPath === STRICT_AI_SMOKE_STATUS_PATH) {
     const strictAiSmoke = await readCopiedJson(bundleDirectory, strictAiSmokeStatusPath);
     if (!strictAiSmokeStatusOk(strictAiSmoke, copiedAcceptance)) {
-      blockers.push("Copied strict local AI smoke status must match copied acceptance, use Ollama, require the exact strict AI scenario set, include per-case planKind and validatorOk proof, avoid hold-drone plans, avoid unsafe operator-facing text, avoid state mutation while thinking, and keep command upload disabled.");
+      blockers.push("Copied strict local AI smoke status must match copied acceptance, use a loopback Ollama URL, require the exact strict AI scenario set, include per-case planKind and validatorOk proof, avoid hold-drone plans, avoid unsafe operator-facing text, avoid state mutation while thinking, and keep command upload disabled.");
     }
   }
   const copiedApiProbeFile = manifestFiles
@@ -845,6 +845,7 @@ function acceptanceStrictLocalAiOk(manifest: unknown) {
     strictLocalAi.ok === true &&
     strictLocalAi.provider === "ollama" &&
     typeof strictLocalAi.model === "string" &&
+    isLocalOllamaUrl(strictLocalAi.ollamaUrl) &&
     Number(strictLocalAi.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
     Number(strictLocalAi.caseCount) === caseNames.length &&
     arraysEqual(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]);
@@ -863,9 +864,11 @@ function strictAiSmokeStatusOk(manifest: unknown, acceptance: unknown) {
     manifest.requireOllama === true &&
     typeof manifest.model === "string" &&
     manifest.model.length > 0 &&
+    isLocalOllamaUrl(manifest.ollamaUrl) &&
     strictLocalAi.ok === true &&
     strictLocalAi.provider === manifest.provider &&
     strictLocalAi.model === manifest.model &&
+    strictLocalAi.ollamaUrl === manifest.ollamaUrl &&
     generatedAt !== undefined &&
     acceptanceAiGeneratedAt === generatedAt &&
     Number(manifest.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
@@ -909,6 +912,8 @@ function apiProbeAcceptanceReadbackOk(apiProbe: unknown, acceptance: unknown) {
     probeAi.ok === acceptanceAi.ok &&
     probeAi.provider === acceptanceAi.provider &&
     probeAi.model === acceptanceAi.model &&
+    probeAi.ollamaUrl === acceptanceAi.ollamaUrl &&
+    isLocalOllamaUrl(acceptanceAi.ollamaUrl) &&
     Number(probeAi.caseCount) === Number(acceptanceAi.caseCount) &&
     arraysEqual(probeAiCaseNames, acceptanceAiCaseNames) &&
     probeRelease.overallSha256 === acceptanceRelease.overallSha256 &&

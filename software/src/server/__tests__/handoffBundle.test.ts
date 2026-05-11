@@ -1039,6 +1039,25 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when strict local AI smoke proof uses a non-loopback Ollama URL", async () => {
+    const strictAiSmoke = JSON.parse(await readFile(path.join(root, strictAiSmokePath), "utf8"));
+    strictAiSmoke.ollamaUrl = "https://api.example.com:11434";
+    await writeFile(path.join(root, strictAiSmokePath), JSON.stringify(strictAiSmoke), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("loopback Ollama URL")
+    ]));
+  });
+
   it("blocks bundling when gstack workflow status has a failing workflow", async () => {
     await writeFile(path.join(root, workflowPath), JSON.stringify({
       status: "fail",
@@ -2368,7 +2387,8 @@ async function seedBundleEvidence(root: string) {
       ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      ollamaUrl: "http://127.0.0.1:11434",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
       generatedAt: strictAiGeneratedAt
     },
@@ -2397,6 +2417,7 @@ async function seedBundleEvidence(root: string) {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
         generatedAt: strictAiGeneratedAt
@@ -2420,6 +2441,7 @@ async function seedBundleEvidence(root: string) {
     softwareVersion: "0.2.0",
     provider: "ollama",
     model: "llama3.2:latest",
+    ollamaUrl: "http://127.0.0.1:11434",
     requireOllama: true,
     caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
     cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name, index) => ({

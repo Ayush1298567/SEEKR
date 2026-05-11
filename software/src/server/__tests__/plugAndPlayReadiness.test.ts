@@ -34,6 +34,7 @@ describe("plug-and-play readiness audit", () => {
         implemented: true,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
@@ -129,6 +130,29 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "acceptance-ai")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("strict local AI evidence must pass")
+    });
+  });
+
+  it("fails when strict local AI evidence points at a non-loopback Ollama URL", async () => {
+    const acceptancePath = path.join(root, ".tmp/acceptance-status.json");
+    const apiProbePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const acceptance = JSON.parse(await readFile(acceptancePath, "utf8"));
+    const apiProbe = JSON.parse(await readFile(apiProbePath, "utf8"));
+    acceptance.strictLocalAi.ollamaUrl = "https://api.example.com:11434";
+    apiProbe.sessionAcceptance.strictLocalAi.ollamaUrl = acceptance.strictLocalAi.ollamaUrl;
+    await writeFile(acceptancePath, JSON.stringify(acceptance), "utf8");
+    await writeFile(apiProbePath, JSON.stringify(apiProbe), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "acceptance-ai")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("loopback Ollama URL")
     });
   });
 
@@ -1254,7 +1278,8 @@ async function seedPlugAndPlayEvidence(root: string) {
       ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
-      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      ollamaUrl: "http://127.0.0.1:11434",
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     releaseChecksum: {
@@ -1286,6 +1311,7 @@ async function seedPlugAndPlayEvidence(root: string) {
         ok: true,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },

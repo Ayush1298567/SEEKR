@@ -113,6 +113,7 @@ describe("readiness reports", () => {
         softwareVersion: SEEKR_SOFTWARE_VERSION,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
@@ -149,6 +150,7 @@ describe("readiness reports", () => {
         softwareVersion: SEEKR_SOFTWARE_VERSION,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
@@ -189,6 +191,7 @@ describe("readiness reports", () => {
         softwareVersion: SEEKR_SOFTWARE_VERSION,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
@@ -218,6 +221,47 @@ describe("readiness reports", () => {
     }
   });
 
+  it("warns when strict local AI smoke evidence records a non-local Ollama endpoint", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "seekr-readiness-ai-smoke-remote-"));
+    try {
+      const statusPath = path.join(root, "ai-smoke-status.json");
+      process.env.SEEKR_AI_SMOKE_STATUS_PATH = statusPath;
+      await writeStrictAiSmokeStatus({
+        ok: true,
+        generatedAt: fixedClock(),
+        softwareVersion: SEEKR_SOFTWARE_VERSION,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        ollamaUrl: "https://api.example.com:11434",
+        requireOllama: true,
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
+          name,
+          provider: "ollama",
+          model: "llama3.2:latest",
+          planKind: "assign-zone",
+          validatorOk: true,
+          elapsedMs: 1,
+          unsafeOperatorTextPresent: false,
+          mutatedWhileThinking: false
+        }))
+      }, statusPath);
+
+      const persistence = new MissionPersistence(root);
+      await persistence.init();
+      const store = new MissionStore({ clock: fixedClock, eventStore: persistence.events });
+      const report = await buildReadinessReport(store, persistence, fixedClock());
+
+      expect(report.checks.find((check) => check.id === "local-ai-strict-smoke")).toMatchObject({
+        status: "warn",
+        blocking: false,
+        details: expect.stringContaining("loopback Ollama URL")
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("warns when strict local AI smoke evidence records unsafe operator-facing proposal text", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "seekr-readiness-ai-smoke-unsafe-text-"));
     try {
@@ -229,6 +273,7 @@ describe("readiness reports", () => {
         softwareVersion: SEEKR_SOFTWARE_VERSION,
         provider: "ollama",
         model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
