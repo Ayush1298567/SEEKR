@@ -102,6 +102,26 @@ describe("operator quickstart contract", () => {
     expect(operatorQuickstartProblems(content)).toContain(REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER.join(" before "));
   });
 
+  it("rejects quickstarts that put dependency installation after local setup", () => {
+    const content = [
+      "git clone https://github.com/Ayush1298567/SEEKR.git",
+      "cd SEEKR/software",
+      "git pull --ff-only",
+      "software/",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "npm run rehearsal:start",
+      "npm ci",
+      ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) =>
+        !REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER.includes(signal as never)
+      )
+    ].join("\n");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toContain(REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER.join(" before "));
+  });
+
   it("rejects quickstarts that omit GitHub clone guidance", () => {
     const content = validQuickstartContent().replace("git clone https://github.com/Ayush1298567/SEEKR.git\n", "");
 
