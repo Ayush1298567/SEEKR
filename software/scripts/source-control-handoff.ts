@@ -724,6 +724,9 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
       : status === "ready-source-control-handoff";
   const blockedCountMatchesChecks = manifestBlockedCheckCount === blockedCheckIds.length;
   const warningCountMatchesChecks = manifestWarningCheckCount === warningCheckIds.length;
+  const checkStatusFor = (id: string) => String(checks.find((check) => check.id === id)?.status ?? "");
+  const githubRemoteRefsPass = checkStatusFor("github-remote-refs") === "pass";
+  const localHeadPublishedPass = checkStatusFor("local-head-published") === "pass";
 
   if (manifest.schemaVersion !== 1) problems.push("schemaVersion must be 1");
   if (manifest.commandUploadEnabled !== false) problems.push("commandUploadEnabled must be false");
@@ -740,12 +743,12 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if (!Array.isArray(manifest.configuredRemoteUrls)) problems.push("configuredRemoteUrls must be an array");
   if (ready && !String(manifest.localBranch ?? "")) problems.push("ready source-control handoff must include localBranch");
   if (ready && typeof manifest.localHeadSha !== "string") problems.push("ready source-control handoff must include localHeadSha");
-  if (ready && typeof manifest.remoteDefaultBranchSha !== "string") problems.push("ready source-control handoff must include remoteDefaultBranchSha");
-  if (ready && typeof manifest.localHeadSha === "string" && typeof manifest.remoteDefaultBranchSha === "string" && manifest.localHeadSha !== manifest.remoteDefaultBranchSha) {
+  if (ready && localHeadPublishedPass && typeof manifest.remoteDefaultBranchSha !== "string") problems.push("published source-control handoff must include remoteDefaultBranchSha");
+  if (ready && localHeadPublishedPass && typeof manifest.localHeadSha === "string" && typeof manifest.remoteDefaultBranchSha === "string" && manifest.localHeadSha !== manifest.remoteDefaultBranchSha) {
     problems.push("ready source-control handoff must have localHeadSha equal remoteDefaultBranchSha");
   }
-  if (ready && !String(manifest.remoteDefaultBranch ?? "")) problems.push("ready source-control handoff must include remoteDefaultBranch");
-  if (ready && Number(manifest.remoteRefCount) < 1) problems.push("ready source-control handoff must include at least one GitHub remote ref");
+  if (ready && githubRemoteRefsPass && !String(manifest.remoteDefaultBranch ?? "")) problems.push("verified remote source-control handoff must include remoteDefaultBranch");
+  if (ready && githubRemoteRefsPass && Number(manifest.remoteRefCount) < 1) problems.push("verified remote source-control handoff must include at least one GitHub remote ref");
   if (ready && (!Array.isArray(manifest.configuredRemoteUrls) || !manifest.configuredRemoteUrls.some((url) => pointsAtExpectedRepository(String(url))))) {
     problems.push("ready source-control handoff must include a configured remote pointing at Ayush1298567/SEEKR");
   }
@@ -852,6 +855,7 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
   const freshCloneIncomplete = statusFor("fresh-clone-smoke") === "blocked";
   const localHeadUnpublished = statusFor("local-head-published") === "blocked";
   const worktreeDirty = statusFor("working-tree-clean") === "blocked";
+  const hasWarnings = checks.some((check) => check.status === "warn");
   const actions: SourceControlHandoffNextAction[] = [];
 
   if (githubLandingReadmeMissing) {
@@ -960,9 +964,9 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
   }
 
   actions.push({
-    id: actions.length ? "rerun-source-control-audit" : "verify-source-control-before-bundle",
+    id: actions.length || hasWarnings ? "rerun-source-control-audit" : "verify-source-control-before-bundle",
     status: "verification",
-    details: actions.length
+    details: actions.length || hasWarnings
       ? "Rerun the read-only audit after manual source-control recovery so the handoff can prove Git metadata, origin, and remote refs are current."
       : "Rerun the read-only audit before final bundling to keep source-control evidence current.",
     commands: ["npm run audit:source-control"],

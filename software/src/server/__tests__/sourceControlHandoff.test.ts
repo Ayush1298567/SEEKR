@@ -759,6 +759,16 @@ describe("source-control handoff audit", () => {
       status: "warn",
       details: expect.stringContaining("network unavailable")
     });
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "rerun-source-control-audit",
+        clearsCheckIds: expect.arrayContaining(["github-remote-refs", "local-head-published", "fresh-clone-smoke"])
+      })
+    ]));
+    expect(validateSourceControlHandoffManifest(manifest)).toMatchObject({
+      ok: true,
+      warningCheckIds: expect.arrayContaining(["github-remote-refs", "local-head-published", "fresh-clone-smoke"])
+    });
   });
 
   it("blocks when the published fresh clone is missing plug-and-play files", async () => {
