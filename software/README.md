@@ -115,7 +115,7 @@ SEEKR_AI_PROVIDER=rules npm run dev
 
 `SEEKR_AI_PROVIDER=rules` forces deterministic proposals. Local Llama remains advisory only: its output is constrained to selecting from prevalidated candidate plans, and approvals still go through command lifecycle validation.
 If the model chooses an invalid, unsafe, or low-value hold candidate while action candidates exist, SEEKR falls back to the deterministic priority candidate.
-`npm run test:ai:local` runs strict Ollama smoke cases for normal assignment, prompt-injection notes, spatial metadata injection, and conflict-driven no-fly drafting. It requires Ollama and `llama3.2:latest` unless `SEEKR_OLLAMA_MODEL` points to another local model, then writes `.tmp/ai-smoke-status.json` for `/api/readiness`. Spatial asset, passive-plan, incident-log, readiness, and operator-input read tools remain advisory and are covered by Vitest/API/UI checks.
+`npm run test:ai:local` runs strict Ollama smoke cases for normal assignment, prompt-injection notes, spatial metadata injection, and conflict-driven no-fly drafting. It requires Ollama and `llama3.2:latest` unless `SEEKR_OLLAMA_MODEL` points to another local model, then writes `.tmp/ai-smoke-status.json` for `/api/readiness`; acceptance rejects the marker unless those named safety scenarios are present and none mutated mission state while thinking. Spatial asset, passive-plan, incident-log, readiness, and operator-input read tools remain advisory and are covered by Vitest/API/UI checks.
 
 ## Architecture
 

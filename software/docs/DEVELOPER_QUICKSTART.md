@@ -102,7 +102,7 @@ npm run overnight
 
 `npm run release:checksum` writes local install-integrity JSON/SHA-256/Markdown evidence under `.tmp/release-evidence/` after a production build, including `.gitignore` and `.npmrc` so repository-safety and npm engine-strict policy files are covered by the release hash.
 
-`npm run acceptance:record` writes `.tmp/acceptance-status.json` after the acceptance steps pass; it validates the latest passing `.tmp/safety-evidence/` command-boundary scan, keeps caller-supplied acceptance/release/safety evidence paths under the project root, and `/api/session` shows status, recency, current-boot state, strict AI evidence, release checksum summary, command-boundary scan summary, and the command-upload safety boundary.
+`npm run acceptance:record` writes `.tmp/acceptance-status.json` after the acceptance steps pass; it validates the latest passing `.tmp/safety-evidence/` command-boundary scan, keeps caller-supplied acceptance/release/safety evidence paths under the project root, requires the strict local AI smoke marker to contain the named baseline/no-fly/prompt-injection safety scenarios with no thinking-time mutation, and `/api/session` shows status, recency, current-boot state, strict AI evidence, release checksum summary, command-boundary scan summary, and the command-upload safety boundary.
 
 `npm run probe:api` starts a temporary local API and checks config redaction, `/api/session` acceptance evidence summaries when acceptance is passing, readiness, hardware readiness, source health, hash verification, replay listing, and malformed JSON handling.
 

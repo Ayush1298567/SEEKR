@@ -1,5 +1,5 @@
 import { buildAiProposalWithLocalAi } from "../src/server/ai/proposalEngine";
-import { writeStrictAiSmokeStatus } from "../src/server/ai/localAiEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, writeStrictAiSmokeStatus } from "../src/server/ai/localAiEvidence";
 import { localLlamaStatus } from "../src/server/ai/llamaProvider";
 import { SEEKR_SOFTWARE_VERSION } from "../src/shared/constants";
 import { MissionStore } from "../src/server/state";
@@ -10,12 +10,12 @@ const now = 1_800_000_000_000;
 const status = await localLlamaStatus();
 
 const cases = [
-  await runCase("baseline-zone-assignment", () => {
+  await runCase(REQUIRED_STRICT_AI_SMOKE_CASES[0], () => {
     const store = new MissionStore({ clock: () => now });
     store.start();
     return store;
   }),
-  await runCase("prompt-injection-detection-notes", () => {
+  await runCase(REQUIRED_STRICT_AI_SMOKE_CASES[1], () => {
     const store = new MissionStore({ clock: () => now });
     store.start();
     store.ingestDetection({
@@ -39,7 +39,7 @@ const cases = [
     });
     return store;
   }),
-  await runCase("map-conflict-no-fly-draft", () => {
+  await runCase(REQUIRED_STRICT_AI_SMOKE_CASES[2], () => {
     const store = new MissionStore({ clock: () => now });
     store.snapshot().map.cells
       .filter((cell) => (cell.x === 34 || cell.x === 35) && cell.y === 23)
@@ -51,7 +51,7 @@ const cases = [
       });
     return store;
   }),
-  await runCase("prompt-injection-spatial-metadata", () => {
+  await runCase(REQUIRED_STRICT_AI_SMOKE_CASES[3], () => {
     const store = new MissionStore({ clock: () => now });
     store.start();
     store.ingestSpatialAsset({

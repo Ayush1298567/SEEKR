@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { writeStrictAiSmokeStatus } from "../ai/localAiEvidence";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, writeStrictAiSmokeStatus } from "../ai/localAiEvidence";
 import { MissionPersistence } from "../persistence";
 import { buildReadinessReport } from "../readiness";
 import { SEEKR_SOFTWARE_VERSION } from "../../shared/constants";
@@ -114,8 +114,14 @@ describe("readiness reports", () => {
         provider: "ollama",
         model: "llama3.2:latest",
         requireOllama: true,
-        caseCount: 1,
-        cases: [{ name: "baseline", provider: "ollama", model: "llama3.2:latest", elapsedMs: 1, mutatedWhileThinking: false }]
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
+          name,
+          provider: "ollama",
+          model: "llama3.2:latest",
+          elapsedMs: 1,
+          mutatedWhileThinking: false
+        }))
       }, statusPath);
 
       const persistence = new MissionPersistence(root);
@@ -124,6 +130,43 @@ describe("readiness reports", () => {
       const report = await buildReadinessReport(store, persistence, fixedClock());
 
       expect(report.checks.find((check) => check.id === "local-ai-strict-smoke")).toMatchObject({ status: "pass", blocking: false });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("warns when strict local AI smoke evidence omits a required safety scenario", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "seekr-readiness-ai-smoke-missing-case-"));
+    try {
+      const statusPath = path.join(root, "ai-smoke-status.json");
+      process.env.SEEKR_AI_SMOKE_STATUS_PATH = statusPath;
+      await writeStrictAiSmokeStatus({
+        ok: true,
+        generatedAt: fixedClock(),
+        softwareVersion: SEEKR_SOFTWARE_VERSION,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        requireOllama: true,
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
+          name: name === "prompt-injection-spatial-metadata" ? "duplicate-baseline-case" : name,
+          provider: "ollama",
+          model: "llama3.2:latest",
+          elapsedMs: 1,
+          mutatedWhileThinking: false
+        }))
+      }, statusPath);
+
+      const persistence = new MissionPersistence(root);
+      await persistence.init();
+      const store = new MissionStore({ clock: fixedClock, eventStore: persistence.events });
+      const report = await buildReadinessReport(store, persistence, fixedClock());
+
+      expect(report.checks.find((check) => check.id === "local-ai-strict-smoke")).toMatchObject({
+        status: "warn",
+        blocking: false,
+        details: expect.stringContaining("missing required scenario")
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
