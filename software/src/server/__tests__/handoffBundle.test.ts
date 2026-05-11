@@ -670,6 +670,73 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("exposes published clean source-control state in the bundle and verification manifests", async () => {
+    const sourceControl = JSON.parse(await readFile(path.join(root, sourceControlPath), "utf8"));
+    markSourceControlReady(sourceControl);
+    sourceControl.generatedAt = "2026-05-09T20:58:30.000Z";
+    await writeFile(path.join(root, sourceControlPath), JSON.stringify(sourceControl), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest).toMatchObject({
+      status: "ready-local-alpha-review-bundle",
+      sourceControlHandoffStatus: "ready-source-control-handoff",
+      sourceControlHandoffReady: true,
+      sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
+      sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
+      sourceControlHandoffWorkingTreeClean: true,
+      sourceControlHandoffWorkingTreeStatusLineCount: 0
+    });
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control working tree clean: true");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest).toMatchObject({
+      status: "pass",
+      sourceControlHandoffPath: sourceControlPath,
+      sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
+      sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
+      sourceControlHandoffWorkingTreeClean: true,
+      sourceControlHandoffWorkingTreeStatusLineCount: 0
+    });
+    await expect(readFile(verification.markdownPath, "utf8")).resolves.toContain("Source-control working tree status lines: 0");
+  });
+
+  it("fails bundle verification when the bundle source-control summary disagrees with the copied artifact", async () => {
+    const sourceControl = JSON.parse(await readFile(path.join(root, sourceControlPath), "utf8"));
+    markSourceControlReady(sourceControl);
+    sourceControl.generatedAt = "2026-05-09T20:58:30.000Z";
+    await writeFile(path.join(root, sourceControlPath), JSON.stringify(sourceControl), "utf8");
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const bundleManifest = JSON.parse(await readFile(result.jsonPath, "utf8"));
+    bundleManifest.sourceControlHandoffWorkingTreeClean = false;
+    await writeFile(result.jsonPath, JSON.stringify(bundleManifest), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("clean-worktree flag must match")
+    ]));
+  });
+
   it("blocks bundling when plug-and-play doctor has not been generated", async () => {
     await rm(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true, force: true });
 

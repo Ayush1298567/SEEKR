@@ -36,6 +36,10 @@ export interface HandoffBundleVerificationManifest {
   gstackQaScreenshotPaths: string[];
   todoAuditPath?: string;
   sourceControlHandoffPath?: string;
+  sourceControlHandoffLocalHeadSha?: string;
+  sourceControlHandoffRemoteDefaultBranchSha?: string;
+  sourceControlHandoffWorkingTreeClean?: boolean;
+  sourceControlHandoffWorkingTreeStatusLineCount?: number;
   plugAndPlaySetupPath?: string;
   localAiPreparePath?: string;
   plugAndPlayDoctorPath?: string;
@@ -280,6 +284,14 @@ export async function buildHandoffBundleVerification(options: {
     }
   }
   const sourceControlHandoffPath = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffPath) : undefined;
+  const manifestSourceControlLocalHeadSha = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha) : undefined;
+  const manifestSourceControlRemoteDefaultBranchSha = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha) : undefined;
+  const manifestSourceControlWorkingTreeClean = isRecord(manifest) ? booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean) : undefined;
+  const manifestSourceControlWorkingTreeStatusLineCount = isRecord(manifest) ? numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount) : undefined;
+  let sourceControlHandoffLocalHeadSha = manifestSourceControlLocalHeadSha;
+  let sourceControlHandoffRemoteDefaultBranchSha = manifestSourceControlRemoteDefaultBranchSha;
+  let sourceControlHandoffWorkingTreeClean = manifestSourceControlWorkingTreeClean;
+  let sourceControlHandoffWorkingTreeStatusLineCount = manifestSourceControlWorkingTreeStatusLineCount;
   if (!sourceControlHandoffPath) {
     blockers.push("Handoff bundle must name the source-control handoff JSON.");
   } else if (!manifestFiles.some((file) => file.sourcePath === sourceControlHandoffPath)) {
@@ -287,12 +299,34 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && sourceControlHandoffPath) {
     const sourceControl = await readCopiedJson(bundleDirectory, sourceControlHandoffPath);
+    const copiedLocalHeadSha = isRecord(sourceControl) ? stringOrUndefined(sourceControl.localHeadSha) : undefined;
+    const copiedRemoteDefaultBranchSha = isRecord(sourceControl) ? stringOrUndefined(sourceControl.remoteDefaultBranchSha) : undefined;
+    const copiedWorkingTreeClean = isRecord(sourceControl) ? booleanOrUndefined(sourceControl.workingTreeClean) : undefined;
+    const copiedWorkingTreeStatusLineCount = isRecord(sourceControl) ? numberOrUndefined(sourceControl.workingTreeStatusLineCount) : undefined;
+    sourceControlHandoffLocalHeadSha = copiedLocalHeadSha ?? sourceControlHandoffLocalHeadSha;
+    sourceControlHandoffRemoteDefaultBranchSha = copiedRemoteDefaultBranchSha ?? sourceControlHandoffRemoteDefaultBranchSha;
+    sourceControlHandoffWorkingTreeClean = copiedWorkingTreeClean ?? sourceControlHandoffWorkingTreeClean;
+    sourceControlHandoffWorkingTreeStatusLineCount = copiedWorkingTreeStatusLineCount ?? sourceControlHandoffWorkingTreeStatusLineCount;
     if (!sourceControlHandoffOk(sourceControl)) {
       blockers.push("Copied source-control handoff must be read-only, name the SEEKR GitHub repository, include local Git, remote-ref, published-HEAD, and clean-worktree checks, and keep commandUploadEnabled false.");
     } else if (!sourceControlHandoffFreshForAcceptance(sourceControl, copiedAcceptance)) {
       blockers.push("Copied ready source-control handoff must be newer than or equal to the copied acceptance record.");
     } else if (isRecord(sourceControl) && sourceControl.ready !== true) {
       warnings.push("Copied source-control handoff remains not ready for publication; local Git/GitHub limitation is preserved for review.");
+    }
+    if (isRecord(sourceControl) && sourceControl.ready === true) {
+      if (manifestSourceControlLocalHeadSha !== copiedLocalHeadSha) {
+        blockers.push("Handoff bundle source-control local HEAD must match the copied source-control handoff artifact.");
+      }
+      if (manifestSourceControlRemoteDefaultBranchSha !== copiedRemoteDefaultBranchSha) {
+        blockers.push("Handoff bundle source-control remote default SHA must match the copied source-control handoff artifact.");
+      }
+      if (manifestSourceControlWorkingTreeClean !== copiedWorkingTreeClean) {
+        blockers.push("Handoff bundle source-control clean-worktree flag must match the copied source-control handoff artifact.");
+      }
+      if (manifestSourceControlWorkingTreeStatusLineCount !== copiedWorkingTreeStatusLineCount) {
+        blockers.push("Handoff bundle source-control working-tree status line count must match the copied source-control handoff artifact.");
+      }
     }
   }
   const plugAndPlayDoctorPath = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlayDoctorPath) : undefined;
@@ -371,6 +405,10 @@ export async function buildHandoffBundleVerification(options: {
     gstackQaScreenshotPaths,
     todoAuditPath,
     sourceControlHandoffPath,
+    sourceControlHandoffLocalHeadSha,
+    sourceControlHandoffRemoteDefaultBranchSha,
+    sourceControlHandoffWorkingTreeClean,
+    sourceControlHandoffWorkingTreeStatusLineCount,
     plugAndPlaySetupPath,
     localAiPreparePath,
     plugAndPlayDoctorPath,
@@ -613,6 +651,10 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     manifest.gstackQaScreenshotPaths.length ? `GStack QA screenshots: ${manifest.gstackQaScreenshotPaths.join(", ")}` : undefined,
     manifest.todoAuditPath ? `TODO audit: ${manifest.todoAuditPath}` : undefined,
     manifest.sourceControlHandoffPath ? `Source-control handoff: ${manifest.sourceControlHandoffPath}` : undefined,
+    manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
+    manifest.sourceControlHandoffRemoteDefaultBranchSha ? `Source-control remote default SHA: ${manifest.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    typeof manifest.sourceControlHandoffWorkingTreeClean === "boolean" ? `Source-control working tree clean: ${manifest.sourceControlHandoffWorkingTreeClean}` : undefined,
+    typeof manifest.sourceControlHandoffWorkingTreeStatusLineCount === "number" ? `Source-control working tree status lines: ${manifest.sourceControlHandoffWorkingTreeStatusLineCount}` : undefined,
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
     manifest.localAiPreparePath ? `Local AI prepare: ${manifest.localAiPreparePath}` : undefined,
     manifest.plugAndPlayDoctorPath ? `Plug-and-play doctor: ${manifest.plugAndPlayDoctorPath}` : undefined,
@@ -1051,6 +1093,15 @@ function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
 }
 
+function booleanOrUndefined(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function numberOrUndefined(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
 function isInsideRoot(root: string, absolutePath: string) {
   return absolutePath === root || absolutePath.startsWith(`${root}${path.sep}`);
 }
@@ -1119,6 +1170,10 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     gstackQaScreenshotPaths: result.manifest.gstackQaScreenshotPaths,
     todoAuditPath: result.manifest.todoAuditPath,
     sourceControlHandoffPath: result.manifest.sourceControlHandoffPath,
+    sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,
+    sourceControlHandoffRemoteDefaultBranchSha: result.manifest.sourceControlHandoffRemoteDefaultBranchSha,
+    sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,
+    sourceControlHandoffWorkingTreeStatusLineCount: result.manifest.sourceControlHandoffWorkingTreeStatusLineCount,
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
     localAiPreparePath: result.manifest.localAiPreparePath,
     plugAndPlayDoctorPath: result.manifest.plugAndPlayDoctorPath,

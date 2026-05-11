@@ -44,6 +44,10 @@ export interface HandoffBundleManifest {
   sourceControlHandoffGeneratedAt?: string;
   sourceControlHandoffStatus?: string;
   sourceControlHandoffReady?: boolean;
+  sourceControlHandoffLocalHeadSha?: string;
+  sourceControlHandoffRemoteDefaultBranchSha?: string;
+  sourceControlHandoffWorkingTreeClean?: boolean;
+  sourceControlHandoffWorkingTreeStatusLineCount?: number;
   plugAndPlaySetupPath?: string;
   plugAndPlaySetupGeneratedAt?: string;
   plugAndPlaySetupStatus?: string;
@@ -261,6 +265,10 @@ export async function writeHandoffBundle(options: {
     sourceControlHandoffGeneratedAt: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.generatedAt) : undefined,
     sourceControlHandoffStatus: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.status) : undefined,
     sourceControlHandoffReady: isRecord(sourceControlManifest) ? Boolean(sourceControlManifest.ready) : undefined,
+    sourceControlHandoffLocalHeadSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.localHeadSha) : undefined,
+    sourceControlHandoffRemoteDefaultBranchSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.remoteDefaultBranchSha) : undefined,
+    sourceControlHandoffWorkingTreeClean: isRecord(sourceControlManifest) ? booleanOrUndefined(sourceControlManifest.workingTreeClean) : undefined,
+    sourceControlHandoffWorkingTreeStatusLineCount: isRecord(sourceControlManifest) ? numberOrUndefined(sourceControlManifest.workingTreeStatusLineCount) : undefined,
     plugAndPlaySetupPath: setup?.relativePath,
     plugAndPlaySetupGeneratedAt: isRecord(setupManifest) ? stringOrUndefined(setupManifest.generatedAt) : undefined,
     plugAndPlaySetupStatus: isRecord(setupManifest) ? stringOrUndefined(setupManifest.status) : undefined,
@@ -471,6 +479,10 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.sourceControlHandoffGeneratedAt ? `Source-control handoff generated at: ${manifest.sourceControlHandoffGeneratedAt}` : undefined,
     manifest.sourceControlHandoffStatus ? `Source-control handoff verdict: ${manifest.sourceControlHandoffStatus}` : undefined,
     typeof manifest.sourceControlHandoffReady === "boolean" ? `Source-control handoff ready: ${manifest.sourceControlHandoffReady}` : undefined,
+    manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
+    manifest.sourceControlHandoffRemoteDefaultBranchSha ? `Source-control remote default SHA: ${manifest.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    typeof manifest.sourceControlHandoffWorkingTreeClean === "boolean" ? `Source-control working tree clean: ${manifest.sourceControlHandoffWorkingTreeClean}` : undefined,
+    typeof manifest.sourceControlHandoffWorkingTreeStatusLineCount === "number" ? `Source-control working tree status lines: ${manifest.sourceControlHandoffWorkingTreeStatusLineCount}` : undefined,
     manifest.plugAndPlaySetupPath ? `Plug-and-play setup: ${manifest.plugAndPlaySetupPath}` : undefined,
     manifest.plugAndPlaySetupGeneratedAt ? `Plug-and-play setup generated at: ${manifest.plugAndPlaySetupGeneratedAt}` : undefined,
     manifest.plugAndPlaySetupStatus ? `Plug-and-play setup verdict: ${manifest.plugAndPlaySetupStatus}` : undefined,
@@ -543,6 +555,10 @@ function replaceExtension(filePath: string, extension: string) {
 
 function stringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
+}
+
+function booleanOrUndefined(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 async function gstackWorkflowStatusOk(root: string, manifest: unknown) {
@@ -936,6 +952,10 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffPath: result.manifest.sourceControlHandoffPath,
     sourceControlHandoffStatus: result.manifest.sourceControlHandoffStatus,
     sourceControlHandoffReady: result.manifest.sourceControlHandoffReady,
+    sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,
+    sourceControlHandoffRemoteDefaultBranchSha: result.manifest.sourceControlHandoffRemoteDefaultBranchSha,
+    sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,
+    sourceControlHandoffWorkingTreeStatusLineCount: result.manifest.sourceControlHandoffWorkingTreeStatusLineCount,
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
     plugAndPlaySetupStatus: result.manifest.plugAndPlaySetupStatus,
     localAiPreparePath: result.manifest.localAiPreparePath,
