@@ -613,6 +613,7 @@ function freshCloneSmokeEvidence() {
     "https://github.com/Ayush1298567/SEEKR",
     "git clone --depth 1",
     "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
+    "fresh-clone-operator-quickstart-contract",
     "fresh-clone:README.md",
     "fresh-clone:software/package.json",
     "fresh-clone:software/package-lock.json",

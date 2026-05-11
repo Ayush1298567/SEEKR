@@ -12,6 +12,7 @@ npm run setup:local
 npm run audit:source-control
 npm run doctor
 npm run rehearsal:start
+npm run smoke:rehearsal:start
 ```
 
 If the repository is already cloned, run `git pull --ff-only` from the repository root first, then enter `software/` and use the same setup and rehearsal commands.

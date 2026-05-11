@@ -73,6 +73,8 @@ describe("source-control handoff audit", () => {
     });
     expect(manifest.checks.every((check) => check.status === "pass")).toBe(true);
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm ci --dry-run");
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("operator quickstart contract");
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.evidence).toContain("fresh-clone-operator-quickstart-contract");
   });
 
   it("blocks when local HEAD is unpublished or the worktree is dirty", async () => {
@@ -347,6 +349,53 @@ describe("source-control handoff audit", () => {
     ]));
   });
 
+  it("blocks when the published fresh clone has an invalid operator quickstart", async () => {
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: async () => ({
+        ok: false,
+        cloneSucceeded: true,
+        headSha: LOCAL_SHA,
+        checkedPaths: FRESH_CLONE_PATHS,
+        missingPaths: [],
+        installDryRunOk: true,
+        operatorQuickstartProblems: ["npm run smoke:rehearsal:start"]
+      })
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("operator quickstart")
+    });
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm run smoke:rehearsal:start");
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "repair-published-fresh-clone",
+        commands: expect.arrayContaining(["npm run test -- operatorQuickstartContract sourceControlHandoff acceptanceScripts"]),
+        clearsCheckIds: expect.arrayContaining(["fresh-clone-smoke"])
+      })
+    ]));
+  });
+
+
   it("writes JSON and Markdown evidence without enabling commands", async () => {
     const result = await writeSourceControlHandoff({
       root,
@@ -512,6 +561,7 @@ async function seedSourceControlProject(root: string) {
     "npm run audit:source-control",
     "npm run doctor",
     "npm run rehearsal:start",
+    "npm run smoke:rehearsal:start",
     "```",
     "",
     "If the repository is already cloned, run git pull --ff-only first.",

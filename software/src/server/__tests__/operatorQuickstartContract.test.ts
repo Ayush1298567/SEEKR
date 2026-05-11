@@ -24,8 +24,10 @@ describe("operator quickstart contract", () => {
     expect(content).toContain("cd SEEKR/software");
     expect(content).toContain("git pull --ff-only");
     expect(content).toContain("npm run audit:source-control");
+    expect(content).toContain("npm run smoke:rehearsal:start");
     expect(content.indexOf("git clone https://github.com/Ayush1298567/SEEKR.git")).toBeLessThan(content.indexOf("cd SEEKR/software"));
     expect(content.indexOf("cd SEEKR/software")).toBeLessThan(content.indexOf("npm ci"));
+    expect(content.indexOf("npm run rehearsal:start")).toBeLessThan(content.indexOf("npm run smoke:rehearsal:start"));
   });
 
   it("pins advisory AI command-safety language as required signals", () => {

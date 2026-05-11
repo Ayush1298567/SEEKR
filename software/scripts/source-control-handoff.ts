@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 
 type SourceControlCheckStatus = "pass" | "warn" | "blocked";
 type SourceControlHandoffStatus = "ready-source-control-handoff" | "ready-source-control-handoff-with-warnings" | "blocked-source-control-handoff";
@@ -67,6 +68,7 @@ interface FreshCloneResult {
   missingPaths: string[];
   installDryRunOk?: boolean;
   installDryRunError?: string;
+  operatorQuickstartProblems?: string[];
   error?: string;
 }
 
@@ -89,6 +91,7 @@ const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "npm run audit:source-control",
   "npm run doctor",
   "npm run rehearsal:start",
+  "npm run smoke:rehearsal:start",
   "command upload",
   "hardware actuation"
 ];
@@ -345,17 +348,21 @@ async function gitFreshCloneProbe(repositoryUrl: string): Promise<FreshCloneResu
     for (const relativePath of REQUIRED_FRESH_CLONE_PATHS) {
       if (!(await pathExists(path.join(cloneDir, relativePath)))) missingPaths.push(relativePath);
     }
+    const clonedOperatorQuickstartProblems = missingPaths.includes(`software/${OPERATOR_QUICKSTART_PATH}`)
+      ? [`Missing software/${OPERATOR_QUICKSTART_PATH}`]
+      : operatorQuickstartProblems(await readText(path.join(cloneDir, "software", OPERATOR_QUICKSTART_PATH)));
     const installDryRun = missingPaths.length
       ? { ok: false, error: "Skipped npm ci --dry-run because required fresh-clone files are missing." }
       : await npmCiDryRun(path.join(cloneDir, "software"));
     return {
-      ok: missingPaths.length === 0 && installDryRun.ok,
+      ok: missingPaths.length === 0 && installDryRun.ok && clonedOperatorQuickstartProblems.length === 0,
       cloneSucceeded: true,
       headSha: head.stdout.trim() || undefined,
       checkedPaths: REQUIRED_FRESH_CLONE_PATHS,
       missingPaths,
       installDryRunOk: installDryRun.ok,
-      installDryRunError: installDryRun.error
+      installDryRunError: installDryRun.error,
+      operatorQuickstartProblems: clonedOperatorQuickstartProblems
     };
   } catch (error) {
     return {
@@ -477,11 +484,12 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
     return {
       id: "fresh-clone-smoke",
       status: "pass",
-      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)}, contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart, and passes npm ci --dry-run.`,
+      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)}, contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart, passes the shared operator quickstart contract, and passes npm ci --dry-run.`,
       evidence: [
         EXPECTED_REPOSITORY_URL,
         FRESH_CLONE_COMMAND,
         NPM_CI_DRY_RUN_COMMAND,
+        "fresh-clone-operator-quickstart-contract",
         ...result.checkedPaths.map((checkedPath) => `fresh-clone:${checkedPath}`)
       ]
     };
@@ -507,6 +515,19 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
         EXPECTED_REPOSITORY_URL,
         FRESH_CLONE_COMMAND,
         NPM_CI_DRY_RUN_COMMAND
+      ]
+    };
+  }
+  if (result.cloneSucceeded && result.operatorQuickstartProblems?.length) {
+    return {
+      id: "fresh-clone-smoke",
+      status: "blocked",
+      details: `A shallow fresh clone succeeded, but the published operator quickstart violates required plug-and-play guidance: ${result.operatorQuickstartProblems.join(", ")}.`,
+      evidence: [
+        EXPECTED_REPOSITORY_URL,
+        FRESH_CLONE_COMMAND,
+        `fresh-clone:software/${OPERATOR_QUICKSTART_PATH}`,
+        ...result.operatorQuickstartProblems.map((problem) => `operator-quickstart-problem:${problem}`)
       ]
     };
   }
@@ -618,7 +639,7 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   }
   const freshCloneCheck = checks.find((check) => check.id === "fresh-clone-smoke");
   if (freshCloneCheck?.status === "pass" && !freshClonePassEvidenceOk(freshCloneCheck)) {
-    problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, and all required startup-file evidence");
+    problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, operator quickstart contract proof, and all required startup-file evidence");
   }
   if (!nextActions.length) {
     problems.push("nextActionChecklist must include publication or verification steps");
@@ -678,6 +699,7 @@ function freshClonePassEvidenceOk(check: Record<string, unknown>) {
   return evidence.includes(EXPECTED_REPOSITORY_URL) &&
     evidence.includes(FRESH_CLONE_COMMAND) &&
     evidence.includes(NPM_CI_DRY_RUN_COMMAND) &&
+    evidence.includes("fresh-clone-operator-quickstart-contract") &&
     REQUIRED_FRESH_CLONE_PATHS.every((relativePath) => evidence.includes(`fresh-clone:${relativePath}`));
 }
 
@@ -710,10 +732,11 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
     actions.push({
       id: "repair-published-fresh-clone",
       status: "required",
-      details: "Repair the published repository contents so a fresh clone contains the landing README, package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart.",
+      details: "Repair the published repository contents so a fresh clone contains the landing README, package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart satisfying the shared quickstart contract.",
       commands: [
         "git status --short --branch",
         "git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md",
+        "npm run test -- operatorQuickstartContract sourceControlHandoff acceptanceScripts",
         "git push origin HEAD:main",
         "npm run audit:source-control"
       ],
