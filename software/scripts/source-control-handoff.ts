@@ -68,6 +68,7 @@ interface FreshCloneResult {
   missingPaths: string[];
   installDryRunOk?: boolean;
   installDryRunError?: string;
+  landingReadmeProblems?: string[];
   operatorQuickstartProblems?: string[];
   error?: string;
 }
@@ -380,6 +381,9 @@ async function gitFreshCloneProbe(repositoryUrl: string): Promise<FreshCloneResu
     for (const relativePath of REQUIRED_FRESH_CLONE_PATHS) {
       if (!(await pathExists(path.join(cloneDir, relativePath)))) missingPaths.push(relativePath);
     }
+    const clonedLandingReadmeProblems = missingPaths.includes("README.md")
+      ? ["Missing README.md"]
+      : githubLandingReadmeProblems(await readText(path.join(cloneDir, "README.md")));
     const clonedOperatorQuickstartProblems = missingPaths.includes(`software/${OPERATOR_QUICKSTART_PATH}`)
       ? [`Missing software/${OPERATOR_QUICKSTART_PATH}`]
       : operatorQuickstartProblems(await readText(path.join(cloneDir, "software", OPERATOR_QUICKSTART_PATH)));
@@ -387,13 +391,14 @@ async function gitFreshCloneProbe(repositoryUrl: string): Promise<FreshCloneResu
       ? { ok: false, error: "Skipped npm ci --dry-run because required fresh-clone files are missing." }
       : await npmCiDryRun(path.join(cloneDir, "software"));
     return {
-      ok: missingPaths.length === 0 && installDryRun.ok && clonedOperatorQuickstartProblems.length === 0,
+      ok: missingPaths.length === 0 && installDryRun.ok && clonedLandingReadmeProblems.length === 0 && clonedOperatorQuickstartProblems.length === 0,
       cloneSucceeded: true,
       headSha: head.stdout.trim() || undefined,
       checkedPaths: REQUIRED_FRESH_CLONE_PATHS,
       missingPaths,
       installDryRunOk: installDryRun.ok,
       installDryRunError: installDryRun.error,
+      landingReadmeProblems: clonedLandingReadmeProblems,
       operatorQuickstartProblems: clonedOperatorQuickstartProblems
     };
   } catch (error) {
@@ -559,11 +564,12 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
     return {
       id: "fresh-clone-smoke",
       status: "pass",
-      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)}, contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart, passes the shared operator quickstart contract, and passes npm ci --dry-run.`,
+      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)}, contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart, passes the GitHub landing README and shared operator quickstart contracts, and passes npm ci --dry-run.`,
       evidence: [
         EXPECTED_REPOSITORY_URL,
         FRESH_CLONE_COMMAND,
         NPM_CI_DRY_RUN_COMMAND,
+        "fresh-clone-github-landing-readme-contract",
         "fresh-clone-operator-quickstart-contract",
         ...result.checkedPaths.map((checkedPath) => `fresh-clone:${checkedPath}`)
       ]
@@ -590,6 +596,19 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
         EXPECTED_REPOSITORY_URL,
         FRESH_CLONE_COMMAND,
         NPM_CI_DRY_RUN_COMMAND
+      ]
+    };
+  }
+  if (result.cloneSucceeded && result.landingReadmeProblems?.length) {
+    return {
+      id: "fresh-clone-smoke",
+      status: "blocked",
+      details: `A shallow fresh clone succeeded, but the published landing README violates required plug-and-play guidance: ${result.landingReadmeProblems.join(", ")}.`,
+      evidence: [
+        EXPECTED_REPOSITORY_URL,
+        FRESH_CLONE_COMMAND,
+        "fresh-clone:README.md",
+        ...result.landingReadmeProblems.map((problem) => `landing-readme-problem:${problem}`)
       ]
     };
   }
@@ -718,7 +737,7 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
     problems.push("github-landing-readme pass must include ordered landing README command proof plus final AI/readiness proof evidence");
   }
   if (freshCloneCheck?.status === "pass" && !freshClonePassEvidenceOk(freshCloneCheck)) {
-    problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, operator quickstart contract proof, and all required startup-file evidence");
+    problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, landing README contract proof, operator quickstart contract proof, and all required startup-file evidence");
   }
   if (!nextActions.length) {
     problems.push("nextActionChecklist must include publication or verification steps");
@@ -778,6 +797,7 @@ function freshClonePassEvidenceOk(check: Record<string, unknown>) {
   return evidence.includes(EXPECTED_REPOSITORY_URL) &&
     evidence.includes(FRESH_CLONE_COMMAND) &&
     evidence.includes(NPM_CI_DRY_RUN_COMMAND) &&
+    evidence.includes("fresh-clone-github-landing-readme-contract") &&
     evidence.includes("fresh-clone-operator-quickstart-contract") &&
     REQUIRED_FRESH_CLONE_PATHS.every((relativePath) => evidence.includes(`fresh-clone:${relativePath}`));
 }
@@ -818,7 +838,7 @@ function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceCo
     actions.push({
       id: "repair-published-fresh-clone",
       status: "required",
-      details: "Repair the published repository contents so a fresh clone contains the landing README, package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart satisfying the shared quickstart contract.",
+      details: "Repair the published repository contents so a fresh clone contains the landing README, package manifest and lockfile, env template, rehearsal start wrapper, and landing README/operator quickstart documents satisfying their shared contracts.",
       commands: [
         "git status --short --branch",
         "git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md",

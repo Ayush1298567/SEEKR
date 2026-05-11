@@ -76,7 +76,9 @@ describe("source-control handoff audit", () => {
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.evidence).toContain("github-landing-readme-command-order");
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.evidence).toContain("github-landing-readme-ai-readiness-proof");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm ci --dry-run");
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("landing README");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("operator quickstart contract");
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.evidence).toContain("fresh-clone-github-landing-readme-contract");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.evidence).toContain("fresh-clone-operator-quickstart-contract");
   });
 
@@ -818,6 +820,52 @@ describe("source-control handoff audit", () => {
     ]));
   });
 
+  it("blocks when the published fresh clone has an invalid landing README", async () => {
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: async () => ({
+        ok: false,
+        cloneSucceeded: true,
+        headSha: LOCAL_SHA,
+        checkedPaths: FRESH_CLONE_PATHS,
+        missingPaths: [],
+        installDryRunOk: true,
+        landingReadmeProblems: ["npm run test:ai:local"]
+      })
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("published landing README")
+    });
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm run test:ai:local");
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "repair-published-fresh-clone",
+        commands: expect.arrayContaining(["git diff -- README.md software/package.json software/package-lock.json software/.env.example software/scripts/rehearsal-start.sh software/docs/OPERATOR_QUICKSTART.md"]),
+        clearsCheckIds: expect.arrayContaining(["fresh-clone-smoke"])
+      })
+    ]));
+  });
+
 
   it("writes JSON and Markdown evidence without enabling commands", async () => {
     const result = await writeSourceControlHandoff({
@@ -933,6 +981,17 @@ describe("source-control handoff audit", () => {
         : check)
     }).problems).toEqual(expect.arrayContaining([
       expect.stringContaining("fresh-clone-smoke pass")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
+      checks: manifest.checks.map((check) => check.id === "fresh-clone-smoke"
+        ? {
+          ...check,
+          evidence: check.evidence.filter((item) => item !== "fresh-clone-github-landing-readme-contract")
+        }
+        : check)
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("landing README contract proof")
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,
