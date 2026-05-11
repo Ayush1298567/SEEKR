@@ -48,6 +48,9 @@ export interface PlugAndPlayReadinessManifest {
     generatedAt?: string;
     status?: string;
     ready?: boolean;
+    repositoryUrl?: string;
+    packageRepositoryUrl?: string;
+    configuredRemoteUrls?: string[];
     localHeadSha?: string;
     remoteDefaultBranchSha?: string;
     workingTreeClean?: boolean;
@@ -970,6 +973,9 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.sourceControl.path ? `- Handoff: ${manifest.sourceControl.path}` : undefined,
     manifest.sourceControl.status ? `- Status: ${manifest.sourceControl.status}` : undefined,
     typeof manifest.sourceControl.ready === "boolean" ? `- Ready: ${manifest.sourceControl.ready}` : undefined,
+    manifest.sourceControl.repositoryUrl ? `- Repository: ${manifest.sourceControl.repositoryUrl}` : undefined,
+    manifest.sourceControl.packageRepositoryUrl ? `- Package repository: ${manifest.sourceControl.packageRepositoryUrl}` : undefined,
+    manifest.sourceControl.configuredRemoteUrls?.length ? `- Configured remotes: ${manifest.sourceControl.configuredRemoteUrls.join(", ")}` : undefined,
     manifest.sourceControl.localHeadSha ? `- Local HEAD: ${manifest.sourceControl.localHeadSha}` : undefined,
     manifest.sourceControl.remoteDefaultBranchSha ? `- Remote default SHA: ${manifest.sourceControl.remoteDefaultBranchSha}` : undefined,
     typeof manifest.sourceControl.workingTreeClean === "boolean" ? `- Working tree clean: ${manifest.sourceControl.workingTreeClean}` : undefined,
@@ -1075,6 +1081,9 @@ async function sourceControlSummary(root: string): Promise<PlugAndPlayReadinessM
     generatedAt: stringOrUndefined(manifest.generatedAt),
     status: stringOrUndefined(manifest.status),
     ready: booleanOrUndefined(manifest.ready),
+    repositoryUrl: stringOrUndefined(manifest.repositoryUrl),
+    packageRepositoryUrl: stringOrUndefined(manifest.packageRepositoryUrl),
+    configuredRemoteUrls: stringArray(manifest.configuredRemoteUrls),
     localHeadSha: stringOrUndefined(manifest.localHeadSha),
     remoteDefaultBranchSha: stringOrUndefined(manifest.remoteDefaultBranchSha),
     workingTreeClean: booleanOrUndefined(manifest.workingTreeClean),

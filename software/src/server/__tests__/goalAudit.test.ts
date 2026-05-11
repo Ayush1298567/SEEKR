@@ -304,6 +304,24 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness source-control repository summary drifts from latest evidence", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.sourceControl.repositoryUrl = "https://github.com/example/not-seekr";
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("source-control repository URL summary must match")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness review-bundle summary drifts from latest verification", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
@@ -1790,6 +1808,9 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       generatedAt: GENERATED_AT,
       status: "ready-source-control-handoff",
       ready: true,
+      repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+      configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
       localHeadSha: "abc1234567890",
       remoteDefaultBranchSha: "abc1234567890",
       workingTreeClean: true,

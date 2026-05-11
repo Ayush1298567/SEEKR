@@ -926,6 +926,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (booleanOrUndefined(readinessSourceControl.ready) !== booleanOrUndefined(sourceControlManifest.ready)) {
       problems.push("plug-and-play readiness source-control ready summary must match the latest source-control handoff");
     }
+    if (stringOrUndefined(readinessSourceControl.repositoryUrl) !== stringOrUndefined(sourceControlManifest.repositoryUrl)) {
+      problems.push("plug-and-play readiness source-control repository URL summary must match the latest source-control handoff");
+    }
+    if (stringOrUndefined(readinessSourceControl.packageRepositoryUrl) !== stringOrUndefined(sourceControlManifest.packageRepositoryUrl)) {
+      problems.push("plug-and-play readiness source-control package repository summary must match the latest source-control handoff");
+    }
+    if (!sameStringArray(stringArray(readinessSourceControl.configuredRemoteUrls), stringArray(sourceControlManifest.configuredRemoteUrls))) {
+      problems.push("plug-and-play readiness source-control configured-remotes summary must match the latest source-control handoff");
+    }
     if (stringOrUndefined(readinessSourceControl.localHeadSha) !== stringOrUndefined(sourceControlManifest.localHeadSha)) {
       problems.push("plug-and-play readiness source-control local HEAD summary must match the latest source-control handoff");
     }
