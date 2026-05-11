@@ -668,7 +668,6 @@ function todoAuditOk(manifest: unknown) {
   const validation = isRecord(manifest.validation) ? manifest.validation : {};
   const completionAudit = isRecord(manifest.completionAudit) ? manifest.completionAudit : {};
   const categories = Array.isArray(manifest.categories) ? manifest.categories.filter(isRecord) : [];
-  const categoryIds = new Set(categories.map((item) => String(item.id ?? "")));
   const status = String(manifest.status);
   const completionBlockerCount = Number(completionAudit.realWorldBlockerCount);
   const blockedCategoryCount = categories.filter((item) => item.status === "blocked").length;
@@ -678,7 +677,7 @@ function todoAuditOk(manifest: unknown) {
     Number(manifest.blockedCategoryCount) === blockedCategoryCount &&
     Number(manifest.validationBlockerCount) === (Array.isArray(validation.blockers) ? validation.blockers.length : 0);
   const exactCategories = categories.length === REQUIRED_TODO_CATEGORY_IDS.length &&
-    REQUIRED_TODO_CATEGORY_IDS.every((id) => categoryIds.has(id));
+    categories.every((category, index) => String(category.id ?? "") === REQUIRED_TODO_CATEGORY_IDS[index]);
   const countsMatch = Number.isFinite(completionBlockerCount) &&
     completionBlockerCount === blockedCategoryCount &&
     (status === "pass-complete-no-blockers"

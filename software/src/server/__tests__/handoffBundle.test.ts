@@ -1025,6 +1025,25 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when todo audit blocker categories are reordered", async () => {
+    const todoAudit = JSON.parse(await readFile(path.join(root, todoPath), "utf8"));
+    [todoAudit.categories[0], todoAudit.categories[1]] = [todoAudit.categories[1], todoAudit.categories[0]];
+    await writeFile(path.join(root, todoPath), JSON.stringify(todoAudit), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("TODO audit artifact must pass")
+    ]));
+  });
+
   it("blocks bundling when todo audit blocker count does not match blocked categories", async () => {
     const todoAudit = JSON.parse(await readFile(path.join(root, todoPath), "utf8"));
     todoAudit.completionAudit.realWorldBlockerCount = 7;
@@ -1797,6 +1816,30 @@ describe("handoff bundle", () => {
     const copiedTodoPath = path.join(result.bundleDirectory, "artifacts", todoPath);
     const copiedTodo = JSON.parse(await readFile(copiedTodoPath, "utf8"));
     copiedTodo.realWorldBlockerCount = 7;
+    await writeFile(copiedTodoPath, JSON.stringify(copiedTodo), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied TODO audit must pass")
+    ]));
+  });
+
+  it("fails bundle verification when copied todo audit blocker categories are reordered", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedTodoPath = path.join(result.bundleDirectory, "artifacts", todoPath);
+    const copiedTodo = JSON.parse(await readFile(copiedTodoPath, "utf8"));
+    [copiedTodo.categories[0], copiedTodo.categories[1]] = [copiedTodo.categories[1], copiedTodo.categories[0]];
     await writeFile(copiedTodoPath, JSON.stringify(copiedTodo), "utf8");
 
     const verification = await writeHandoffBundleVerification({
