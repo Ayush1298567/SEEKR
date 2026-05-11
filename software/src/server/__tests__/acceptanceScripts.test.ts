@@ -141,6 +141,7 @@ describe("acceptance script contract", () => {
     }
     for (const doc of [readme, developerQuickstart, v1Acceptance]) {
       expect(doc).toContain("operator/safety/DX/replay/demo-readiness");
+      expectSourceControlCountSummaryDocs(doc);
     }
   });
 
@@ -260,4 +261,33 @@ function expectOrderedCommands(commands: string[], expected: string[]) {
     expect(nextIndex, `${command} should appear after ${commands[cursor] ?? "the start"} in TEST_MATRIX primary commands`).toBeGreaterThan(cursor);
     cursor = nextIndex;
   }
+}
+
+function expectSourceControlCountSummaryDocs(doc: string) {
+  expectSnippet(doc, "handoff:bundle:verify", [
+    "blocked-check-count",
+    "warning-check-count"
+  ]);
+  expectSnippet(doc, "audit:plug-and-play", [
+    "blocked/warning check counts",
+    "branch/ref/count/SHA"
+  ]);
+  expectSnippet(doc, "audit:goal", [
+    "blocked-check-count",
+    "warning-check-count"
+  ]);
+}
+
+function expectSnippet(content: string, anchor: string, required: string[]) {
+  const snippets: string[] = [];
+  let cursor = content.indexOf(anchor);
+  while (cursor !== -1) {
+    snippets.push(content.slice(cursor, cursor + 4000));
+    cursor = content.indexOf(anchor, cursor + anchor.length);
+  }
+  expect(snippets.length, `${anchor} should be documented`).toBeGreaterThan(0);
+  expect(
+    snippets.some((snippet) => required.every((phrase) => snippet.includes(phrase))),
+    `${anchor} docs should mention ${required.join(", ")}`
+  ).toBe(true);
 }
