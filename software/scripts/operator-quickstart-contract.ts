@@ -46,7 +46,8 @@ export const REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER = [
   "npm run setup:local",
   "npm run audit:source-control",
   "npm run doctor",
-  "npm run rehearsal:start"
+  "npm run rehearsal:start",
+  "npm run smoke:rehearsal:start"
 ] as const;
 
 export function operatorQuickstartProblems(content: string) {
