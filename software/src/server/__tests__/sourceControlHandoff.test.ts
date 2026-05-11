@@ -72,7 +72,7 @@ describe("source-control handoff audit", () => {
       ]
     });
     expect(manifest.checks.every((check) => check.status === "pass")).toBe(true);
-    expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.details).toContain("ordered fresh clone path");
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.details).toContain("ordered fenced shell command blocks");
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.evidence).toContain("github-landing-readme-command-order");
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.evidence).toContain("github-landing-readme-ai-readiness-proof");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm ci --dry-run");
@@ -265,7 +265,7 @@ describe("source-control handoff audit", () => {
     expect(manifest.blockedCheckCount).toBe(1);
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
       status: "blocked",
-      details: expect.stringContaining("command order")
+      details: expect.stringContaining("fenced shell command block order")
     });
     expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -374,6 +374,59 @@ describe("source-control handoff audit", () => {
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
       status: "blocked",
       details: expect.stringContaining("npm run test:ai:local before npm run audit:plug-and-play")
+    });
+  });
+
+  it("does not let prose hide reversed GitHub landing command blocks", async () => {
+    await writeFile(path.join(root, "..", "README.md"), [
+      "# SEEKR",
+      "",
+      "Run `git pull --ff-only` before working from an existing clone.",
+      "For final proof, `npm run test:ai:local` must happen before `npm run audit:plug-and-play`.",
+      "",
+      "```bash",
+      "git clone https://github.com/Ayush1298567/SEEKR.git",
+      "cd SEEKR/software",
+      "npm ci",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "npm run rehearsal:start",
+      "npm run smoke:rehearsal:start",
+      "npm run audit:plug-and-play",
+      "npm run test:ai:local",
+      "```",
+      "",
+      "The local plug-and-play path keeps command upload and hardware actuation disabled.",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: freshCloneOk(LOCAL_SHA)
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("fenced shell command block order")
     });
   });
 
