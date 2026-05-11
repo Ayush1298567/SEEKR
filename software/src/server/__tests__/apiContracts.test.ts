@@ -19,21 +19,24 @@ const fixedClock = () => 1_800_000_000_000;
 
 describe("HTTP and WebSocket API contracts", () => {
   let context: Awaited<ReturnType<typeof startTestServer>>;
+  let evidenceRoot: string;
   const previousProvider = process.env.SEEKR_AI_PROVIDER;
   const previousInternalToken = process.env.SEEKR_INTERNAL_TOKEN;
   const previousAiSmokeStatusPath = process.env.SEEKR_AI_SMOKE_STATUS_PATH;
   const previousAcceptanceStatusPath = process.env.SEEKR_ACCEPTANCE_STATUS_PATH;
 
   beforeEach(async () => {
+    evidenceRoot = await mkdtemp(path.join(os.tmpdir(), "seekr-api-contract-evidence-"));
     process.env.SEEKR_AI_PROVIDER = "rules";
-    process.env.SEEKR_AI_SMOKE_STATUS_PATH = path.join(os.tmpdir(), `seekr-api-ai-smoke-missing-${process.pid}.json`);
-    process.env.SEEKR_ACCEPTANCE_STATUS_PATH = path.join(os.tmpdir(), `seekr-api-acceptance-missing-${process.pid}.json`);
+    process.env.SEEKR_AI_SMOKE_STATUS_PATH = path.join(evidenceRoot, "ai-smoke-status.json");
+    process.env.SEEKR_ACCEPTANCE_STATUS_PATH = path.join(evidenceRoot, "acceptance-status.json");
     delete process.env.SEEKR_INTERNAL_TOKEN;
     context = await startTestServer();
   });
 
   afterEach(async () => {
     await context.close();
+    await rm(evidenceRoot, { recursive: true, force: true });
     if (previousProvider === undefined) delete process.env.SEEKR_AI_PROVIDER;
     else process.env.SEEKR_AI_PROVIDER = previousProvider;
     if (previousInternalToken === undefined) delete process.env.SEEKR_INTERNAL_TOKEN;

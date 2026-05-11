@@ -90,6 +90,7 @@ const REQUIRED_COMMANDS = [
   "test:ai:local",
   "test:ui",
   "qa:gstack",
+  "health:gstack",
   "smoke:preview",
   "probe:preview",
   "release:checksum",
@@ -732,7 +733,7 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
     "demo-readiness"
   ];
   const missingSignals = requiredDocSignals.filter((signal) => !content.includes(signal));
-  const missingScripts = ["test", "test:ui", "audit:gstack", "audit:goal"].filter((script) => typeof scripts[script] !== "string");
+  const missingScripts = ["test", "test:ui", "health:gstack", "audit:gstack", "audit:goal"].filter((script) => typeof scripts[script] !== "string");
   const workflowItems = isRecord(workflowManifest) && Array.isArray(workflowManifest.workflows)
     ? workflowManifest.workflows.filter(isRecord)
     : [];
@@ -789,7 +790,7 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
     details: problems.length
       ? problems.join("; ")
       : "docs/goal.md and the gstack workflow artifact record health history, planning, review, QA report status, and operator, safety, DX, replay, and demo-readiness perspectives.",
-    evidence: ["docs/goal.md", "package.json scripts.test", "package.json scripts.test:ui", "package.json scripts.audit:gstack", "package.json scripts.audit:goal", workflow?.relativePath, isRecord(healthHistory) ? stringOrUndefined(healthHistory.path) : undefined, isRecord(qaReport) ? stringOrUndefined(qaReport.path) : undefined, ...normalizeArtifactPaths(root, isRecord(qaReport) ? qaReport.screenshotPaths : undefined)].filter(isString)
+    evidence: ["docs/goal.md", "package.json scripts.test", "package.json scripts.test:ui", "package.json scripts.health:gstack", "package.json scripts.audit:gstack", "package.json scripts.audit:goal", workflow?.relativePath, isRecord(healthHistory) ? stringOrUndefined(healthHistory.path) : undefined, isRecord(qaReport) ? stringOrUndefined(qaReport.path) : undefined, ...normalizeArtifactPaths(root, isRecord(qaReport) ? qaReport.screenshotPaths : undefined)].filter(isString)
   };
 }
 

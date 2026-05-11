@@ -456,6 +456,10 @@ describe("goal audit", () => {
       status: "fail",
       details: expect.stringContaining("qa:gstack")
     });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "named-commands")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("health:gstack")
+    });
   });
 
   it("fails local alpha when the final handoff verification is missing", async () => {
@@ -1589,6 +1593,7 @@ async function writePackageJson(root: string) {
       "test:ai:local": "tsx scripts/ai-smoke.ts --require-ollama",
       "test:ui": "playwright test",
       "qa:gstack": "tsx scripts/gstack-browser-qa.ts",
+      "health:gstack": "tsx scripts/gstack-health-history.ts",
       "smoke:preview": "npm run build && npm run probe:preview",
       "probe:preview": "tsx scripts/preview-smoke.ts",
       "release:checksum": "tsx scripts/release-checksums.ts",

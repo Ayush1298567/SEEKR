@@ -59,6 +59,7 @@ describe("acceptance script contract", () => {
     expect(scripts["handoff:bundle"]).toBe("tsx scripts/handoff-bundle.ts");
     expect(scripts["handoff:bundle:verify"]).toBe("tsx scripts/handoff-bundle-verify.ts");
     expect(scripts["qa:gstack"]).toBe("tsx scripts/gstack-browser-qa.ts");
+    expect(scripts["health:gstack"]).toBe("tsx scripts/gstack-health-history.ts");
     expect(scripts["audit:gstack"]).toBe("tsx scripts/gstack-workflow-status.ts");
     expect(scripts["audit:source-control"]).toBe("tsx scripts/source-control-handoff.ts");
     expect(scripts["audit:completion"]).toBe("tsx scripts/completion-audit.ts");
@@ -119,6 +120,7 @@ describe("acceptance script contract", () => {
       "npm run handoff:bundle",
       "npm run handoff:bundle:verify",
       "npm run qa:gstack",
+      "npm run health:gstack",
       "npm run audit:gstack",
       "npm run audit:source-control",
       "npm run audit:todo",
@@ -162,6 +164,7 @@ describe("acceptance script contract", () => {
       "npm run handoff:bundle",
       "npm run handoff:bundle:verify",
       "npm run qa:gstack",
+      "npm run health:gstack",
       "npm run audit:gstack",
       "npm run audit:source-control",
       "npm run audit:todo",
