@@ -64,6 +64,47 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("clean worktree");
   });
 
+  it("fails closed when completion audit is not complete even if the blocker list is empty", async () => {
+    const completionPath = path.join(root, ".tmp/completion-audit/seekr-completion-audit-test.json");
+    const completion = JSON.parse(await readFile(completionPath, "utf8"));
+    completion.complete = false;
+    completion.realWorldBlockers = [];
+    await writeFile(completionPath, JSON.stringify(completion), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.complete).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "real-world-boundary")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("must explicitly report complete")
+    });
+  });
+
+  it("fails closed when completion audit claims complete while blockers remain", async () => {
+    const completionPath = path.join(root, ".tmp/completion-audit/seekr-completion-audit-test.json");
+    const completion = JSON.parse(await readFile(completionPath, "utf8"));
+    completion.complete = true;
+    await writeFile(completionPath, JSON.stringify(completion), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.complete).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "real-world-boundary")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("cannot report complete while real-world blockers remain")
+    });
+  });
+
   it("fails when the API probe readback does not match acceptance evidence", async () => {
     const apiProbePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
     const apiProbe = JSON.parse(await readFile(apiProbePath, "utf8"));

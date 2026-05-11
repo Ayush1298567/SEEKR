@@ -144,7 +144,8 @@ export async function buildPlugAndPlayReadiness(options: {
     ? completionManifest.realWorldBlockers.map(String)
     : [];
   const localPlugAndPlayOk = summary.fail === 0;
-  const complete = localPlugAndPlayOk && remainingRealWorldBlockers.length === 0;
+  const completionAuditComplete = isRecord(completionManifest) && completionManifest.complete === true;
+  const complete = localPlugAndPlayOk && completionAuditComplete && remainingRealWorldBlockers.length === 0;
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
 
@@ -870,22 +871,34 @@ async function completionBoundaryCheck(root: string): Promise<PlugAndPlayCheck> 
   const commandScan = items.find((item) => item.id === "command-boundary-scan");
   const policyReview = items.find((item) => item.id === "hardware-actuation-policy-review");
   const policyDetails = String(policyReview?.details ?? "");
+  const completionComplete = isRecord(manifest) && manifest.complete === true;
   const explicitBoundary = isRecord(manifest) && isRecord(manifest.safetyBoundary) ? manifest.safetyBoundary : undefined;
   const falseHardwareAuthorization = explicitBoundary
     ? explicitBoundary.hardwareActuationEnabled === false
     : /false authorization|command authority remains disabled|runtime command authority remains disabled/i.test(policyDetails);
+  const completionContradictions: string[] = [];
+  if (isRecord(manifest) && completionComplete && blockers.length > 0) {
+    completionContradictions.push("completion audit cannot report complete while real-world blockers remain");
+  }
+  if (isRecord(manifest) && !completionComplete && blockers.length === 0) {
+    completionContradictions.push("completion audit must explicitly report complete before plug-and-play readiness can clear real-world blockers");
+  }
   const fail = !isRecord(manifest) ||
     manifest.localAlphaOk !== true ||
     manifest.commandUploadEnabled !== false ||
     adapterBoundary?.status !== "pass" ||
     commandScan?.status !== "pass" ||
-    !falseHardwareAuthorization;
+    !falseHardwareAuthorization ||
+    completionContradictions.length > 0;
   return {
     id: "real-world-boundary",
     requirement: "Local plug-and-play readiness must keep real hardware blockers explicit instead of claiming aircraft readiness.",
     status: fail ? "fail" : blockers.length ? "blocked" : "pass",
     details: fail
-      ? "Completion audit must report localAlphaOk true, keep commandUploadEnabled false, pass command-boundary checks, and preserve false hardware authorization."
+      ? [
+        "Completion audit must report localAlphaOk true, keep commandUploadEnabled false, pass command-boundary checks, preserve false hardware authorization, and keep complete/blocker state consistent.",
+        ...completionContradictions
+      ].join(" ")
       : blockers.length
         ? `${blockers.length} real-world blocker category/categories remain before aircraft/hardware plug-and-play.`
         : "Completion audit reports no remaining real-world blockers.",
