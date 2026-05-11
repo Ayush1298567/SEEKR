@@ -500,6 +500,28 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness blocker list drifts from the completion audit", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.remainingRealWorldBlockers = [
+      "Stale placeholder blocker that is not in the current completion audit.",
+      ...readiness.remainingRealWorldBlockers.slice(1)
+    ];
+    readiness.remainingRealWorldBlockerCount = readiness.remainingRealWorldBlockers.length;
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("blocker list")
+    });
+  });
+
   it("fails local alpha when completion audit is complete but the handoff chain is stale", async () => {
     await seedCompletedRealWorldEvidence(root);
     await seedCompletedTodoDocs(root);

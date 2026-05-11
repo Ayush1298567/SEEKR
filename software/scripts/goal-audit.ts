@@ -879,6 +879,9 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   if (isRecord(manifest) && blockers.length !== completionAudit.realWorldBlockers.length) {
     problems.push("plug-and-play readiness must preserve the current real-world blocker count");
   }
+  if (isRecord(manifest) && !sameStringArray(blockers, completionAudit.realWorldBlockers)) {
+    problems.push("plug-and-play readiness must preserve the current real-world blocker list");
+  }
   if (completionAudit.realWorldBlockers.length && isRecord(manifest) && manifest.status !== "ready-local-plug-and-play-real-world-blocked") {
     problems.push("plug-and-play readiness must stay real-world-blocked while physical evidence is missing");
   }
