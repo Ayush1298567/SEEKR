@@ -158,7 +158,7 @@ export async function writeHandoffBundle(options: {
   if (!gstackWorkflow) {
     blockers.push("No gstack workflow status artifact exists; run npm run audit:gstack before bundling for final internal-alpha review.");
   } else if (!(await gstackWorkflowStatusOk(root, gstackWorkflowManifest))) {
-    blockers.push("GStack workflow status artifact must pass or pass-with-limitations, use pass-with-limitations for limitation-only evidence, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, record gstack availability, include required Git review evidence paths when Git metadata is present or no-Git workspace limitations when absent, preserve perspective status/score/nextAction details, and keep commandUploadEnabled false before bundling.");
+    blockers.push("GStack workflow status artifact must pass or pass-with-limitations, use pass-with-limitations for limitation-only evidence, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, record gstack availability, preserve helper-tool evidence when the umbrella CLI is unavailable, include required Git review evidence paths when Git metadata is present or no-Git workspace limitations when absent, preserve perspective status/score/nextAction details, and keep commandUploadEnabled false before bundling.");
   }
   if (!todoAudit) {
     blockers.push("No TODO audit artifact exists; run npm run audit:todo before bundling for final internal-alpha review.");
@@ -539,6 +539,7 @@ async function gstackWorkflowStatusOk(root: string, manifest: unknown) {
     manifest.commandUploadEnabled === false &&
     manifest.gstackAvailable === true &&
     typeof manifest.gstackCliAvailable === "boolean" &&
+    gstackHelperToolEvidenceOk(manifest) &&
     healthHistory !== undefined &&
     gstackHealthHistoryOk(healthHistory) &&
     qaReport !== undefined &&
@@ -588,6 +589,26 @@ function manifestLimitationsPreserved(
   if (healthHistory && healthHistory.status !== "pass" && !/health history/i.test(text)) return false;
   if (qaReport && qaReport.status !== "pass" && !/(browser QA|QA report|gstack QA)/i.test(text)) return false;
   return true;
+}
+
+function gstackHelperToolEvidenceOk(manifest: Record<string, unknown>) {
+  if (manifest.gstackCliAvailable === true) return true;
+  const toolRoot = stringOrUndefined(manifest.gstackToolRoot);
+  const toolCount = Number(manifest.gstackToolCount);
+  const toolNames = Array.isArray(manifest.gstackToolNames)
+    ? manifest.gstackToolNames.filter((item): item is string => typeof item === "string" && item.startsWith("gstack-"))
+    : [];
+  const evidence = Array.isArray(manifest.evidence)
+    ? manifest.evidence.filter((item): item is string => typeof item === "string")
+    : [];
+  const evidenceText = evidence.concat(limitationStrings(manifest)).join(" ");
+  return typeof toolRoot === "string" &&
+    /gstack/i.test(toolRoot) &&
+    Number.isInteger(toolCount) &&
+    toolCount > 0 &&
+    toolNames.length === toolCount &&
+    /helper tool/i.test(evidenceText) &&
+    evidenceText.includes(String(toolCount));
 }
 
 function reviewWorkflowWorkspaceClaimOk(manifest: Record<string, unknown>, workflows: Record<string, unknown>[], hasGitMetadata: boolean) {

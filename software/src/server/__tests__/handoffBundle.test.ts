@@ -491,6 +491,24 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when unavailable gstack CLI helper tools are not preserved", async () => {
+    const workflow = JSON.parse(await readFile(path.join(root, workflowPath), "utf8"));
+    delete workflow.gstackToolNames;
+    await writeFile(path.join(root, workflowPath), JSON.stringify(workflow), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("helper-tool evidence")
+    ]));
+  });
+
   it("blocks bundling when gstack workflow perspectives drop review details", async () => {
     const workflow = JSON.parse(await readFile(path.join(root, workflowPath), "utf8"));
     delete workflow.perspectives[0].score;
@@ -1889,6 +1907,30 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("fails bundle verification when copied workflow drops unavailable CLI helper-tool evidence", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedWorkflowPath = path.join(result.bundleDirectory, "artifacts", workflowPath);
+    const copiedWorkflow = JSON.parse(await readFile(copiedWorkflowPath, "utf8"));
+    delete copiedWorkflow.gstackToolNames;
+    await writeFile(copiedWorkflowPath, JSON.stringify(copiedWorkflow), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("helper-tool evidence")
+    ]));
+  });
+
   it("fails bundle verification when copied workflow perspectives drop review details", async () => {
     const result = await writeHandoffBundle({
       root,
@@ -2375,6 +2417,11 @@ const doctorPath = ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.js
 const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json";
 const strictAiSmokePath = ".tmp/ai-smoke-status.json";
 const operatorQuickstartPath = "docs/OPERATOR_QUICKSTART.md";
+const gstackToolRoot = "~/.gstack/repos/gstack/bin";
+const gstackToolCount = 2;
+const gstackToolNames = ["gstack-brain-sync", "gstack-slug"];
+const gstackHelperToolEvidence = `${gstackToolRoot} (${gstackToolCount} gstack helper tools)`;
+const gstackCliUnavailableLimitation = `gstack CLI is not available on PATH; local gstack helper tools are installed under ${gstackToolRoot} (${gstackToolCount} executable helper(s)), so workflow status is recorded from installed skill/tool files and local package-script evidence instead of claiming umbrella CLI execution.`;
 
 async function seedBundleEvidence(root: string) {
   const strictAiGeneratedAt = Date.parse("2026-05-09T20:56:30.000Z");
@@ -2462,6 +2509,9 @@ async function seedBundleEvidence(root: string) {
     commandUploadEnabled: false,
     gstackAvailable: true,
     gstackCliAvailable: false,
+    gstackToolRoot,
+    gstackToolCount,
+    gstackToolNames,
     workflows: [
       { id: "health", status: "pass", skillAvailable: true },
       {
@@ -2500,8 +2550,9 @@ async function seedBundleEvidence(root: string) {
       screenshotPaths: [qaHomeScreenshotPath, qaMobileScreenshotPath],
       commandUploadEnabled: false
     },
+    evidence: ["docs/goal.md", gstackHelperToolEvidence, qaReportPath, qaHomeScreenshotPath, qaMobileScreenshotPath],
     limitations: [
-      "GStack CLI is unavailable in this local test fixture.",
+      gstackCliUnavailableLimitation,
       "No .git metadata is present in this workspace."
     ]
   });

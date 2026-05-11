@@ -8,6 +8,11 @@ import { writeTodoAudit } from "../../../scripts/todo-audit";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 const GENERATED_AT = "2026-05-09T21:00:00.000Z";
+const GSTACK_TOOL_ROOT = "~/.gstack/repos/gstack/bin";
+const GSTACK_TOOL_COUNT = 2;
+const GSTACK_TOOL_NAMES = ["gstack-brain-sync", "gstack-slug"];
+const GSTACK_HELPER_TOOL_EVIDENCE = `${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} gstack helper tools)`;
+const GSTACK_CLI_UNAVAILABLE_LIMITATION = `gstack CLI is not available on PATH; local gstack helper tools are installed under ${GSTACK_TOOL_ROOT} (${GSTACK_TOOL_COUNT} executable helper(s)), so workflow status is recorded from installed skill/tool files and local package-script evidence instead of claiming umbrella CLI execution.`;
 
 describe("goal audit", () => {
   let root: string;
@@ -562,6 +567,9 @@ describe("goal audit", () => {
       commandUploadEnabled: false,
       gstackAvailable: true,
       gstackCliAvailable: false,
+      gstackToolRoot: GSTACK_TOOL_ROOT,
+      gstackToolCount: GSTACK_TOOL_COUNT,
+      gstackToolNames: GSTACK_TOOL_NAMES,
       workflows: [
         { id: "health", status: "pass", skillAvailable: true, details: "health ok", evidence: [], limitations: [] },
         { id: "review", status: "blocked-by-workspace", skillAvailable: true, details: "no git", evidence: [], limitations: ["workspace has no .git metadata for base-branch diff review"] },
@@ -592,9 +600,9 @@ describe("goal audit", () => {
         generatedAt: "2026-05-09T20:55:00Z",
         commandUploadEnabled: false
       },
-      evidence: ["docs/goal.md", ".gstack/qa-reports/seekr-qa-2026-05-09T20-55-00Z.md"],
+      evidence: ["docs/goal.md", GSTACK_HELPER_TOOL_EVIDENCE, ".gstack/qa-reports/seekr-qa-2026-05-09T20-55-00Z.md"],
       limitations: [
-        "gstack CLI is not available on PATH; workflow status is recorded from installed skill files and local package-script evidence instead of claiming CLI execution.",
+        GSTACK_CLI_UNAVAILABLE_LIMITATION,
         "No .git metadata is present in this workspace."
       ]
     }), "utf8");
@@ -785,6 +793,24 @@ describe("goal audit", () => {
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "gstack-workflow-status")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("manifest-level limitation details")
+    });
+  });
+
+  it("fails local alpha when unavailable gstack CLI helper-tool evidence is not preserved", async () => {
+    const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
+    const workflow = JSON.parse(await readFile(workflowPath, "utf8")) as { gstackToolNames?: string[] };
+    delete workflow.gstackToolNames;
+    await writeFile(workflowPath, JSON.stringify(workflow), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "gstack-workflow-status")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("helper-tool evidence")
     });
   });
 
@@ -1363,6 +1389,9 @@ async function seedRoot(root: string) {
     commandUploadEnabled: false,
     gstackAvailable: true,
     gstackCliAvailable: false,
+    gstackToolRoot: GSTACK_TOOL_ROOT,
+    gstackToolCount: GSTACK_TOOL_COUNT,
+    gstackToolNames: GSTACK_TOOL_NAMES,
     workflows: [
       { id: "health", status: "pass", skillAvailable: true, details: "health ok", evidence: [], limitations: [] },
       { id: "review", status: "blocked-by-workspace", skillAvailable: true, details: "no git", evidence: [], limitations: ["workspace has no .git metadata for base-branch diff review"] },
@@ -1394,11 +1423,11 @@ async function seedRoot(root: string) {
       screenshotPaths: [qaHomeScreenshotPath, qaMobileScreenshotPath],
       commandUploadEnabled: false
     },
-    evidence: ["docs/goal.md", qaReportPath, qaHomeScreenshotPath, qaMobileScreenshotPath],
-      limitations: [
-        "gstack CLI is not available on PATH; workflow status is recorded from installed skill files and local package-script evidence instead of claiming CLI execution.",
-        "No .git metadata is present in this workspace."
-      ]
+    evidence: ["docs/goal.md", GSTACK_HELPER_TOOL_EVIDENCE, qaReportPath, qaHomeScreenshotPath, qaMobileScreenshotPath],
+    limitations: [
+      GSTACK_CLI_UNAVAILABLE_LIMITATION,
+      "No .git metadata is present in this workspace."
+    ]
   }), "utf8");
   await writeFile(path.join(root, qaReportPath), [
     "# SEEKR QA Report",

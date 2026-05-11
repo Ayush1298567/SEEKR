@@ -763,6 +763,7 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
     workflowManifest.commandUploadEnabled === false &&
     workflowManifest.gstackAvailable === true &&
     typeof workflowManifest.gstackCliAvailable === "boolean" &&
+    gstackHelperToolEvidenceOk(workflowManifest) &&
     healthHistoryOk &&
     qaReportOk &&
     missingWorkflows.length === 0 &&
@@ -778,7 +779,7 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
     ...missingSignals.map((signal) => `docs/goal.md missing ${signal}`),
     ...missingScripts.map((script) => `package.json missing ${script}`),
     ...(!workflow ? ["gstack workflow status artifact is missing"] : []),
-    ...(workflow && !workflowStatusOk ? ["gstack workflow status artifact must pass or pass with documented workspace limitations, use pass-with-limitations for limitation-only evidence, include all workflows with installed skill availability, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, preserve Git metadata review evidence when present or no-Git review limitations when absent, include perspective status/score/nextAction details, health history status/path, local QA report status/path, record gstack CLI availability, and keep commandUploadEnabled false"] : [])
+    ...(workflow && !workflowStatusOk ? ["gstack workflow status artifact must pass or pass with documented workspace limitations, use pass-with-limitations for limitation-only evidence, include all workflows with installed skill availability, preserve manifest-level limitation details, preserve limitation details for stale or missing health/QA evidence, preserve Git metadata review evidence when present or no-Git review limitations when absent, include perspective status/score/nextAction details, health history status/path, local QA report status/path, record gstack CLI availability, preserve helper-tool evidence when the umbrella CLI is unavailable, and keep commandUploadEnabled false"] : [])
   ];
 
   return {
@@ -1046,6 +1047,26 @@ function manifestLimitationsPreserved(
   if (healthHistory && healthHistory.status !== "pass" && !/health history/i.test(text)) return false;
   if (qaReport && qaReport.status !== "pass" && !/(browser QA|QA report|gstack QA)/i.test(text)) return false;
   return true;
+}
+
+function gstackHelperToolEvidenceOk(manifest: Record<string, unknown>) {
+  if (manifest.gstackCliAvailable === true) return true;
+  const toolRoot = stringOrUndefined(manifest.gstackToolRoot);
+  const toolCount = Number(manifest.gstackToolCount);
+  const toolNames = Array.isArray(manifest.gstackToolNames)
+    ? manifest.gstackToolNames.filter((item): item is string => typeof item === "string" && item.startsWith("gstack-"))
+    : [];
+  const evidence = Array.isArray(manifest.evidence)
+    ? manifest.evidence.filter((item): item is string => typeof item === "string")
+    : [];
+  const evidenceText = evidence.concat(limitationStrings(manifest)).join(" ");
+  return typeof toolRoot === "string" &&
+    /gstack/i.test(toolRoot) &&
+    Number.isInteger(toolCount) &&
+    toolCount > 0 &&
+    toolNames.length === toolCount &&
+    /helper tool/i.test(evidenceText) &&
+    evidenceText.includes(String(toolCount));
 }
 
 function limitationStrings(value: Record<string, unknown>) {
