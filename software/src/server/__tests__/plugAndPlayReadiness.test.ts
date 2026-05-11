@@ -63,6 +63,9 @@ describe("plug-and-play readiness audit", () => {
         checkedFileCount: 8,
         secretScanStatus: "pass",
         sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+        sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+        sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+        sourceControlHandoffConfiguredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
         sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffWorkingTreeClean: true,
@@ -91,6 +94,7 @@ describe("plug-and-play readiness audit", () => {
   it("fails when review bundle source-control summary drifts from the latest source-control artifact", async () => {
     const verificationPath = path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json");
     const verification = JSON.parse(await readFile(verificationPath, "utf8"));
+    verification.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
     verification.sourceControlHandoffWorkingTreeClean = false;
     await writeFile(verificationPath, JSON.stringify(verification), "utf8");
 
@@ -104,7 +108,7 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.reviewBundle.sourceControlHandoffWorkingTreeClean).toBe(false);
     expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
       status: "fail",
-      details: expect.stringContaining("clean-worktree summary must match")
+      details: expect.stringContaining("repository URL summary must match")
     });
   });
 
@@ -1586,6 +1590,9 @@ async function seedPlugAndPlayEvidence(root: string) {
     gstackQaReportPath: ".gstack/qa-reports/seekr-qa-test.md",
     todoAuditPath: ".tmp/todo-audit/seekr-todo-audit-test.json",
     sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+    sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+    sourceControlHandoffConfiguredRemoteUrls: ["git@github.com:Ayush1298567/SEEKR.git"],
     sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffWorkingTreeClean: true,

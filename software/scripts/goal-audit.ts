@@ -970,6 +970,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (normalizeArtifactPath(root, readinessReviewBundle.sourceControlHandoffPath) !== normalizeArtifactPath(root, bundleVerificationManifest.sourceControlHandoffPath)) {
       problems.push("plug-and-play readiness review-bundle source-control path summary must match the latest bundle verification");
     }
+    if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffRepositoryUrl) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffRepositoryUrl)) {
+      problems.push("plug-and-play readiness review-bundle source-control repository URL summary must match the latest bundle verification");
+    }
+    if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffPackageRepositoryUrl) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffPackageRepositoryUrl)) {
+      problems.push("plug-and-play readiness review-bundle source-control package repository summary must match the latest bundle verification");
+    }
+    if (!sameStringArray(stringArray(readinessReviewBundle.sourceControlHandoffConfiguredRemoteUrls), stringArray(bundleVerificationManifest.sourceControlHandoffConfiguredRemoteUrls))) {
+      problems.push("plug-and-play readiness review-bundle source-control configured-remotes summary must match the latest bundle verification");
+    }
     if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffLocalHeadSha) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffLocalHeadSha)) {
       problems.push("plug-and-play readiness review-bundle source-control local HEAD summary must match the latest bundle verification");
     }

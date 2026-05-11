@@ -56,6 +56,8 @@ describe("handoff bundle", () => {
       sourceControlHandoffPath: sourceControlPath,
       sourceControlHandoffStatus: "blocked-source-control-handoff",
       sourceControlHandoffReady: false,
+      sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      sourceControlHandoffConfiguredRemoteUrls: [],
       plugAndPlaySetupPath: setupPath,
       plugAndPlaySetupStatus: "ready-local-setup",
       localAiPreparePath,
@@ -686,6 +688,9 @@ describe("handoff bundle", () => {
       status: "ready-local-alpha-review-bundle",
       sourceControlHandoffStatus: "ready-source-control-handoff",
       sourceControlHandoffReady: true,
+      sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+      sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
       sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffWorkingTreeClean: true,
@@ -702,6 +707,9 @@ describe("handoff bundle", () => {
     expect(verification.manifest).toMatchObject({
       status: "pass",
       sourceControlHandoffPath: sourceControlPath,
+      sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+      sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
       sourceControlHandoffLocalHeadSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffRemoteDefaultBranchSha: "1551c2f20dd0d51858200be22fde06f7b749f53d",
       sourceControlHandoffWorkingTreeClean: true,
@@ -721,6 +729,7 @@ describe("handoff bundle", () => {
       generatedAt: "2026-05-09T21:00:00.000Z"
     });
     const bundleManifest = JSON.parse(await readFile(result.jsonPath, "utf8"));
+    bundleManifest.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
     bundleManifest.sourceControlHandoffWorkingTreeClean = false;
     await writeFile(result.jsonPath, JSON.stringify(bundleManifest), "utf8");
 
@@ -733,6 +742,7 @@ describe("handoff bundle", () => {
     expect(verification.manifest.status).toBe("fail");
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("repository URL must match"),
       expect.stringContaining("clean-worktree flag must match")
     ]));
   });
@@ -2740,6 +2750,7 @@ async function seedBundleEvidence(root: string) {
     ready: false,
     commandUploadEnabled: false,
     repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
     configuredRemoteUrls: [],
     remoteRefCount: 0,
     blockedCheckCount: 2,

@@ -44,6 +44,9 @@ export interface HandoffBundleManifest {
   sourceControlHandoffGeneratedAt?: string;
   sourceControlHandoffStatus?: string;
   sourceControlHandoffReady?: boolean;
+  sourceControlHandoffRepositoryUrl?: string;
+  sourceControlHandoffPackageRepositoryUrl?: string;
+  sourceControlHandoffConfiguredRemoteUrls: string[];
   sourceControlHandoffLocalHeadSha?: string;
   sourceControlHandoffRemoteDefaultBranchSha?: string;
   sourceControlHandoffWorkingTreeClean?: boolean;
@@ -265,6 +268,9 @@ export async function writeHandoffBundle(options: {
     sourceControlHandoffGeneratedAt: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.generatedAt) : undefined,
     sourceControlHandoffStatus: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.status) : undefined,
     sourceControlHandoffReady: isRecord(sourceControlManifest) ? Boolean(sourceControlManifest.ready) : undefined,
+    sourceControlHandoffRepositoryUrl: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.repositoryUrl) : undefined,
+    sourceControlHandoffPackageRepositoryUrl: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.packageRepositoryUrl) : undefined,
+    sourceControlHandoffConfiguredRemoteUrls: isRecord(sourceControlManifest) ? stringArray(sourceControlManifest.configuredRemoteUrls) : [],
     sourceControlHandoffLocalHeadSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.localHeadSha) : undefined,
     sourceControlHandoffRemoteDefaultBranchSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.remoteDefaultBranchSha) : undefined,
     sourceControlHandoffWorkingTreeClean: isRecord(sourceControlManifest) ? booleanOrUndefined(sourceControlManifest.workingTreeClean) : undefined,
@@ -479,6 +485,9 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.sourceControlHandoffGeneratedAt ? `Source-control handoff generated at: ${manifest.sourceControlHandoffGeneratedAt}` : undefined,
     manifest.sourceControlHandoffStatus ? `Source-control handoff verdict: ${manifest.sourceControlHandoffStatus}` : undefined,
     typeof manifest.sourceControlHandoffReady === "boolean" ? `Source-control handoff ready: ${manifest.sourceControlHandoffReady}` : undefined,
+    manifest.sourceControlHandoffRepositoryUrl ? `Source-control repository: ${manifest.sourceControlHandoffRepositoryUrl}` : undefined,
+    manifest.sourceControlHandoffPackageRepositoryUrl ? `Source-control package repository: ${manifest.sourceControlHandoffPackageRepositoryUrl}` : undefined,
+    manifest.sourceControlHandoffConfiguredRemoteUrls.length ? `Source-control configured remotes: ${manifest.sourceControlHandoffConfiguredRemoteUrls.join(", ")}` : undefined,
     manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.sourceControlHandoffRemoteDefaultBranchSha ? `Source-control remote default SHA: ${manifest.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
     typeof manifest.sourceControlHandoffWorkingTreeClean === "boolean" ? `Source-control working tree clean: ${manifest.sourceControlHandoffWorkingTreeClean}` : undefined,
@@ -952,6 +961,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffPath: result.manifest.sourceControlHandoffPath,
     sourceControlHandoffStatus: result.manifest.sourceControlHandoffStatus,
     sourceControlHandoffReady: result.manifest.sourceControlHandoffReady,
+    sourceControlHandoffRepositoryUrl: result.manifest.sourceControlHandoffRepositoryUrl,
+    sourceControlHandoffPackageRepositoryUrl: result.manifest.sourceControlHandoffPackageRepositoryUrl,
+    sourceControlHandoffConfiguredRemoteUrls: result.manifest.sourceControlHandoffConfiguredRemoteUrls,
     sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,
     sourceControlHandoffRemoteDefaultBranchSha: result.manifest.sourceControlHandoffRemoteDefaultBranchSha,
     sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,

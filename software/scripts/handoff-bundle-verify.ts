@@ -36,6 +36,9 @@ export interface HandoffBundleVerificationManifest {
   gstackQaScreenshotPaths: string[];
   todoAuditPath?: string;
   sourceControlHandoffPath?: string;
+  sourceControlHandoffRepositoryUrl?: string;
+  sourceControlHandoffPackageRepositoryUrl?: string;
+  sourceControlHandoffConfiguredRemoteUrls: string[];
   sourceControlHandoffLocalHeadSha?: string;
   sourceControlHandoffRemoteDefaultBranchSha?: string;
   sourceControlHandoffWorkingTreeClean?: boolean;
@@ -284,10 +287,16 @@ export async function buildHandoffBundleVerification(options: {
     }
   }
   const sourceControlHandoffPath = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffPath) : undefined;
+  const manifestSourceControlRepositoryUrl = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffRepositoryUrl) : undefined;
+  const manifestSourceControlPackageRepositoryUrl = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffPackageRepositoryUrl) : undefined;
+  const manifestSourceControlConfiguredRemoteUrls = isRecord(manifest) ? stringArray(manifest.sourceControlHandoffConfiguredRemoteUrls) : [];
   const manifestSourceControlLocalHeadSha = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha) : undefined;
   const manifestSourceControlRemoteDefaultBranchSha = isRecord(manifest) ? stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha) : undefined;
   const manifestSourceControlWorkingTreeClean = isRecord(manifest) ? booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean) : undefined;
   const manifestSourceControlWorkingTreeStatusLineCount = isRecord(manifest) ? numberOrUndefined(manifest.sourceControlHandoffWorkingTreeStatusLineCount) : undefined;
+  let sourceControlHandoffRepositoryUrl = manifestSourceControlRepositoryUrl;
+  let sourceControlHandoffPackageRepositoryUrl = manifestSourceControlPackageRepositoryUrl;
+  let sourceControlHandoffConfiguredRemoteUrls = manifestSourceControlConfiguredRemoteUrls;
   let sourceControlHandoffLocalHeadSha = manifestSourceControlLocalHeadSha;
   let sourceControlHandoffRemoteDefaultBranchSha = manifestSourceControlRemoteDefaultBranchSha;
   let sourceControlHandoffWorkingTreeClean = manifestSourceControlWorkingTreeClean;
@@ -299,10 +308,16 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && sourceControlHandoffPath) {
     const sourceControl = await readCopiedJson(bundleDirectory, sourceControlHandoffPath);
+    const copiedRepositoryUrl = isRecord(sourceControl) ? stringOrUndefined(sourceControl.repositoryUrl) : undefined;
+    const copiedPackageRepositoryUrl = isRecord(sourceControl) ? stringOrUndefined(sourceControl.packageRepositoryUrl) : undefined;
+    const copiedConfiguredRemoteUrls = isRecord(sourceControl) ? stringArray(sourceControl.configuredRemoteUrls) : [];
     const copiedLocalHeadSha = isRecord(sourceControl) ? stringOrUndefined(sourceControl.localHeadSha) : undefined;
     const copiedRemoteDefaultBranchSha = isRecord(sourceControl) ? stringOrUndefined(sourceControl.remoteDefaultBranchSha) : undefined;
     const copiedWorkingTreeClean = isRecord(sourceControl) ? booleanOrUndefined(sourceControl.workingTreeClean) : undefined;
     const copiedWorkingTreeStatusLineCount = isRecord(sourceControl) ? numberOrUndefined(sourceControl.workingTreeStatusLineCount) : undefined;
+    sourceControlHandoffRepositoryUrl = copiedRepositoryUrl ?? sourceControlHandoffRepositoryUrl;
+    sourceControlHandoffPackageRepositoryUrl = copiedPackageRepositoryUrl ?? sourceControlHandoffPackageRepositoryUrl;
+    sourceControlHandoffConfiguredRemoteUrls = copiedConfiguredRemoteUrls.length ? copiedConfiguredRemoteUrls : sourceControlHandoffConfiguredRemoteUrls;
     sourceControlHandoffLocalHeadSha = copiedLocalHeadSha ?? sourceControlHandoffLocalHeadSha;
     sourceControlHandoffRemoteDefaultBranchSha = copiedRemoteDefaultBranchSha ?? sourceControlHandoffRemoteDefaultBranchSha;
     sourceControlHandoffWorkingTreeClean = copiedWorkingTreeClean ?? sourceControlHandoffWorkingTreeClean;
@@ -315,6 +330,15 @@ export async function buildHandoffBundleVerification(options: {
       warnings.push("Copied source-control handoff remains not ready for publication; local Git/GitHub limitation is preserved for review.");
     }
     if (isRecord(sourceControl) && sourceControl.ready === true) {
+      if (manifestSourceControlRepositoryUrl !== copiedRepositoryUrl) {
+        blockers.push("Handoff bundle source-control repository URL must match the copied source-control handoff artifact.");
+      }
+      if (manifestSourceControlPackageRepositoryUrl !== copiedPackageRepositoryUrl) {
+        blockers.push("Handoff bundle source-control package repository URL must match the copied source-control handoff artifact.");
+      }
+      if (!sameStringArray(manifestSourceControlConfiguredRemoteUrls, copiedConfiguredRemoteUrls)) {
+        blockers.push("Handoff bundle source-control configured remotes must match the copied source-control handoff artifact.");
+      }
       if (manifestSourceControlLocalHeadSha !== copiedLocalHeadSha) {
         blockers.push("Handoff bundle source-control local HEAD must match the copied source-control handoff artifact.");
       }
@@ -405,6 +429,9 @@ export async function buildHandoffBundleVerification(options: {
     gstackQaScreenshotPaths,
     todoAuditPath,
     sourceControlHandoffPath,
+    sourceControlHandoffRepositoryUrl,
+    sourceControlHandoffPackageRepositoryUrl,
+    sourceControlHandoffConfiguredRemoteUrls,
     sourceControlHandoffLocalHeadSha,
     sourceControlHandoffRemoteDefaultBranchSha,
     sourceControlHandoffWorkingTreeClean,
@@ -521,6 +548,7 @@ function emptyManifest(
     commandUploadEnabled: false,
     sourceBundlePath,
     gstackQaScreenshotPaths: [],
+    sourceControlHandoffConfiguredRemoteUrls: [],
     checkedFileCount: 0,
     safetyBoundary: {
       realAircraftCommandUpload: false,
@@ -651,6 +679,9 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     manifest.gstackQaScreenshotPaths.length ? `GStack QA screenshots: ${manifest.gstackQaScreenshotPaths.join(", ")}` : undefined,
     manifest.todoAuditPath ? `TODO audit: ${manifest.todoAuditPath}` : undefined,
     manifest.sourceControlHandoffPath ? `Source-control handoff: ${manifest.sourceControlHandoffPath}` : undefined,
+    manifest.sourceControlHandoffRepositoryUrl ? `Source-control repository: ${manifest.sourceControlHandoffRepositoryUrl}` : undefined,
+    manifest.sourceControlHandoffPackageRepositoryUrl ? `Source-control package repository: ${manifest.sourceControlHandoffPackageRepositoryUrl}` : undefined,
+    manifest.sourceControlHandoffConfiguredRemoteUrls.length ? `Source-control configured remotes: ${manifest.sourceControlHandoffConfiguredRemoteUrls.join(", ")}` : undefined,
     manifest.sourceControlHandoffLocalHeadSha ? `Source-control local HEAD: ${manifest.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.sourceControlHandoffRemoteDefaultBranchSha ? `Source-control remote default SHA: ${manifest.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
     typeof manifest.sourceControlHandoffWorkingTreeClean === "boolean" ? `Source-control working tree clean: ${manifest.sourceControlHandoffWorkingTreeClean}` : undefined,
@@ -1008,6 +1039,10 @@ function stringArray(value: unknown) {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
+function sameStringArray(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function todoAuditOk(manifest: unknown) {
   if (!isRecord(manifest)) return false;
   const validation = isRecord(manifest.validation) ? manifest.validation : {};
@@ -1170,6 +1205,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     gstackQaScreenshotPaths: result.manifest.gstackQaScreenshotPaths,
     todoAuditPath: result.manifest.todoAuditPath,
     sourceControlHandoffPath: result.manifest.sourceControlHandoffPath,
+    sourceControlHandoffRepositoryUrl: result.manifest.sourceControlHandoffRepositoryUrl,
+    sourceControlHandoffPackageRepositoryUrl: result.manifest.sourceControlHandoffPackageRepositoryUrl,
+    sourceControlHandoffConfiguredRemoteUrls: result.manifest.sourceControlHandoffConfiguredRemoteUrls,
     sourceControlHandoffLocalHeadSha: result.manifest.sourceControlHandoffLocalHeadSha,
     sourceControlHandoffRemoteDefaultBranchSha: result.manifest.sourceControlHandoffRemoteDefaultBranchSha,
     sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,

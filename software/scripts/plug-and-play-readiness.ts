@@ -63,6 +63,9 @@ export interface PlugAndPlayReadinessManifest {
     checkedFileCount?: number;
     secretScanStatus?: string;
     sourceControlHandoffPath?: string;
+    sourceControlHandoffRepositoryUrl?: string;
+    sourceControlHandoffPackageRepositoryUrl?: string;
+    sourceControlHandoffConfiguredRemoteUrls?: string[];
     sourceControlHandoffLocalHeadSha?: string;
     sourceControlHandoffRemoteDefaultBranchSha?: string;
     sourceControlHandoffWorkingTreeClean?: boolean;
@@ -862,6 +865,15 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
     if (stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha) !== stringOrUndefined(sourceControlManifest.remoteDefaultBranchSha)) {
       problems.push("review bundle source-control remote default SHA summary must match the latest source-control handoff");
     }
+    if (stringOrUndefined(manifest.sourceControlHandoffRepositoryUrl) !== stringOrUndefined(sourceControlManifest.repositoryUrl)) {
+      problems.push("review bundle source-control repository URL summary must match the latest source-control handoff");
+    }
+    if (stringOrUndefined(manifest.sourceControlHandoffPackageRepositoryUrl) !== stringOrUndefined(sourceControlManifest.packageRepositoryUrl)) {
+      problems.push("review bundle source-control package repository summary must match the latest source-control handoff");
+    }
+    if (!sameStringArray(stringArray(manifest.sourceControlHandoffConfiguredRemoteUrls), stringArray(sourceControlManifest.configuredRemoteUrls))) {
+      problems.push("review bundle source-control configured-remotes summary must match the latest source-control handoff");
+    }
     if (booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean) !== booleanOrUndefined(sourceControlManifest.workingTreeClean)) {
       problems.push("review bundle source-control clean-worktree summary must match the latest source-control handoff");
     }
@@ -989,6 +1001,9 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     typeof manifest.reviewBundle.checkedFileCount === "number" ? `- Checked files: ${manifest.reviewBundle.checkedFileCount}` : undefined,
     manifest.reviewBundle.secretScanStatus ? `- Secret scan: ${manifest.reviewBundle.secretScanStatus}` : undefined,
     manifest.reviewBundle.sourceControlHandoffPath ? `- Source-control handoff: ${manifest.reviewBundle.sourceControlHandoffPath}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffRepositoryUrl ? `- Source-control repository: ${manifest.reviewBundle.sourceControlHandoffRepositoryUrl}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffPackageRepositoryUrl ? `- Source-control package repository: ${manifest.reviewBundle.sourceControlHandoffPackageRepositoryUrl}` : undefined,
+    manifest.reviewBundle.sourceControlHandoffConfiguredRemoteUrls?.length ? `- Source-control configured remotes: ${manifest.reviewBundle.sourceControlHandoffConfiguredRemoteUrls.join(", ")}` : undefined,
     manifest.reviewBundle.sourceControlHandoffLocalHeadSha ? `- Source-control local HEAD: ${manifest.reviewBundle.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha ? `- Source-control remote default SHA: ${manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
     typeof manifest.reviewBundle.sourceControlHandoffWorkingTreeClean === "boolean" ? `- Source-control working tree clean: ${manifest.reviewBundle.sourceControlHandoffWorkingTreeClean}` : undefined,
@@ -1109,6 +1124,9 @@ async function reviewBundleSummary(root: string): Promise<PlugAndPlayReadinessMa
     checkedFileCount: numberOrUndefined(manifest.checkedFileCount),
     secretScanStatus: isRecord(secretScan) ? stringOrUndefined(secretScan.status) : undefined,
     sourceControlHandoffPath: normalizeArtifactPath(root, manifest.sourceControlHandoffPath),
+    sourceControlHandoffRepositoryUrl: stringOrUndefined(manifest.sourceControlHandoffRepositoryUrl),
+    sourceControlHandoffPackageRepositoryUrl: stringOrUndefined(manifest.sourceControlHandoffPackageRepositoryUrl),
+    sourceControlHandoffConfiguredRemoteUrls: stringArray(manifest.sourceControlHandoffConfiguredRemoteUrls),
     sourceControlHandoffLocalHeadSha: stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha),
     sourceControlHandoffRemoteDefaultBranchSha: stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha),
     sourceControlHandoffWorkingTreeClean: booleanOrUndefined(manifest.sourceControlHandoffWorkingTreeClean),
