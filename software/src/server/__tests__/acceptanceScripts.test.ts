@@ -150,6 +150,7 @@ describe("acceptance script contract", () => {
     const edgeBench = readFileSync(new URL("../../../docs/EDGE_HARDWARE_BENCH.md", import.meta.url), "utf8");
     const testMatrix = readFileSync(new URL("../../../docs/TEST_MATRIX.md", import.meta.url), "utf8");
     const gcsTodo = readFileSync(new URL("../../../docs/SEEKR_GCS_ALPHA_TODO.md", import.meta.url), "utf8");
+    const goalDoc = readFileSync(new URL("../../../docs/goal.md", import.meta.url), "utf8");
     const requiredMatrixCommands = [
       "npm run acceptance",
       "npm run bench:dimos",
@@ -192,6 +193,14 @@ describe("acceptance script contract", () => {
     expect(edgeBench).not.toContain("Flight software is not complete.");
     expect(edgeBench).not.toContain("A real read-only MAVLink bridge process that subscribes to vehicle telemetry");
     expect(edgeBench).not.toContain("DimOS replay/simulation research to decide whether a `dimos-readonly` sidecar bridge is useful");
+    expect(goalDoc).toContain("branch/ref/count/SHA");
+    expect(goalDoc).toContain("ref-count/blocked-check-count/warning-check-count/local/remote SHA");
+    expect(goalDoc).not.toContain("branch/ref/SHA");
+    expect(goalDoc).not.toContain("ref-count/local/remote SHA");
+    expect(testMatrix).toContain("ref-count/blocked-check-count/warning-check-count/local/remote SHA");
+    expect(testMatrix).toContain("ref-count/blocked-check-count/warning-check-count/SHA");
+    expect(testMatrix).not.toContain("ref-count/local/remote SHA");
+    expect(testMatrix).not.toContain("ref-count/SHA and clean-worktree");
     for (const command of requiredMatrixCommands) {
       expect(testMatrix).toContain(command);
     }
