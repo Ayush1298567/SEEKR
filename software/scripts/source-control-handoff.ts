@@ -94,6 +94,8 @@ const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "npm run doctor",
   "npm run rehearsal:start",
   "npm run smoke:rehearsal:start",
+  "npm run test:ai:local",
+  "npm run audit:plug-and-play",
   "command upload",
   "hardware actuation"
 ];
@@ -486,7 +488,7 @@ function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
     status: problems.length ? "blocked" : "pass",
     details: problems.length
       ? `The GitHub landing README violates fresh-clone plug-and-play guidance: ${problems.join(", ")}.`
-      : "The GitHub landing README gives an ordered fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke after startup, and preserves disabled command/hardware authority.",
+      : "The GitHub landing README gives an ordered fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke, strict local AI smoke, and plug-and-play audit guidance, and preserves disabled command/hardware authority.",
     evidence: problems.length ? ["../README.md"] : ["../README.md", "github-landing-readme-command-order"]
   };
 }

@@ -12,12 +12,19 @@ npm run setup:local
 npm run audit:source-control
 npm run doctor
 npm run rehearsal:start
+```
+
+Before final local plug-and-play review, run the bounded startup, strict local AI, and readiness proof commands:
+
+```bash
 npm run smoke:rehearsal:start
+npm run test:ai:local
+npm run audit:plug-and-play
 ```
 
 If the repository is already cloned, run `git pull --ff-only` from the repository root first, then enter `software/` and use the same setup and rehearsal commands.
 
-Source-control reference: <https://github.com/Ayush1298567/SEEKR>. Local rehearsal can run even when Git metadata is missing, but `software` also has a read-only source-control handoff audit that records this landing README's fresh-clone path, a shallow fresh-clone smoke proof, GitHub publication, local HEAD, and clean-worktree state before review.
+Source-control reference: <https://github.com/Ayush1298567/SEEKR>. Local rehearsal can run even when Git metadata is missing, but `software` also has a read-only source-control handoff audit that records this landing README's fresh-clone path, final AI and plug-and-play proof guidance, a shallow fresh-clone smoke proof, GitHub publication, local HEAD, and clean-worktree state before review.
 
 The local plug-and-play path keeps command upload and hardware actuation disabled. Real Jetson/Pi hardware validation, real MAVLink/ROS bench telemetry, HIL logs, Isaac Sim to Jetson capture, and reviewed hardware-actuation policy evidence are still required before the system can be treated as physically complete.
 
