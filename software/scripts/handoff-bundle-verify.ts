@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
-import { OPERATOR_QUICKSTART_PATH, operatorQuickstartOk } from "./operator-quickstart-contract";
+import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
@@ -323,8 +323,9 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && operatorQuickstartPath) {
     const quickstart = await readCopiedText(bundleDirectory, operatorQuickstartPath);
-    if (!operatorQuickstartOk(quickstart ?? "")) {
-      blockers.push("Copied operator quickstart must document local setup, source-control audit, start, advisory-only Ollama AI that cannot create command payloads or bypass validation, API evidence, source-health, real-world blockers, and disabled command/hardware authority.");
+    const missingSignals = operatorQuickstartProblems(quickstart ?? "");
+    if (missingSignals.length) {
+      blockers.push(`Copied operator quickstart is missing required plug-and-play signal(s): ${missingSignals.join(", ")}.`);
     }
   }
 

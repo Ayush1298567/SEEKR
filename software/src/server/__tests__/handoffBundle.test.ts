@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeHandoffBundle } from "../../../scripts/handoff-bundle";
 import { writeHandoffBundleVerification } from "../../../scripts/handoff-bundle-verify";
+import { REQUIRED_OPERATOR_QUICKSTART_SIGNALS } from "../../../scripts/operator-quickstart-contract";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
@@ -823,7 +824,28 @@ describe("handoff bundle", () => {
     expect(result.manifest.commandUploadEnabled).toBe(false);
     expect(result.manifest.copiedFileCount).toBe(0);
     expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("source-control audit")
+      expect.stringContaining("npm run audit:source-control")
+    ]));
+  });
+
+  it("blocks bundling when the operator quickstart omits occupied-port recovery guidance", async () => {
+    await writeFile(
+      path.join(root, operatorQuickstartPath),
+      quickstartContentWithout("Listener diagnostics"),
+      "utf8"
+    );
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Listener diagnostics")
     ]));
   });
 
@@ -858,7 +880,7 @@ describe("handoff bundle", () => {
     expect(result.manifest.commandUploadEnabled).toBe(false);
     expect(result.manifest.copiedFileCount).toBe(0);
     expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("advisory-only Ollama AI")
+      expect.stringContaining("AI output is advisory")
     ]));
   });
 
@@ -1410,7 +1432,7 @@ describe("handoff bundle", () => {
     expect(verification.manifest.status).toBe("fail");
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("source-control audit")
+      expect.stringContaining("npm run audit:source-control")
     ]));
   });
 
@@ -1452,7 +1474,31 @@ describe("handoff bundle", () => {
 
     expect(verification.manifest.status).toBe("fail");
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("advisory-only Ollama AI")
+      expect.stringContaining("AI output is advisory")
+    ]));
+  });
+
+  it("fails bundle verification when the copied operator quickstart omits occupied-port recovery guidance", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    await writeFile(
+      path.join(result.bundleDirectory, "artifacts", operatorQuickstartPath),
+      quickstartContentWithout("Listener diagnostics"),
+      "utf8"
+    );
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Listener diagnostics")
     ]));
   });
 
@@ -2643,6 +2689,15 @@ async function updateBundleManifestDigest(manifestPath: string, sourcePath: stri
   file.bytes = Buffer.byteLength(content);
   file.sha256 = createHash("sha256").update(content).digest("hex");
   await writeFile(manifestPath, JSON.stringify(manifest), "utf8");
+}
+
+function quickstartContentWithout(signal: string) {
+  return [
+    "# SEEKR Operator Quickstart",
+    "",
+    ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((item) => item !== signal),
+    ""
+  ].join("\n");
 }
 
 function markSourceControlReady(manifest: {

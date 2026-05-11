@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
 import { buildHandoffVerification } from "./handoff-verify";
-import { OPERATOR_QUICKSTART_PATH, operatorQuickstartOk } from "./operator-quickstart-contract";
+import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
@@ -177,8 +177,9 @@ export async function writeHandoffBundle(options: {
   } else if (!rehearsalStartSmokeOk(rehearsalStartSmokeManifest)) {
     blockers.push("Rehearsal-start smoke artifact must pass API/client startup, source-health, readiness, clean shutdown, and commandUploadEnabled false before bundling.");
   }
-  if (!operatorQuickstartOk(operatorQuickstart)) {
-    blockers.push("Operator quickstart must document local setup, source-control audit, start, advisory-only Ollama AI that cannot create command payloads or bypass validation, API evidence, source-health, real-world blockers, and disabled command/hardware authority before bundling.");
+  const operatorQuickstartMissingSignals = operatorQuickstartProblems(operatorQuickstart);
+  if (operatorQuickstartMissingSignals.length) {
+    blockers.push(`Operator quickstart is missing required plug-and-play signal(s): ${operatorQuickstartMissingSignals.join(", ")}.`);
   }
 
   if (blockers.length === 0 && index) {
