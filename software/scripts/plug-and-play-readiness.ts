@@ -948,6 +948,11 @@ async function completionBoundaryCheck(root: string): Promise<PlugAndPlayCheck> 
   const manifest = completion ? await readJson(completion.absolutePath) : undefined;
   const blockers = isRecord(manifest) && Array.isArray(manifest.realWorldBlockers) ? manifest.realWorldBlockers.map(String) : [];
   const items = isRecord(manifest) && Array.isArray(manifest.items) ? manifest.items.filter(isRecord) : [];
+  const blockedItemDetails = items
+    .filter((item) => item.status === "blocked")
+    .map((item) => String(item.details ?? ""));
+  const summary = isRecord(manifest) && isRecord(manifest.summary) ? manifest.summary : undefined;
+  const summaryBlocked = summary ? numberOrUndefined(summary.blocked) : undefined;
   const adapterBoundary = items.find((item) => item.id === "adapter-command-boundary");
   const commandScan = items.find((item) => item.id === "command-boundary-scan");
   const policyReview = items.find((item) => item.id === "hardware-actuation-policy-review");
@@ -963,6 +968,12 @@ async function completionBoundaryCheck(root: string): Promise<PlugAndPlayCheck> 
   }
   if (isRecord(manifest) && !completionComplete && blockers.length === 0) {
     completionContradictions.push("completion audit must explicitly report complete before plug-and-play readiness can clear real-world blockers");
+  }
+  if (isRecord(manifest) && summaryBlocked !== blockedItemDetails.length) {
+    completionContradictions.push("completion audit summary.blocked must match the blocked item count");
+  }
+  if (isRecord(manifest) && !sameStringArray(blockers, blockedItemDetails)) {
+    completionContradictions.push("completion audit realWorldBlockers must exactly mirror blocked item details");
   }
   const fail = !isRecord(manifest) ||
     manifest.localAlphaOk !== true ||

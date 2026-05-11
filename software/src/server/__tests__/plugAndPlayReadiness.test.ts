@@ -169,6 +169,26 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails closed when completion audit under-reports blocked item details", async () => {
+    const completionPath = path.join(root, ".tmp/completion-audit/seekr-completion-audit-test.json");
+    const completion = JSON.parse(await readFile(completionPath, "utf8"));
+    completion.realWorldBlockers = completion.realWorldBlockers.slice(1);
+    await writeFile(completionPath, JSON.stringify(completion), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.remainingRealWorldBlockerCount).toBe(7);
+    expect(manifest.checks.find((check) => check.id === "real-world-boundary")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("realWorldBlockers must exactly mirror blocked item details")
+    });
+  });
+
   it("fails when the API probe readback does not match acceptance evidence", async () => {
     const apiProbePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
     const apiProbe = JSON.parse(await readFile(apiProbePath, "utf8"));
@@ -1579,10 +1599,26 @@ async function seedPlugAndPlayEvidence(root: string) {
       }
     }
   }), "utf8");
+  const completionBlockers = [
+    { id: "fresh-operator-rehearsal", details: "Fresh-operator field-laptop rehearsal is not completed in this session." },
+    { id: "actual-jetson-orin-nano-hardware-evidence", details: "No actual Jetson Orin Nano hardware readiness archive is present." },
+    { id: "actual-raspberry-pi-5-hardware-evidence", details: "No actual Raspberry Pi 5 hardware readiness archive is present." },
+    { id: "real-mavlink-bench", details: "No real read-only MAVLink serial/UDP bench telemetry source has been validated." },
+    { id: "real-ros2-bench", details: "No real read-only ROS 2 /map, pose, detection, LiDAR, or costmap topic bridge has been validated." },
+    { id: "hil-failsafe-manual-override", details: "No HIL failsafe/manual override logs from a real bench run are present." },
+    { id: "isaac-sim-jetson-capture", details: "No Isaac Sim to Jetson capture from a real bench run is archived." },
+    { id: "hardware-actuation-policy-review", details: "No reviewed hardware-actuation policy package exists, and runtime command authority remains disabled with false authorization fields." }
+  ];
   await writeFile(path.join(root, ".tmp/completion-audit/seekr-completion-audit-test.json"), JSON.stringify({
     localAlphaOk: true,
     complete: false,
     commandUploadEnabled: false,
+    summary: {
+      pass: 2,
+      warn: 0,
+      fail: 0,
+      blocked: completionBlockers.length
+    },
     items: [
       {
         id: "adapter-command-boundary",
@@ -1594,22 +1630,13 @@ async function seedPlugAndPlayEvidence(root: string) {
         status: "pass",
         details: "Latest command-boundary static scan passed."
       },
-      {
-        id: "hardware-actuation-policy-review",
+      ...completionBlockers.map((blocker) => ({
+        id: blocker.id,
         status: "blocked",
-        details: "No reviewed hardware-actuation policy package exists, and runtime command authority remains disabled with false authorization fields."
-      }
+        details: blocker.details
+      }))
     ],
-    realWorldBlockers: [
-      "Fresh-operator field-laptop rehearsal is not completed in this session.",
-      "No actual Jetson Orin Nano hardware readiness archive is present.",
-      "No actual Raspberry Pi 5 hardware readiness archive is present.",
-      "No real read-only MAVLink serial/UDP bench telemetry source has been validated.",
-      "No real read-only ROS 2 /map, pose, detection, LiDAR, or costmap topic bridge has been validated.",
-      "No HIL failsafe/manual override logs from a real bench run are present.",
-      "No Isaac Sim to Jetson capture from a real bench run is archived.",
-      "No reviewed hardware-actuation policy package exists, and runtime command authority remains disabled."
-    ]
+    realWorldBlockers: completionBlockers.map((blocker) => blocker.details)
   }), "utf8");
   await writeFile(path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json"), JSON.stringify({
     status: "pass-with-limitations",
