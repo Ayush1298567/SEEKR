@@ -58,6 +58,9 @@ export interface GstackWorkflowStatusManifest {
   gstackAvailable: boolean;
   gstackCliAvailable: boolean;
   gstackCliPath?: string;
+  gstackToolRoot?: string;
+  gstackToolCount?: number;
+  gstackToolNames?: string[];
   gitMetadataPath?: string;
   workflows: GstackWorkflowItem[];
   perspectives: GstackPerspectiveItem[];
@@ -81,6 +84,7 @@ export async function buildGstackWorkflowStatus(options: {
   generatedAt?: string;
   skillRoot?: string;
   gstackCliPath?: string | false;
+  gstackToolRoot?: string | false;
   healthHistoryPath?: string | false;
 } = {}): Promise<GstackWorkflowStatusManifest> {
   const root = path.resolve(options.root ?? process.cwd());
@@ -90,6 +94,11 @@ export async function buildGstackWorkflowStatus(options: {
     ? undefined
     : options.gstackCliPath ? path.resolve(options.gstackCliPath) : await detectExecutable("gstack");
   const gstackCliAvailable = Boolean(gstackCliPath);
+  const gstackToolRootAbsolute = options.gstackToolRoot === false
+    ? undefined
+    : options.gstackToolRoot ? path.resolve(options.gstackToolRoot) : await detectGstackToolRoot();
+  const gstackToolNames = gstackToolRootAbsolute ? await listGstackTools(gstackToolRootAbsolute) : [];
+  const gstackToolRoot = displayHomeRelative(gstackToolRootAbsolute);
   const packageJson = await readJson(path.join(root, "package.json"));
   const scripts = isRecord(packageJson) && isRecord(packageJson.scripts) ? packageJson.scripts : {};
   const goalDoc = await readText(path.join(root, "docs/goal.md"));
@@ -182,6 +191,9 @@ export async function buildGstackWorkflowStatus(options: {
     gstackAvailable,
     gstackCliAvailable,
     gstackCliPath,
+    gstackToolRoot,
+    gstackToolCount: gstackToolNames.length,
+    gstackToolNames,
     gitMetadataPath,
     workflows,
     perspectives,
@@ -195,12 +207,15 @@ export async function buildGstackWorkflowStatus(options: {
       qaReport.path ?? ".gstack/qa-reports",
       ...qaReport.screenshotPaths,
       gstackCliPath ?? "gstack CLI unavailable on PATH",
+      gstackToolRoot ? `${gstackToolRoot} (${gstackToolNames.length} gstack helper tools)` : "gstack helper tool suite unavailable",
       skillRoot ? path.relative(root, skillRoot).split(path.sep).join("/") : "gstack skills unavailable"
     ],
     limitations: [
       gstackCliAvailable
         ? `gstack CLI was found at ${gstackCliPath}; local workflow evidence is still recorded through package scripts for reproducibility.`
-        : "gstack CLI is not available on PATH; workflow status is recorded from installed skill files and local package-script evidence instead of claiming CLI execution.",
+        : gstackToolRoot && gstackToolNames.length
+          ? `gstack CLI is not available on PATH; local gstack helper tools are installed under ${gstackToolRoot} (${gstackToolNames.length} executable helper(s)), so workflow status is recorded from installed skill/tool files and local package-script evidence instead of claiming umbrella CLI execution.`
+          : "gstack CLI is not available on PATH; workflow status is recorded from installed skill files and local package-script evidence instead of claiming CLI execution.",
       hasGitMetadata
         ? `Git metadata is present at ${gitMetadataPath}, so a diff review can be run against a base branch.`
         : "No .git metadata is present in this workspace, so gstack diff review is recorded as blocked-by-workspace instead of claimed as run.",
@@ -552,6 +567,39 @@ async function detectGstackSkillRoot() {
   return undefined;
 }
 
+async function detectGstackToolRoot() {
+  const home = process.env.HOME ?? "";
+  const candidates = [
+    path.join(home, ".gstack/repos/gstack/bin"),
+    path.join(home, ".claude/skills/gstack/.agents/skills/gstack/bin"),
+    path.join(home, ".codex/skills/gstack/bin")
+  ];
+  for (const candidate of candidates) {
+    if ((await listGstackTools(candidate)).length) return candidate;
+  }
+  return undefined;
+}
+
+async function listGstackTools(toolRoot: string) {
+  try {
+    const names = await readdir(toolRoot);
+    const executableNames: string[] = [];
+    for (const name of names) {
+      if (!name.startsWith("gstack-")) continue;
+      const toolPath = path.join(toolRoot, name);
+      try {
+        const info = await stat(toolPath);
+        if (info.isFile() && (info.mode & 0o111)) executableNames.push(name);
+      } catch {
+        // Ignore unreadable helper paths; the audit only records verified local tools.
+      }
+    }
+    return executableNames.sort((left, right) => left.localeCompare(right));
+  } catch {
+    return [];
+  }
+}
+
 async function detectExecutable(name: string) {
   const pathValue = process.env.PATH ?? "";
   for (const directory of pathValue.split(path.delimiter)) {
@@ -656,6 +704,9 @@ function renderMarkdown(manifest: GstackWorkflowStatusManifest) {
     `GStack available: ${manifest.gstackAvailable}`,
     `GStack CLI available: ${manifest.gstackCliAvailable}`,
     manifest.gstackCliPath ? `GStack CLI path: ${manifest.gstackCliPath}` : undefined,
+    manifest.gstackToolRoot ? `GStack helper tool root: ${manifest.gstackToolRoot}` : undefined,
+    typeof manifest.gstackToolCount === "number" ? `GStack helper tool count: ${manifest.gstackToolCount}` : undefined,
+    manifest.gstackToolNames?.length ? `GStack helper tools: ${manifest.gstackToolNames.join(", ")}` : undefined,
     manifest.gitMetadataPath ? `Git metadata path: ${manifest.gitMetadataPath}` : undefined,
     "",
     "## Workflows",

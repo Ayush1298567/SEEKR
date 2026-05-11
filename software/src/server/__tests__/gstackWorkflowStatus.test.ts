@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -96,6 +96,35 @@ describe("gstack workflow status", () => {
     expect(manifest.limitations).toEqual(expect.arrayContaining([
       expect.stringContaining("gstack CLI was found")
     ]));
+  });
+
+  it("records local gstack helper tools separately from the umbrella CLI", async () => {
+    const toolRoot = path.join(root, "gstack-bin");
+    const toolPath = path.join(toolRoot, "gstack-slug");
+    await mkdir(toolRoot, { recursive: true });
+    await writeFile(toolPath, "#!/bin/sh\n", "utf8");
+    await chmod(toolPath, 0o755);
+
+    const result = await writeGstackWorkflowStatus({
+      root,
+      skillRoot,
+      gstackCliPath: false,
+      gstackToolRoot: toolRoot,
+      healthHistoryPath,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(result.manifest.gstackCliAvailable).toBe(false);
+    expect(result.manifest.gstackToolRoot).toBe(toolRoot.split(path.sep).join("/"));
+    expect(result.manifest.gstackToolCount).toBe(1);
+    expect(result.manifest.gstackToolNames).toEqual(["gstack-slug"]);
+    expect(result.manifest.evidence).toEqual(expect.arrayContaining([
+      expect.stringContaining("1 gstack helper tools")
+    ]));
+    expect(result.manifest.limitations).toEqual(expect.arrayContaining([
+      expect.stringContaining("local gstack helper tools are installed")
+    ]));
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("GStack helper tool count: 1");
   });
 
   it("detects Git metadata from a parent repository root", async () => {
