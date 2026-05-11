@@ -851,6 +851,8 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
+  const freshClone = await latestJson(root, ".tmp/fresh-clone-smoke", (name) => name.startsWith("seekr-fresh-clone-smoke-"));
+  const freshCloneManifest = freshClone ? await readJson(freshClone.absolutePath) : undefined;
   const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
   const bundleVerification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
   const bundleVerificationManifest = bundleVerification ? await readJson(bundleVerification.absolutePath) : undefined;
@@ -859,6 +861,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const ai = isRecord(manifest) && isRecord(manifest.ai) ? manifest.ai : {};
   const readinessSourceControl = isRecord(manifest) && isRecord(manifest.sourceControl) ? manifest.sourceControl : undefined;
   const readinessPorts = isRecord(manifest) && isRecord(manifest.operatorStartPorts) ? manifest.operatorStartPorts : undefined;
+  const readinessFreshClone = isRecord(manifest) && isRecord(manifest.freshClone) ? manifest.freshClone : undefined;
   const readinessReviewBundle = isRecord(manifest) && isRecord(manifest.reviewBundle) ? manifest.reviewBundle : undefined;
   const bundleSecretScan = isRecord(bundleVerificationManifest) && isRecord(bundleVerificationManifest.secretScan) ? bundleVerificationManifest.secretScan : undefined;
   const blockers = isRecord(manifest) && Array.isArray(manifest.remainingRealWorldBlockers)
@@ -914,6 +917,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     ["latest source-control handoff", sourceControl],
     ["latest local AI prepare", localAiPrepare],
     ["latest rehearsal-start smoke", rehearsalStartSmoke],
+    ["latest fresh-clone operator smoke", freshClone],
     ["latest handoff bundle", bundle],
     ["latest handoff bundle verification", bundleVerification],
     ["latest gstack workflow status", workflow],
@@ -1008,6 +1012,44 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
       problems.push("plug-and-play readiness operator-start listener diagnostics summary must match the latest doctor local-ports evidence");
     }
   }
+  if (isRecord(manifest) && !readinessFreshClone) {
+    problems.push("plug-and-play readiness must publish a fresh-clone operator smoke summary");
+  }
+  if (readinessFreshClone && freshClone && normalizeArtifactPath(root, readinessFreshClone.path) !== freshClone.relativePath) {
+    problems.push("plug-and-play readiness fresh-clone summary must point at the latest fresh-clone operator smoke");
+  }
+  if (readinessFreshClone && isRecord(freshCloneManifest)) {
+    if (stringOrUndefined(readinessFreshClone.status) !== stringOrUndefined(freshCloneManifest.status)) {
+      problems.push("plug-and-play readiness fresh-clone status summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.repositoryUrl) !== stringOrUndefined(freshCloneManifest.repositoryUrl)) {
+      problems.push("plug-and-play readiness fresh-clone repository summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.localHeadSha) !== stringOrUndefined(freshCloneManifest.localHeadSha)) {
+      problems.push("plug-and-play readiness fresh-clone local HEAD summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.cloneHeadSha) !== stringOrUndefined(freshCloneManifest.cloneHeadSha)) {
+      problems.push("plug-and-play readiness fresh-clone clone HEAD summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.localAiPrepareModel) !== stringOrUndefined(freshCloneManifest.localAiPrepareModel)) {
+      problems.push("plug-and-play readiness fresh-clone local AI model summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.sourceControlHandoffStatus) !== stringOrUndefined(freshCloneManifest.sourceControlHandoffStatus)) {
+      problems.push("plug-and-play readiness fresh-clone source-control status summary must match the latest fresh-clone operator smoke");
+    }
+    if (booleanOrUndefined(readinessFreshClone.sourceControlHandoffReady) !== booleanOrUndefined(freshCloneManifest.sourceControlHandoffReady)) {
+      problems.push("plug-and-play readiness fresh-clone source-control ready summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.plugAndPlayDoctorStatus) !== stringOrUndefined(freshCloneManifest.plugAndPlayDoctorStatus)) {
+      problems.push("plug-and-play readiness fresh-clone doctor status summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.rehearsalStartSmokeStatus) !== stringOrUndefined(freshCloneManifest.rehearsalStartSmokeStatus)) {
+      problems.push("plug-and-play readiness fresh-clone rehearsal-start smoke status summary must match the latest fresh-clone operator smoke");
+    }
+    if (!sameStringArray(stringArray(readinessFreshClone.checked), stringArray(freshCloneManifest.checked))) {
+      problems.push("plug-and-play readiness fresh-clone checked-row summary must match the latest fresh-clone operator smoke");
+    }
+  }
   if (isRecord(manifest) && !readinessReviewBundle) {
     problems.push("plug-and-play readiness must publish a review-bundle summary");
   }
@@ -1075,8 +1117,8 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     details: problems.length
       ? problems.join("; ")
       : readinessWarnings.length
-        ? `Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence with warning(s): ${readinessWarnings.join("; ")}.`
-      : "Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, acceptance, and review-bundle evidence while preserving real-world blockers.",
+        ? `Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, fresh-clone, acceptance, and review-bundle evidence with warning(s): ${readinessWarnings.join("; ")}.`
+      : "Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, fresh-clone, acceptance, and review-bundle evidence while preserving real-world blockers.",
     evidence: [
       readiness?.relativePath,
       apiProbe?.relativePath,
@@ -1085,6 +1127,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
       sourceControl?.relativePath,
       localAiPrepare?.relativePath,
       rehearsalStartSmoke?.relativePath,
+      freshClone?.relativePath,
       bundle?.relativePath,
       bundleVerification?.relativePath,
       workflow?.relativePath,

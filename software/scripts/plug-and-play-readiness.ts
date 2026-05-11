@@ -72,6 +72,19 @@ export interface PlugAndPlayReadinessManifest {
     listenerDiagnostics?: string[];
     details?: string;
   };
+  freshClone: {
+    path?: string;
+    status?: string;
+    repositoryUrl?: string;
+    localHeadSha?: string;
+    cloneHeadSha?: string;
+    localAiPrepareModel?: string;
+    sourceControlHandoffStatus?: string;
+    sourceControlHandoffReady?: boolean;
+    plugAndPlayDoctorStatus?: string;
+    rehearsalStartSmokeStatus?: string;
+    checked?: string[];
+  };
   reviewBundle: {
     path?: string;
     verificationPath?: string;
@@ -206,6 +219,7 @@ export async function buildPlugAndPlayReadiness(options: {
   const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
   const sourceControl = await sourceControlSummary(root);
   const operatorStartPorts = await operatorStartPortsSummary(root);
+  const freshClone = await freshCloneSummary(root);
   const reviewBundle = await reviewBundleSummary(root);
 
   return {
@@ -225,6 +239,7 @@ export async function buildPlugAndPlayReadiness(options: {
     },
     sourceControl,
     operatorStartPorts,
+    freshClone,
     reviewBundle,
     summary,
     checks,
@@ -1109,6 +1124,20 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.operatorStartPorts.listenerDiagnostics?.length ? `- Listener diagnostics: ${manifest.operatorStartPorts.listenerDiagnostics.join("; ")}` : undefined,
     manifest.operatorStartPorts.details ? `- Details: ${manifest.operatorStartPorts.details}` : undefined,
     "",
+    "Fresh clone:",
+    "",
+    manifest.freshClone.path ? `- Smoke: ${manifest.freshClone.path}` : undefined,
+    manifest.freshClone.status ? `- Status: ${manifest.freshClone.status}` : undefined,
+    manifest.freshClone.repositoryUrl ? `- Repository: ${manifest.freshClone.repositoryUrl}` : undefined,
+    manifest.freshClone.localHeadSha ? `- Local HEAD: ${manifest.freshClone.localHeadSha}` : undefined,
+    manifest.freshClone.cloneHeadSha ? `- Clone HEAD: ${manifest.freshClone.cloneHeadSha}` : undefined,
+    manifest.freshClone.localAiPrepareModel ? `- Local AI model: ${manifest.freshClone.localAiPrepareModel}` : undefined,
+    manifest.freshClone.sourceControlHandoffStatus ? `- Source-control handoff status: ${manifest.freshClone.sourceControlHandoffStatus}` : undefined,
+    typeof manifest.freshClone.sourceControlHandoffReady === "boolean" ? `- Source-control handoff ready: ${manifest.freshClone.sourceControlHandoffReady}` : undefined,
+    manifest.freshClone.plugAndPlayDoctorStatus ? `- Doctor status: ${manifest.freshClone.plugAndPlayDoctorStatus}` : undefined,
+    manifest.freshClone.rehearsalStartSmokeStatus ? `- Rehearsal-start smoke status: ${manifest.freshClone.rehearsalStartSmokeStatus}` : undefined,
+    manifest.freshClone.checked?.length ? `- Checked rows: ${manifest.freshClone.checked.join(", ")}` : undefined,
+    "",
     "Review bundle:",
     "",
     manifest.reviewBundle.path ? `- Bundle: ${manifest.reviewBundle.path}` : undefined,
@@ -1255,6 +1284,25 @@ async function operatorStartPortsSummary(root: string): Promise<PlugAndPlayReadi
     autoRecoverable: /auto-selects free local API\/client ports|auto-selected free local API\/client ports|auto-selected free local/i.test(text),
     listenerDiagnostics,
     details
+  };
+}
+
+async function freshCloneSummary(root: string): Promise<PlugAndPlayReadinessManifest["freshClone"]> {
+  const artifact = await latestJson(root, ".tmp/fresh-clone-smoke", (name) => name.startsWith("seekr-fresh-clone-smoke-"));
+  const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  if (!isRecord(manifest)) return {};
+  return {
+    path: artifact?.relativePath,
+    status: stringOrUndefined(manifest.status),
+    repositoryUrl: stringOrUndefined(manifest.repositoryUrl),
+    localHeadSha: stringOrUndefined(manifest.localHeadSha),
+    cloneHeadSha: stringOrUndefined(manifest.cloneHeadSha),
+    localAiPrepareModel: stringOrUndefined(manifest.localAiPrepareModel),
+    sourceControlHandoffStatus: stringOrUndefined(manifest.sourceControlHandoffStatus),
+    sourceControlHandoffReady: booleanOrUndefined(manifest.sourceControlHandoffReady),
+    plugAndPlayDoctorStatus: stringOrUndefined(manifest.plugAndPlayDoctorStatus),
+    rehearsalStartSmokeStatus: stringOrUndefined(manifest.rehearsalStartSmokeStatus),
+    checked: stringArray(manifest.checked)
   };
 }
 

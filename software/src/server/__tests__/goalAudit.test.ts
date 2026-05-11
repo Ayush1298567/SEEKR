@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildCompletionAudit } from "../../../scripts/completion-audit";
+import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
 import { buildGoalAudit, writeGoalAudit } from "../../../scripts/goal-audit";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { writeTodoAudit } from "../../../scripts/todo-audit";
@@ -284,6 +285,26 @@ describe("goal audit", () => {
       details: expect.stringContaining("operator-start default-port occupancy summary")
     });
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("listener diagnostics summary");
+  });
+
+  it("fails local alpha when plug-and-play readiness hides fresh-clone summary drift", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.freshClone.cloneHeadSha = "stale-clone-head";
+    readiness.freshClone.checked = readiness.freshClone.checked.slice(0, -1);
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("fresh-clone clone HEAD summary")
+    });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("fresh-clone checked-row summary");
   });
 
   it("fails local alpha when plug-and-play readiness does not reference source-control handoff evidence", async () => {
@@ -1286,6 +1307,7 @@ async function seedRoot(root: string) {
   const localAiPreparePath = ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json";
   const plugAndPlayDoctorPath = ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json";
   const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json";
+  const freshCloneSmokePath = ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json";
   const strictAiSmokePath = ".tmp/ai-smoke-status.json";
   const releaseChecksum = "a".repeat(64);
   const releaseFileCount = 42;
@@ -1311,6 +1333,7 @@ async function seedRoot(root: string) {
   await mkdir(path.join(root, ".tmp/local-ai-prepare"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true });
   await mkdir(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true });
+  await mkdir(path.join(root, ".tmp/fresh-clone-smoke"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-readiness"), { recursive: true });
   await mkdir(path.join(root, ".tmp/overnight"), { recursive: true });
   await mkdir(path.join(root, ".gstack/qa-reports/screenshots"), { recursive: true });
@@ -1544,6 +1567,9 @@ async function seedRoot(root: string) {
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath,
     rehearsalStartSmokeStatus: "pass",
+    freshCloneSmokePath,
+    freshCloneSmokeStatus: "pass",
+    freshCloneSmokeCloneHeadSha: "abc1234567890",
     strictAiSmokeStatusPath: strictAiSmokePath,
     copiedFileCount: 12,
     safetyBoundary: {
@@ -1588,6 +1614,7 @@ async function seedRoot(root: string) {
     localAiPreparePath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
+    freshCloneSmokePath,
     strictAiSmokeStatusPath: strictAiSmokePath,
     checkedFileCount: 12,
     safetyBoundary: {
@@ -1818,6 +1845,42 @@ async function seedRoot(root: string) {
       runtimePolicyInstalled: false
     }
   }), "utf8");
+  await writeFile(path.join(root, freshCloneSmokePath), JSON.stringify({
+    schemaVersion: 1,
+    generatedAt: GENERATED_AT,
+    ok: true,
+    status: "pass",
+    commandUploadEnabled: false,
+    repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    cloneCommand: ["git", "clone", "--depth", "1", "https://github.com/Ayush1298567/SEEKR"],
+    installCommand: ["npm", "ci", "--ignore-scripts", "--no-audit", "--fund=false", "--prefer-offline"],
+    localHeadSha: "abc1234567890",
+    cloneHeadSha: "abc1234567890",
+    plugAndPlaySetupPath,
+    localAiPreparePath,
+    localAiPrepareModel: "llama3.2:latest",
+    sourceControlHandoffPath: sourceControlPath,
+    sourceControlHandoffStatus: "ready-source-control-handoff",
+    sourceControlHandoffReady: true,
+    sourceControlHandoffLocalHeadSha: "abc1234567890",
+    sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
+    plugAndPlayDoctorPath,
+    plugAndPlayDoctorStatus: "ready-local-start",
+    rehearsalStartSmokePath,
+    rehearsalStartSmokeStatus: "pass",
+    checked: [...REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS],
+    checks: REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS.map((id) => ({
+      id,
+      status: "pass",
+      details: `${id} passed.`,
+      evidence: [id]
+    })),
+    safetyBoundary: {
+      realAircraftCommandUpload: false,
+      hardwareActuationEnabled: false,
+      runtimePolicyInstalled: false
+    }
+  }), "utf8");
 }
 
 async function writePackageJson(root: string) {
@@ -1996,6 +2059,19 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       listenerDiagnostics: ["listener 12345 cwd ~/Ayush/Prophet/prophet-console"],
       details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set."
     },
+    freshClone: {
+      path: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+      status: "pass",
+      repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      localHeadSha: "abc1234567890",
+      cloneHeadSha: "abc1234567890",
+      localAiPrepareModel: "llama3.2:latest",
+      sourceControlHandoffStatus: "ready-source-control-handoff",
+      sourceControlHandoffReady: true,
+      plugAndPlayDoctorStatus: "ready-local-start",
+      rehearsalStartSmokeStatus: "pass",
+      checked: [...REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS]
+    },
     reviewBundle: {
       path: ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json",
       verificationPath: ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
@@ -2048,6 +2124,12 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
         status: "pass",
         details: "rehearsal start smoke ready",
         evidence: [".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json"]
+      },
+      {
+        id: "fresh-clone-operator-smoke",
+        status: "pass",
+        details: "fresh clone ready",
+        evidence: [".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"]
       },
       {
         id: "workflow-qa",

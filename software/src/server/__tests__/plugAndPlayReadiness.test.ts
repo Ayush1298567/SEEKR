@@ -72,6 +72,19 @@ describe("plug-and-play readiness audit", () => {
         listenerDiagnostics: ["listener 12345 cwd ~/Ayush/Prophet/prophet-console"],
         details: expect.stringContaining("auto-selects free local API/client ports")
       },
+      freshClone: {
+        path: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+        status: "pass",
+        repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+        localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        cloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        localAiPrepareModel: "llama3.2:latest",
+        sourceControlHandoffStatus: "ready-source-control-handoff",
+        sourceControlHandoffReady: true,
+        plugAndPlayDoctorStatus: "ready-local-start",
+        rehearsalStartSmokeStatus: "pass",
+        checked: [...REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS]
+      },
       reviewBundle: {
         path: ".tmp/handoff-bundles/seekr-handoff-bundle-test.json",
         verificationPath: ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
@@ -1495,6 +1508,7 @@ describe("plug-and-play readiness audit", () => {
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"remainingRealWorldBlockerCount\": 8");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Plug-And-Play Readiness");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Operator start ports");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Fresh clone");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Remaining real-world blockers");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Count: 8");
   });
