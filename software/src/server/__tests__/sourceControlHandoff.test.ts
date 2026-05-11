@@ -72,6 +72,8 @@ describe("source-control handoff audit", () => {
       ]
     });
     expect(manifest.checks.every((check) => check.status === "pass")).toBe(true);
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.details).toContain("ordered fresh clone path");
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.evidence).toContain("github-landing-readme-command-order");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm ci --dry-run");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("operator quickstart contract");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.evidence).toContain("fresh-clone-operator-quickstart-contract");
@@ -205,6 +207,62 @@ describe("source-control handoff audit", () => {
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
       status: "blocked",
       details: expect.stringContaining("git clone")
+    });
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "repair-github-landing-readme",
+        commands: expect.arrayContaining(["npm run test -- operatorQuickstartContract acceptanceScripts"]),
+        clearsCheckIds: expect.arrayContaining(["github-landing-readme"])
+      })
+    ]));
+  });
+
+  it("blocks when the GitHub landing README starts before setup and source-control audit", async () => {
+    await writeFile(path.join(root, "..", "README.md"), [
+      "# SEEKR",
+      "",
+      "```bash",
+      "git clone https://github.com/Ayush1298567/SEEKR.git",
+      "cd SEEKR/software",
+      "npm ci",
+      "npm run rehearsal:start",
+      "npm run smoke:rehearsal:start",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "```",
+      "",
+      "If the repository is already cloned, run git pull --ff-only first.",
+      "The local plug-and-play path keeps command upload and hardware actuation disabled.",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: freshCloneOk(LOCAL_SHA)
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("command order")
     });
     expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
       expect.objectContaining({

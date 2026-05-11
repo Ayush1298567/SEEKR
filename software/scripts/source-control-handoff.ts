@@ -88,12 +88,24 @@ const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "git clone https://github.com/Ayush1298567/SEEKR.git",
   "cd SEEKR/software",
   "git pull --ff-only",
+  "npm ci",
+  "npm run setup:local",
   "npm run audit:source-control",
   "npm run doctor",
   "npm run rehearsal:start",
   "npm run smoke:rehearsal:start",
   "command upload",
   "hardware actuation"
+];
+const REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER = [
+  "git clone https://github.com/Ayush1298567/SEEKR.git",
+  "cd SEEKR/software",
+  "npm ci",
+  "npm run setup:local",
+  "npm run audit:source-control",
+  "npm run doctor",
+  "npm run rehearsal:start",
+  "npm run smoke:rehearsal:start"
 ];
 const REQUIRED_FRESH_CLONE_PATHS = [
   "README.md",
@@ -468,15 +480,34 @@ function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
       evidence: ["../README.md"]
     };
   }
-  const missing = REQUIRED_GITHUB_LANDING_README_SIGNALS.filter((signal) => !content.includes(signal));
+  const problems = githubLandingReadmeProblems(content);
   return {
     id: "github-landing-readme",
-    status: missing.length ? "blocked" : "pass",
-    details: missing.length
-      ? `The GitHub landing README is missing fresh-clone plug-and-play signal(s): ${missing.join(", ")}.`
-      : "The GitHub landing README gives a fresh clone path into SEEKR/software, includes source-control audit before startup, and preserves disabled command/hardware authority.",
-    evidence: ["../README.md"]
+    status: problems.length ? "blocked" : "pass",
+    details: problems.length
+      ? `The GitHub landing README violates fresh-clone plug-and-play guidance: ${problems.join(", ")}.`
+      : "The GitHub landing README gives an ordered fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke after startup, and preserves disabled command/hardware authority.",
+    evidence: problems.length ? ["../README.md"] : ["../README.md", "github-landing-readme-command-order"]
   };
+}
+
+function githubLandingReadmeProblems(content: string) {
+  const missing = REQUIRED_GITHUB_LANDING_README_SIGNALS.filter((signal) => !content.includes(signal));
+  const problems = [...missing];
+  if (content && !missing.length && !githubLandingReadmeCommandOrderOk(content)) {
+    problems.push(`command order must be ${REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER.join(" before ")}`);
+  }
+  return problems;
+}
+
+function githubLandingReadmeCommandOrderOk(content: string) {
+  let lastIndex = -1;
+  for (const command of REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER) {
+    const index = content.indexOf(command);
+    if (index <= lastIndex) return false;
+    lastIndex = index;
+  }
+  return true;
 }
 
 function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffCheck {
