@@ -309,6 +309,8 @@ describe("goal audit", () => {
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
     readiness.sourceControl.repositoryUrl = "https://github.com/example/not-seekr";
     readiness.sourceControl.remoteDefaultBranch = "release";
+    readiness.sourceControl.blockedCheckCount = 99;
+    readiness.sourceControl.warningCheckCount = 99;
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
     const manifest = await buildGoalAudit({
@@ -321,6 +323,8 @@ describe("goal audit", () => {
       status: "fail",
       details: expect.stringContaining("source-control repository URL summary must match")
     });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("source-control blocked-check summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("source-control warning-check summary must match");
   });
 
   it("fails local alpha when plug-and-play readiness source-control local branch summary drifts from latest evidence", async () => {
@@ -347,6 +351,8 @@ describe("goal audit", () => {
     readiness.reviewBundle.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
     readiness.reviewBundle.sourceControlHandoffRemoteDefaultBranch = "release";
     readiness.reviewBundle.sourceControlHandoffLocalHeadSha = "stale-head";
+    readiness.reviewBundle.sourceControlHandoffBlockedCheckCount = 99;
+    readiness.reviewBundle.sourceControlHandoffWarningCheckCount = 99;
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
     const manifest = await buildGoalAudit({
@@ -359,6 +365,8 @@ describe("goal audit", () => {
       status: "fail",
       details: expect.stringContaining("review-bundle source-control repository URL summary must match")
     });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle source-control blocked-check summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle source-control warning-check summary must match");
   });
 
   it("fails local alpha when plug-and-play readiness review-bundle local branch summary drifts from latest verification", async () => {
@@ -1435,6 +1443,8 @@ async function seedRoot(root: string) {
     sourceControlHandoffLocalBranch: "main",
     sourceControlHandoffRemoteDefaultBranch: "main",
     sourceControlHandoffRemoteRefCount: 1,
+    sourceControlHandoffBlockedCheckCount: 0,
+    sourceControlHandoffWarningCheckCount: 0,
     sourceControlHandoffLocalHeadSha: "abc1234567890",
     sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
     sourceControlHandoffWorkingTreeClean: true,
@@ -1482,6 +1492,8 @@ async function seedRoot(root: string) {
     sourceControlHandoffLocalBranch: "main",
     sourceControlHandoffRemoteDefaultBranch: "main",
     sourceControlHandoffRemoteRefCount: 1,
+    sourceControlHandoffBlockedCheckCount: 0,
+    sourceControlHandoffWarningCheckCount: 0,
     sourceControlHandoffLocalHeadSha: "abc1234567890",
     sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
     sourceControlHandoffWorkingTreeClean: true,
@@ -1865,6 +1877,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       localBranch: "main",
       remoteDefaultBranch: "main",
       remoteRefCount: 1,
+      blockedCheckCount: 0,
+      warningCheckCount: 0,
       localHeadSha: "abc1234567890",
       remoteDefaultBranchSha: "abc1234567890",
       workingTreeClean: true,
@@ -1883,6 +1897,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffLocalBranch: "main",
       sourceControlHandoffRemoteDefaultBranch: "main",
       sourceControlHandoffRemoteRefCount: 1,
+      sourceControlHandoffBlockedCheckCount: 0,
+      sourceControlHandoffWarningCheckCount: 0,
       sourceControlHandoffLocalHeadSha: "abc1234567890",
       sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
       sourceControlHandoffWorkingTreeClean: true,

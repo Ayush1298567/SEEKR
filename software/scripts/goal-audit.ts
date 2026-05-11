@@ -944,6 +944,12 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (numberOrUndefined(readinessSourceControl.remoteRefCount) !== numberOrUndefined(sourceControlManifest.remoteRefCount)) {
       problems.push("plug-and-play readiness source-control remote ref-count summary must match the latest source-control handoff");
     }
+    if (numberOrUndefined(readinessSourceControl.blockedCheckCount) !== numberOrUndefined(sourceControlManifest.blockedCheckCount)) {
+      problems.push("plug-and-play readiness source-control blocked-check summary must match the latest source-control handoff");
+    }
+    if (numberOrUndefined(readinessSourceControl.warningCheckCount) !== numberOrUndefined(sourceControlManifest.warningCheckCount)) {
+      problems.push("plug-and-play readiness source-control warning-check summary must match the latest source-control handoff");
+    }
     if (stringOrUndefined(readinessSourceControl.localHeadSha) !== stringOrUndefined(sourceControlManifest.localHeadSha)) {
       problems.push("plug-and-play readiness source-control local HEAD summary must match the latest source-control handoff");
     }
@@ -996,6 +1002,12 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     }
     if (numberOrUndefined(readinessReviewBundle.sourceControlHandoffRemoteRefCount) !== numberOrUndefined(bundleVerificationManifest.sourceControlHandoffRemoteRefCount)) {
       problems.push("plug-and-play readiness review-bundle source-control remote ref-count summary must match the latest bundle verification");
+    }
+    if (numberOrUndefined(readinessReviewBundle.sourceControlHandoffBlockedCheckCount) !== numberOrUndefined(bundleVerificationManifest.sourceControlHandoffBlockedCheckCount)) {
+      problems.push("plug-and-play readiness review-bundle source-control blocked-check summary must match the latest bundle verification");
+    }
+    if (numberOrUndefined(readinessReviewBundle.sourceControlHandoffWarningCheckCount) !== numberOrUndefined(bundleVerificationManifest.sourceControlHandoffWarningCheckCount)) {
+      problems.push("plug-and-play readiness review-bundle source-control warning-check summary must match the latest bundle verification");
     }
     if (stringOrUndefined(readinessReviewBundle.sourceControlHandoffLocalHeadSha) !== stringOrUndefined(bundleVerificationManifest.sourceControlHandoffLocalHeadSha)) {
       problems.push("plug-and-play readiness review-bundle source-control local HEAD summary must match the latest bundle verification");
