@@ -822,7 +822,8 @@ describe("handoff bundle", () => {
       "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
       "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
       "real-world blockers remain until physical evidence exists.",
-      "No command upload or hardware actuation is allowed.",
+      "No real aircraft command upload.",
+    "No hardware actuation.",
       "No AI-created command payloads.",
       "No operator answer bypassing validation.",
       ""
@@ -880,7 +881,8 @@ describe("handoff bundle", () => {
       "Local AI uses Ollama with llama3.2:latest.",
       "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
       "real-world blockers remain until physical evidence exists.",
-      "No command upload or hardware actuation is allowed.",
+      "No real aircraft command upload.",
+    "No hardware actuation.",
       ""
     ].join("\n"), "utf8");
 
@@ -1473,7 +1475,8 @@ describe("handoff bundle", () => {
         "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
         "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
         "real-world blockers remain until physical evidence exists.",
-        "No command upload or hardware actuation is allowed.",
+        "No real aircraft command upload.",
+    "No hardware actuation.",
         "No AI-created command payloads.",
         "No operator answer bypassing validation.",
         ""
@@ -1518,7 +1521,8 @@ describe("handoff bundle", () => {
         "Local AI uses Ollama with llama3.2:latest.",
         "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
         "real-world blockers remain until physical evidence exists.",
-        "No command upload or hardware actuation is allowed.",
+        "No real aircraft command upload.",
+    "No hardware actuation.",
         ""
       ].join("\n"),
       "utf8"
@@ -2744,7 +2748,8 @@ async function seedBundleEvidence(root: string) {
     "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
     "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",
     "real-world blockers remain until physical evidence exists.",
-    "No command upload or hardware actuation is allowed.",
+    "No real aircraft command upload.",
+    "No hardware actuation.",
     "No AI-created command payloads.",
     "No operator answer bypassing validation.",
     ""
@@ -2796,6 +2801,8 @@ function quickstartContentWithout(signal: string) {
     "# SEEKR Operator Quickstart",
     "",
     ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((item) => item !== signal),
+    "No real aircraft command upload.",
+    "No hardware actuation.",
     ""
   ].join("\n");
 }

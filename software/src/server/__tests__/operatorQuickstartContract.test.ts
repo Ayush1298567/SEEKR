@@ -88,6 +88,20 @@ describe("operator quickstart contract", () => {
     ]));
   });
 
+  it("rejects quickstarts with contradictory command or hardware authority wording", () => {
+    const content = [
+      validQuickstartContent(),
+      "Command upload is enabled after local review.",
+      "Hardware actuation is allowed after local review."
+    ].join("\n");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toEqual(expect.arrayContaining([
+      "non-negated command upload boundary",
+      "non-negated hardware actuation boundary"
+    ]));
+  });
+
   it("rejects quickstarts that omit advisory AI command-safety guidance", () => {
     const content = validQuickstartContent().replace("AI output is advisory\n", "");
 

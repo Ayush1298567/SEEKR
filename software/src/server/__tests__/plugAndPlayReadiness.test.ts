@@ -414,7 +414,8 @@ describe("plug-and-play readiness audit", () => {
       "",
       "real-world blockers remain until field evidence exists.",
       "",
-      "No command upload or hardware actuation is allowed.",
+      "No real aircraft command upload.",
+    "No hardware actuation.",
       "No AI-created command payloads.",
       "No operator answer bypassing validation.",
       ""
@@ -453,7 +454,8 @@ describe("plug-and-play readiness audit", () => {
       "",
       "real-world blockers remain until field evidence exists.",
       "",
-      "No command upload or hardware actuation is allowed.",
+      "No real aircraft command upload.",
+    "No hardware actuation.",
       ""
     ].join("\n"), "utf8");
 
@@ -1200,7 +1202,8 @@ async function seedPlugAndPlayEvidence(root: string) {
     "",
     "real-world blockers remain until field evidence exists.",
     "",
-    "No command upload or hardware actuation is allowed.",
+    "No real aircraft command upload.",
+    "No hardware actuation.",
     "No AI-created command payloads.",
     "No operator answer bypassing validation.",
     ""
