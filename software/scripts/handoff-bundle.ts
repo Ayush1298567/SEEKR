@@ -80,6 +80,9 @@ export interface HandoffBundleManifest {
   freshCloneSmokeCloneHeadSha?: string;
   freshCloneSmokeSourceControlHandoffLocalHeadSha?: string;
   freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha?: string;
+  freshCloneSmokeSourceControlHandoffFreshCloneHeadSha?: string;
+  freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk?: boolean;
+  freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount?: number;
   strictAiSmokeStatusPath?: string;
   strictAiSmokeGeneratedAt?: number;
   strictAiSmokeProvider?: string;
@@ -336,6 +339,9 @@ export async function writeHandoffBundle(options: {
     freshCloneSmokeCloneHeadSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.cloneHeadSha) : undefined,
     freshCloneSmokeSourceControlHandoffLocalHeadSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.sourceControlHandoffLocalHeadSha) : undefined,
     freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.sourceControlHandoffRemoteDefaultBranchSha) : undefined,
+    freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.sourceControlHandoffFreshCloneHeadSha) : undefined,
+    freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk: isRecord(freshCloneSmokeManifest) ? booleanOrUndefined(freshCloneSmokeManifest.sourceControlHandoffFreshCloneInstallDryRunOk) : undefined,
+    freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: isRecord(freshCloneSmokeManifest) ? numberOrUndefined(freshCloneSmokeManifest.sourceControlHandoffFreshCloneCheckedPathCount) : undefined,
     strictAiSmokeStatusPath: strictAiSmokePath,
     strictAiSmokeGeneratedAt: isRecord(strictAiSmokeManifest) ? numberOrUndefined(strictAiSmokeManifest.generatedAt) : undefined,
     strictAiSmokeProvider: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.provider) : undefined,
@@ -568,6 +574,9 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.freshCloneSmokeCloneHeadSha ? `Fresh-clone clone HEAD: ${manifest.freshCloneSmokeCloneHeadSha}` : undefined,
     manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha ? `Fresh-clone source-control local HEAD: ${manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha}` : undefined,
     manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha ? `Fresh-clone source-control remote default SHA: ${manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    manifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha ? `Fresh-clone source-control fresh-clone HEAD: ${manifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha}` : undefined,
+    typeof manifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk === "boolean" ? `Fresh-clone source-control fresh-clone npm ci dry-run: ${manifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk}` : undefined,
+    typeof manifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount === "number" ? `Fresh-clone source-control fresh-clone checked paths: ${manifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount}` : undefined,
     manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
     typeof manifest.strictAiSmokeGeneratedAt === "number" ? `Strict AI smoke generated at: ${manifest.strictAiSmokeGeneratedAt}` : undefined,
     manifest.strictAiSmokeProvider ? `Strict AI smoke provider: ${manifest.strictAiSmokeProvider}` : undefined,
@@ -1050,6 +1059,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     freshCloneSmokeCloneHeadSha: result.manifest.freshCloneSmokeCloneHeadSha,
     freshCloneSmokeSourceControlHandoffLocalHeadSha: result.manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha,
     freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: result.manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha,
+    freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: result.manifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha,
+    freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk: result.manifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk,
+    freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: result.manifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount,
     strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
     strictAiSmokeProvider: result.manifest.strictAiSmokeProvider,
     strictAiSmokeModel: result.manifest.strictAiSmokeModel,

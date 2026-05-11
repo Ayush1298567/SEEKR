@@ -76,6 +76,9 @@ describe("handoff bundle", () => {
       freshCloneSmokeCloneHeadSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffLocalHeadSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk: true,
+      freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: 7,
       strictAiSmokeStatusPath: strictAiSmokePath,
       strictAiSmokeProvider: "ollama",
       strictAiSmokeModel: "llama3.2:latest",
@@ -193,6 +196,9 @@ describe("handoff bundle", () => {
       freshCloneSmokeCloneHeadSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffLocalHeadSha: "a".repeat(40),
       freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: "a".repeat(40),
+      freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk: true,
+      freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: 7,
       strictAiSmokeStatusPath: strictAiSmokePath,
       operatorQuickstartPath,
       checkedFileCount: 27,
@@ -855,6 +861,9 @@ describe("handoff bundle", () => {
     bundleManifest.freshCloneSmokeCloneHeadSha = "c".repeat(40);
     bundleManifest.freshCloneSmokeSourceControlHandoffLocalHeadSha = "d".repeat(40);
     bundleManifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha = "e".repeat(40);
+    bundleManifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha = "f".repeat(40);
+    bundleManifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk = false;
+    bundleManifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount = 1;
     await writeFile(result.jsonPath, JSON.stringify(bundleManifest), "utf8");
 
     const verification = await writeHandoffBundleVerification({
@@ -3131,6 +3140,9 @@ async function seedBundleEvidence(root: string) {
     sourceControlHandoffReady: true,
     sourceControlHandoffLocalHeadSha: "a".repeat(40),
     sourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
+    sourceControlHandoffFreshCloneHeadSha: "a".repeat(40),
+    sourceControlHandoffFreshCloneInstallDryRunOk: true,
+    sourceControlHandoffFreshCloneCheckedPathCount: 7,
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-fresh-clone.json",
     plugAndPlayDoctorStatus: "ready-local-start",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-fresh-clone.json",

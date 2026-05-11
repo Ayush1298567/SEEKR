@@ -1037,6 +1037,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (stringOrUndefined(readinessFreshClone.sourceControlHandoffRemoteDefaultBranchSha) !== stringOrUndefined(freshCloneManifest.sourceControlHandoffRemoteDefaultBranchSha)) {
       problems.push("plug-and-play readiness fresh-clone source-control remote default SHA summary must match the latest fresh-clone operator smoke");
     }
+    if (stringOrUndefined(readinessFreshClone.sourceControlHandoffFreshCloneHeadSha) !== stringOrUndefined(freshCloneManifest.sourceControlHandoffFreshCloneHeadSha)) {
+      problems.push("plug-and-play readiness fresh-clone source-control fresh-clone HEAD summary must match the latest fresh-clone operator smoke");
+    }
+    if (booleanOrUndefined(readinessFreshClone.sourceControlHandoffFreshCloneInstallDryRunOk) !== booleanOrUndefined(freshCloneManifest.sourceControlHandoffFreshCloneInstallDryRunOk)) {
+      problems.push("plug-and-play readiness fresh-clone source-control fresh-clone npm ci dry-run summary must match the latest fresh-clone operator smoke");
+    }
+    if (numberOrUndefined(readinessFreshClone.sourceControlHandoffFreshCloneCheckedPathCount) !== numberOrUndefined(freshCloneManifest.sourceControlHandoffFreshCloneCheckedPathCount)) {
+      problems.push("plug-and-play readiness fresh-clone source-control fresh-clone checked-path summary must match the latest fresh-clone operator smoke");
+    }
     if (stringOrUndefined(readinessFreshClone.localAiPrepareModel) !== stringOrUndefined(freshCloneManifest.localAiPrepareModel)) {
       problems.push("plug-and-play readiness fresh-clone local AI model summary must match the latest fresh-clone operator smoke");
     }

@@ -43,6 +43,9 @@ describe("fresh clone operator smoke", () => {
       sourceControlHandoffStatus: "ready-source-control-handoff",
       sourceControlHandoffLocalHeadSha: SHA,
       sourceControlHandoffRemoteDefaultBranchSha: SHA,
+      sourceControlHandoffFreshCloneHeadSha: SHA,
+      sourceControlHandoffFreshCloneInstallDryRunOk: true,
+      sourceControlHandoffFreshCloneCheckedPathCount: 7,
       plugAndPlayDoctorStatus: "ready-local-start",
       rehearsalStartSmokeStatus: "pass"
     });
@@ -91,7 +94,10 @@ describe("fresh clone operator smoke", () => {
     const unsafeManifest = {
       ...manifest,
       sourceControlHandoffLocalHeadSha: undefined,
-      sourceControlHandoffRemoteDefaultBranchSha: undefined
+      sourceControlHandoffRemoteDefaultBranchSha: undefined,
+      sourceControlHandoffFreshCloneHeadSha: undefined,
+      sourceControlHandoffFreshCloneInstallDryRunOk: undefined,
+      sourceControlHandoffFreshCloneCheckedPathCount: undefined
     };
 
     expect(freshCloneOperatorSmokeOk(unsafeManifest, {

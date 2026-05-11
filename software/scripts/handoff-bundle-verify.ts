@@ -61,6 +61,9 @@ export interface HandoffBundleVerificationManifest {
   freshCloneSmokeCloneHeadSha?: string;
   freshCloneSmokeSourceControlHandoffLocalHeadSha?: string;
   freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha?: string;
+  freshCloneSmokeSourceControlHandoffFreshCloneHeadSha?: string;
+  freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk?: boolean;
+  freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount?: number;
   strictAiSmokeStatusPath?: string;
   operatorQuickstartPath?: string;
   checkedFileCount: number;
@@ -438,10 +441,16 @@ export async function buildHandoffBundleVerification(options: {
   const manifestFreshCloneSmokeCloneHeadSha = isRecord(manifest) ? stringOrUndefined(manifest.freshCloneSmokeCloneHeadSha) : undefined;
   const manifestFreshCloneSmokeSourceControlHandoffLocalHeadSha = isRecord(manifest) ? stringOrUndefined(manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha) : undefined;
   const manifestFreshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha = isRecord(manifest) ? stringOrUndefined(manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha) : undefined;
+  const manifestFreshCloneSmokeSourceControlHandoffFreshCloneHeadSha = isRecord(manifest) ? stringOrUndefined(manifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha) : undefined;
+  const manifestFreshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk = isRecord(manifest) ? booleanOrUndefined(manifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk) : undefined;
+  const manifestFreshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount = isRecord(manifest) ? numberOrUndefined(manifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount) : undefined;
   let freshCloneSmokeLocalHeadSha = manifestFreshCloneSmokeLocalHeadSha;
   let freshCloneSmokeCloneHeadSha = manifestFreshCloneSmokeCloneHeadSha;
   let freshCloneSmokeSourceControlHandoffLocalHeadSha = manifestFreshCloneSmokeSourceControlHandoffLocalHeadSha;
   let freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha = manifestFreshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha;
+  let freshCloneSmokeSourceControlHandoffFreshCloneHeadSha = manifestFreshCloneSmokeSourceControlHandoffFreshCloneHeadSha;
+  let freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk = manifestFreshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk;
+  let freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount = manifestFreshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount;
   const operatorQuickstartPath = isRecord(manifest) ? stringOrUndefined(manifest.operatorQuickstartPath) : undefined;
   if (!plugAndPlaySetupPath) {
     blockers.push("Handoff bundle must name the source plug-and-play setup JSON.");
@@ -500,10 +509,16 @@ export async function buildHandoffBundleVerification(options: {
     const copiedFreshCloneSmokeCloneHeadSha = isRecord(freshCloneSmoke) ? stringOrUndefined(freshCloneSmoke.cloneHeadSha) : undefined;
     const copiedFreshCloneSmokeSourceControlHandoffLocalHeadSha = isRecord(freshCloneSmoke) ? stringOrUndefined(freshCloneSmoke.sourceControlHandoffLocalHeadSha) : undefined;
     const copiedFreshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha = isRecord(freshCloneSmoke) ? stringOrUndefined(freshCloneSmoke.sourceControlHandoffRemoteDefaultBranchSha) : undefined;
+    const copiedFreshCloneSmokeSourceControlHandoffFreshCloneHeadSha = isRecord(freshCloneSmoke) ? stringOrUndefined(freshCloneSmoke.sourceControlHandoffFreshCloneHeadSha) : undefined;
+    const copiedFreshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk = isRecord(freshCloneSmoke) ? booleanOrUndefined(freshCloneSmoke.sourceControlHandoffFreshCloneInstallDryRunOk) : undefined;
+    const copiedFreshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount = isRecord(freshCloneSmoke) ? numberOrUndefined(freshCloneSmoke.sourceControlHandoffFreshCloneCheckedPathCount) : undefined;
     freshCloneSmokeLocalHeadSha = copiedFreshCloneSmokeLocalHeadSha ?? freshCloneSmokeLocalHeadSha;
     freshCloneSmokeCloneHeadSha = copiedFreshCloneSmokeCloneHeadSha ?? freshCloneSmokeCloneHeadSha;
     freshCloneSmokeSourceControlHandoffLocalHeadSha = copiedFreshCloneSmokeSourceControlHandoffLocalHeadSha ?? freshCloneSmokeSourceControlHandoffLocalHeadSha;
     freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha = copiedFreshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha ?? freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha;
+    freshCloneSmokeSourceControlHandoffFreshCloneHeadSha = copiedFreshCloneSmokeSourceControlHandoffFreshCloneHeadSha ?? freshCloneSmokeSourceControlHandoffFreshCloneHeadSha;
+    freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk = copiedFreshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk ?? freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk;
+    freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount = copiedFreshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount ?? freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount;
     if (!freshCloneOperatorSmokeOk(freshCloneSmoke, copiedAcceptance)) {
       blockers.push("Copied fresh-clone operator smoke must pass clone/install/operator-start/final-doctor checks, match the copied acceptance strict AI model, and keep commandUploadEnabled false.");
     }
@@ -518,6 +533,15 @@ export async function buildHandoffBundleVerification(options: {
     }
     if (manifestFreshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha !== copiedFreshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha) {
       blockers.push("Handoff bundle fresh-clone source-control remote default SHA must match the copied fresh-clone operator smoke artifact.");
+    }
+    if (manifestFreshCloneSmokeSourceControlHandoffFreshCloneHeadSha !== copiedFreshCloneSmokeSourceControlHandoffFreshCloneHeadSha) {
+      blockers.push("Handoff bundle fresh-clone source-control fresh-clone HEAD must match the copied fresh-clone operator smoke artifact.");
+    }
+    if (manifestFreshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk !== copiedFreshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk) {
+      blockers.push("Handoff bundle fresh-clone source-control fresh-clone npm ci dry-run must match the copied fresh-clone operator smoke artifact.");
+    }
+    if (manifestFreshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount !== copiedFreshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount) {
+      blockers.push("Handoff bundle fresh-clone source-control fresh-clone checked-path count must match the copied fresh-clone operator smoke artifact.");
     }
   }
   if (operatorQuickstartPath !== OPERATOR_QUICKSTART_PATH) {
@@ -571,6 +595,9 @@ export async function buildHandoffBundleVerification(options: {
     freshCloneSmokeCloneHeadSha,
     freshCloneSmokeSourceControlHandoffLocalHeadSha,
     freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha,
+    freshCloneSmokeSourceControlHandoffFreshCloneHeadSha,
+    freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk,
+    freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount,
     strictAiSmokeStatusPath,
     operatorQuickstartPath,
     checkedFileCount: files.length,
@@ -834,6 +861,9 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     manifest.freshCloneSmokeCloneHeadSha ? `Fresh-clone clone HEAD: ${manifest.freshCloneSmokeCloneHeadSha}` : undefined,
     manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha ? `Fresh-clone source-control local HEAD: ${manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha}` : undefined,
     manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha ? `Fresh-clone source-control remote default SHA: ${manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    manifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha ? `Fresh-clone source-control fresh-clone HEAD: ${manifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha}` : undefined,
+    typeof manifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk === "boolean" ? `Fresh-clone source-control fresh-clone npm ci dry-run: ${manifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk}` : undefined,
+    typeof manifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount === "number" ? `Fresh-clone source-control fresh-clone checked paths: ${manifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount}` : undefined,
     manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
     manifest.operatorQuickstartPath ? `Operator quickstart: ${manifest.operatorQuickstartPath}` : undefined,
     "",
@@ -1369,6 +1399,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     freshCloneSmokeCloneHeadSha: result.manifest.freshCloneSmokeCloneHeadSha,
     freshCloneSmokeSourceControlHandoffLocalHeadSha: result.manifest.freshCloneSmokeSourceControlHandoffLocalHeadSha,
     freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: result.manifest.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha,
+    freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: result.manifest.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha,
+    freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk: result.manifest.freshCloneSmokeSourceControlHandoffFreshCloneInstallDryRunOk,
+    freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount: result.manifest.freshCloneSmokeSourceControlHandoffFreshCloneCheckedPathCount,
     strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
     operatorQuickstartPath: result.manifest.operatorQuickstartPath,
     checkedFileCount: result.manifest.checkedFileCount,

@@ -83,6 +83,9 @@ export interface PlugAndPlayReadinessManifest {
     cloneHeadSha?: string;
     sourceControlHandoffLocalHeadSha?: string;
     sourceControlHandoffRemoteDefaultBranchSha?: string;
+    sourceControlHandoffFreshCloneHeadSha?: string;
+    sourceControlHandoffFreshCloneInstallDryRunOk?: boolean;
+    sourceControlHandoffFreshCloneCheckedPathCount?: number;
     localAiPrepareModel?: string;
     sourceControlHandoffStatus?: string;
     sourceControlHandoffReady?: boolean;
@@ -549,17 +552,32 @@ async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCh
     const cloneHeadSha = stringOrUndefined(manifest.cloneHeadSha);
     const sourceControlLocalHeadSha = stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha);
     const sourceControlRemoteDefaultBranchSha = stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha);
+    const sourceControlFreshCloneHeadSha = stringOrUndefined(manifest.sourceControlHandoffFreshCloneHeadSha);
+    const sourceControlFreshCloneInstallDryRunOk = booleanOrUndefined(manifest.sourceControlHandoffFreshCloneInstallDryRunOk);
+    const sourceControlFreshCloneCheckedPathCount = numberOrUndefined(manifest.sourceControlHandoffFreshCloneCheckedPathCount);
     if (!sourceControlLocalHeadSha) {
       problems.push("latest fresh-clone operator smoke artifact must publish source-control local HEAD summary");
     }
     if (!sourceControlRemoteDefaultBranchSha) {
       problems.push("latest fresh-clone operator smoke artifact must publish source-control remote default SHA summary");
     }
+    if (!sourceControlFreshCloneHeadSha) {
+      problems.push("latest fresh-clone operator smoke artifact must publish source-control fresh-clone HEAD summary");
+    }
+    if (sourceControlFreshCloneInstallDryRunOk !== true) {
+      problems.push("latest fresh-clone operator smoke artifact must publish source-control fresh-clone npm ci dry-run success");
+    }
+    if (typeof sourceControlFreshCloneCheckedPathCount !== "number" || !Number.isInteger(sourceControlFreshCloneCheckedPathCount) || sourceControlFreshCloneCheckedPathCount < 7) {
+      problems.push("latest fresh-clone operator smoke artifact must publish source-control fresh-clone checked-path count");
+    }
     if (sourceControlLocalHeadSha && cloneHeadSha && sourceControlLocalHeadSha !== cloneHeadSha) {
       problems.push("latest fresh-clone operator smoke source-control local HEAD summary must match clone HEAD");
     }
     if (sourceControlRemoteDefaultBranchSha && cloneHeadSha && sourceControlRemoteDefaultBranchSha !== cloneHeadSha) {
       problems.push("latest fresh-clone operator smoke source-control remote default SHA summary must match clone HEAD");
+    }
+    if (sourceControlFreshCloneHeadSha && cloneHeadSha && sourceControlFreshCloneHeadSha !== cloneHeadSha) {
+      problems.push("latest fresh-clone operator smoke source-control fresh-clone HEAD summary must match clone HEAD");
     }
     if (localHeadSha && cloneHeadSha && localHeadSha !== cloneHeadSha) {
       problems.push("latest fresh-clone operator smoke local HEAD summary must match clone HEAD");
@@ -1174,6 +1192,9 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.freshClone.cloneHeadSha ? `- Clone HEAD: ${manifest.freshClone.cloneHeadSha}` : undefined,
     manifest.freshClone.sourceControlHandoffLocalHeadSha ? `- Source-control local HEAD: ${manifest.freshClone.sourceControlHandoffLocalHeadSha}` : undefined,
     manifest.freshClone.sourceControlHandoffRemoteDefaultBranchSha ? `- Source-control remote default SHA: ${manifest.freshClone.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
+    manifest.freshClone.sourceControlHandoffFreshCloneHeadSha ? `- Source-control fresh-clone HEAD: ${manifest.freshClone.sourceControlHandoffFreshCloneHeadSha}` : undefined,
+    typeof manifest.freshClone.sourceControlHandoffFreshCloneInstallDryRunOk === "boolean" ? `- Source-control fresh-clone npm ci dry-run: ${manifest.freshClone.sourceControlHandoffFreshCloneInstallDryRunOk}` : undefined,
+    typeof manifest.freshClone.sourceControlHandoffFreshCloneCheckedPathCount === "number" ? `- Source-control fresh-clone checked paths: ${manifest.freshClone.sourceControlHandoffFreshCloneCheckedPathCount}` : undefined,
     manifest.freshClone.localAiPrepareModel ? `- Local AI model: ${manifest.freshClone.localAiPrepareModel}` : undefined,
     manifest.freshClone.sourceControlHandoffStatus ? `- Source-control handoff status: ${manifest.freshClone.sourceControlHandoffStatus}` : undefined,
     typeof manifest.freshClone.sourceControlHandoffReady === "boolean" ? `- Source-control handoff ready: ${manifest.freshClone.sourceControlHandoffReady}` : undefined,
@@ -1348,6 +1369,9 @@ async function freshCloneSummary(root: string): Promise<PlugAndPlayReadinessMani
     cloneHeadSha: stringOrUndefined(manifest.cloneHeadSha),
     sourceControlHandoffLocalHeadSha: stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha),
     sourceControlHandoffRemoteDefaultBranchSha: stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha),
+    sourceControlHandoffFreshCloneHeadSha: stringOrUndefined(manifest.sourceControlHandoffFreshCloneHeadSha),
+    sourceControlHandoffFreshCloneInstallDryRunOk: booleanOrUndefined(manifest.sourceControlHandoffFreshCloneInstallDryRunOk),
+    sourceControlHandoffFreshCloneCheckedPathCount: numberOrUndefined(manifest.sourceControlHandoffFreshCloneCheckedPathCount),
     localAiPrepareModel: stringOrUndefined(manifest.localAiPrepareModel),
     sourceControlHandoffStatus: stringOrUndefined(manifest.sourceControlHandoffStatus),
     sourceControlHandoffReady: booleanOrUndefined(manifest.sourceControlHandoffReady),
