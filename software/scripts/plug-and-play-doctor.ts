@@ -88,7 +88,7 @@ export async function buildPlugAndPlayDoctor(options: {
   const operatorStart = await operatorStartScriptCheck(root);
   const envCheck = await envSetupCheck(root, env, effectiveEnv);
   const aiCheck = await localAiCheck(effectiveEnv, fetchImpl);
-  const portCheck = await localPortCheck(effectiveEnv, portAvailable);
+  const portCheck = await localPortCheck(effectiveEnv, portAvailable, fetchImpl);
   const dataDirCheck = await localDataDirCheck(root, effectiveEnv);
   const safetyCheck = safetyBoundaryCheck(effectiveEnv);
   const checks = [packageScripts, runtimeDependencies, repositorySafety, sourceControlHandoff, operatorStart, envCheck, aiCheck.check, portCheck.check, dataDirCheck, safetyCheck];
@@ -431,25 +431,68 @@ async function localAiCheck(effectiveEnv: Map<string, string>, fetchImpl: typeof
   }
 }
 
-async function localPortCheck(effectiveEnv: Map<string, string>, portAvailable: (port: number, host: string) => Promise<boolean>) {
+async function localPortCheck(
+  effectiveEnv: Map<string, string>,
+  portAvailable: (port: number, host: string) => Promise<boolean>,
+  fetchImpl: typeof fetch
+) {
   const host = "127.0.0.1";
   const api = parsePort(effectiveEnv.get("SEEKR_API_PORT") ?? effectiveEnv.get("PORT"), 8787);
   const client = parsePort(effectiveEnv.get("SEEKR_CLIENT_PORT"), 5173);
-  const unavailable: number[] = [];
-  for (const port of [api, client]) {
-    if (!(await portAvailable(port, host))) unavailable.push(port);
+  const occupied: Array<{ role: "api" | "client"; port: number; healthy: boolean; url: string }> = [];
+  for (const candidate of [
+    { role: "api" as const, port: api },
+    { role: "client" as const, port: client }
+  ]) {
+    if (!(await portAvailable(candidate.port, host))) {
+      occupied.push(await probeOccupiedSeekrPort(candidate.role, candidate.port, host, fetchImpl));
+    }
   }
+  const unknown = occupied.filter((item) => !item.healthy);
   return {
     ports: { api, client },
     check: {
       id: "local-ports",
-      status: unavailable.length ? "warn" as const : "pass" as const,
-      details: unavailable.length
-        ? `Port(s) already in use on ${host}: ${unavailable.join(", ")}. Stop the existing process before starting a fresh npm run dev, or keep using the already-running SEEKR instance.`
-        : `API/client ports are available on ${host}: ${api}, ${client}.`,
-      evidence: ["PORT", "SEEKR_API_PORT", "SEEKR_CLIENT_PORT"]
+      status: unknown.length ? "warn" as const : "pass" as const,
+      details: unknown.length
+        ? `Port(s) already in use on ${host} by an unknown or unhealthy listener: ${unknown.map((item) => `${item.role} ${item.port}`).join(", ")}. Stop the existing process before starting a fresh npm run dev.`
+        : occupied.length
+          ? `Port(s) already have a healthy SEEKR local instance on ${host}: ${occupied.map((item) => `${item.role} ${item.port}`).join(", ")}. Keep using it or stop it before starting a fresh npm run dev.`
+          : `API/client ports are available on ${host}: ${api}, ${client}.`,
+      evidence: [
+        "PORT",
+        "SEEKR_API_PORT",
+        "SEEKR_CLIENT_PORT",
+        ...occupied.map((item) => item.url)
+      ]
     }
   };
+}
+
+async function probeOccupiedSeekrPort(role: "api" | "client", port: number, host: string, fetchImpl: typeof fetch) {
+  const url = role === "api" ? `http://${host}:${port}/api/health` : `http://${host}:${port}/`;
+  try {
+    const response = await fetchWithTimeout(fetchImpl, url, 1000);
+    if (!response.ok) return { role, port, healthy: false, url };
+    if (role === "api") {
+      const body = await response.json() as unknown;
+      return {
+        role,
+        port,
+        healthy: isRecord(body) && body.ok === true && Number(body.schemaVersion) === 1,
+        url
+      };
+    }
+    const body = await response.text();
+    return {
+      role,
+      port,
+      healthy: body.includes("<title>SEEKR GCS</title>") && body.includes('id="root"'),
+      url
+    };
+  } catch {
+    return { role, port, healthy: false, url };
+  }
 }
 
 async function localDataDirCheck(root: string, effectiveEnv: Map<string, string>): Promise<PlugAndPlayDoctorCheck> {

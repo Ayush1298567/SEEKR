@@ -242,6 +242,25 @@ describe("plug-and-play doctor", () => {
     });
   });
 
+  it("passes when occupied local ports already serve a healthy SEEKR instance", async () => {
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaAndRunningSeekrFetch(["llama3.2:latest"]),
+      portAvailable: async () => false
+    });
+
+    expect(manifest.ok).toBe(true);
+    expect(manifest.checks.find((check) => check.id === "local-ports")).toMatchObject({
+      status: "pass",
+      details: expect.stringContaining("healthy SEEKR local instance"),
+      evidence: expect.arrayContaining([
+        "http://127.0.0.1:8787/api/health",
+        "http://127.0.0.1:5173/"
+      ])
+    });
+  });
+
   it("marks rehearsal-start smoke doctor artifacts separately from operator-start doctor artifacts", async () => {
     const manifest = await buildPlugAndPlayDoctor({
       root,
@@ -512,4 +531,28 @@ function mockOllamaFetch(models: string[]): typeof fetch {
     status: 200,
     headers: { "Content-Type": "application/json" }
   })) as typeof fetch;
+}
+
+function mockOllamaAndRunningSeekrFetch(models: string[]): typeof fetch {
+  return (async (url: string | URL | Request) => {
+    const href = String(url);
+    if (href.includes("/api/tags")) {
+      return new Response(JSON.stringify({
+        models: models.map((name) => ({ name }))
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    if (href.includes("/api/health")) {
+      return new Response(JSON.stringify({ ok: true, schemaVersion: 1, stateSeq: 0 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    return new Response("<!doctype html><html><head><title>SEEKR GCS</title></head><body><div id=\"root\"></div></body></html>", {
+      status: 200,
+      headers: { "Content-Type": "text/html" }
+    });
+  }) as typeof fetch;
 }
