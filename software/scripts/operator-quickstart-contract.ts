@@ -16,6 +16,7 @@ export const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
   "npm run rehearsal:start",
   "npm run smoke:rehearsal:start",
   "Ollama",
+  "ollama pull llama3.2",
   "llama3.2:latest",
   "npm run test:ai:local",
   ".tmp/ai-smoke-status.json",

@@ -107,6 +107,7 @@ npm run client
 SEEKR auto-detects Ollama at `http://127.0.0.1:11434` and defaults to `llama3.2:latest` when available. Override with:
 
 ```bash
+ollama pull llama3.2
 SEEKR_AI_PROVIDER=ollama npm run dev
 SEEKR_OLLAMA_URL=http://127.0.0.1:11434 npm run dev
 SEEKR_OLLAMA_MODEL=llama3.2:latest npm run dev

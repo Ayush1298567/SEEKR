@@ -51,6 +51,12 @@
 ## Local AI
 
 - Keep Ollama running locally before the doctor and rehearsal start commands.
+- Install the default local model before first use:
+
+  ```bash
+  ollama pull llama3.2
+  ```
+
 - The default model is `llama3.2:latest`; change it with `SEEKR_OLLAMA_MODEL` only after installing the replacement model locally.
 - Before final review packaging, run:
 

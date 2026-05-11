@@ -20,7 +20,7 @@ Run the full gate:
 npm run acceptance
 ```
 
-`npm run test:ai:local` requires Ollama and `llama3.2:latest` unless `SEEKR_OLLAMA_MODEL` points to another installed model.
+`npm run test:ai:local` requires Ollama and `llama3.2:latest` unless `SEEKR_OLLAMA_MODEL` points to another installed model. Prepare the default local model with `ollama pull llama3.2`.
 
 ## Core Commands
 

@@ -43,6 +43,7 @@ describe("operator quickstart contract", () => {
 
   it("pins strict local AI smoke proof guidance as required signals", () => {
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
+      "ollama pull llama3.2",
       "npm run test:ai:local",
       ".tmp/ai-smoke-status.json",
       "strict local AI smoke",
@@ -107,6 +108,13 @@ describe("operator quickstart contract", () => {
 
     expect(operatorQuickstartOk(content)).toBe(false);
     expect(operatorQuickstartProblems(content)).toContain("AI output is advisory");
+  });
+
+  it("rejects quickstarts that omit local Ollama model preparation", () => {
+    const content = validQuickstartContent().replace("ollama pull llama3.2\n", "");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toContain("ollama pull llama3.2");
   });
 
   it("rejects quickstarts that omit occupied-port recovery guidance", () => {
