@@ -100,6 +100,9 @@ const REQUIRED_ENV_EXAMPLE_SIGNALS = [
   "SEEKR_OLLAMA_TIMEOUT_MS=20000"
 ];
 
+const REQUIRED_GSTACK_WORKFLOW_IDS = ["health", "review", "planning", "qa"];
+const REQUIRED_GSTACK_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
+
 export async function buildPlugAndPlayReadiness(options: {
   root?: string;
   generatedAt?: string;
@@ -684,11 +687,19 @@ async function workflowQaCheck(root: string): Promise<PlugAndPlayCheck> {
   const manifest = workflow ? await readJson(workflow.absolutePath) : undefined;
   const qaReport = isRecord(manifest) && isRecord(manifest.qaReport) ? manifest.qaReport : {};
   const healthHistory = isRecord(manifest) && isRecord(manifest.healthHistory) ? manifest.healthHistory : {};
+  const workflows = isRecord(manifest) && Array.isArray(manifest.workflows) ? manifest.workflows.filter(isRecord) : [];
+  const perspectives = isRecord(manifest) && Array.isArray(manifest.perspectives) ? manifest.perspectives.filter(isRecord) : [];
   const problems: string[] = [];
 
   if (!isRecord(manifest)) problems.push("gstack workflow status is missing");
   if (isRecord(manifest) && !["pass", "pass-with-limitations"].includes(String(manifest.status))) problems.push("gstack workflow status must pass or pass-with-limitations");
   if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("gstack workflow status must keep commandUploadEnabled false");
+  if (isRecord(manifest) && !artifactIdsAreExact(workflows, REQUIRED_GSTACK_WORKFLOW_IDS)) {
+    problems.push(`gstack workflow rows must exactly match ${REQUIRED_GSTACK_WORKFLOW_IDS.join(", ")} in order`);
+  }
+  if (isRecord(manifest) && !artifactIdsAreExact(perspectives, REQUIRED_GSTACK_PERSPECTIVE_IDS)) {
+    problems.push(`gstack perspective rows must exactly match ${REQUIRED_GSTACK_PERSPECTIVE_IDS.join(", ")} in order`);
+  }
   if (!isRecord(healthHistory) || healthHistory.status !== "pass") problems.push("health history must be current and passing");
   if (!isRecord(qaReport) || qaReport.status !== "pass") problems.push("browser QA report must be current and passing");
   if (isRecord(qaReport) && typeof qaReport.path !== "string") problems.push("browser QA report path must be recorded");
@@ -931,6 +942,11 @@ function stringArray(value: unknown) {
 
 function sameStringArray(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function artifactIdsAreExact(items: Record<string, unknown>[], requiredIds: string[]) {
+  return items.length === requiredIds.length &&
+    items.every((item, index) => String(item.id ?? "") === requiredIds[index]);
 }
 
 function isString(value: unknown): value is string {

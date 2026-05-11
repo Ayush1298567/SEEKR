@@ -823,6 +823,19 @@ describe("plug-and-play readiness audit", () => {
     await writeFile(path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-zz-newer.json"), JSON.stringify({
       status: "pass-with-limitations",
       commandUploadEnabled: false,
+      workflows: [
+        { id: "health", status: "pass" },
+        { id: "review", status: "blocked-by-workspace" },
+        { id: "planning", status: "pass" },
+        { id: "qa", status: "pass" }
+      ],
+      perspectives: [
+        { id: "operator", status: "blocked-real-world" },
+        { id: "safety", status: "blocked-real-world" },
+        { id: "dx", status: "ready-local-alpha" },
+        { id: "replay", status: "ready-local-alpha" },
+        { id: "demo-readiness", status: "blocked-real-world" }
+      ],
       healthHistory: { status: "pass" },
       qaReport: {
         status: "pass",
@@ -841,6 +854,46 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("latest gstack workflow status")
+    });
+  });
+
+  it("fails when current gstack workflow rows are reordered", async () => {
+    const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
+    const workflow = JSON.parse(await readFile(workflowPath, "utf8"));
+    workflow.workflows = [
+      workflow.workflows.find((item: { id: string }) => item.id === "review"),
+      workflow.workflows.find((item: { id: string }) => item.id === "health"),
+      ...workflow.workflows.filter((item: { id: string }) => !["health", "review"].includes(item.id))
+    ];
+    await writeFile(workflowPath, JSON.stringify(workflow), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "workflow-qa")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("gstack workflow rows must exactly match")
+    });
+  });
+
+  it("fails when current gstack perspective rows include an extra row", async () => {
+    const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
+    const workflow = JSON.parse(await readFile(workflowPath, "utf8"));
+    workflow.perspectives.push({ id: "unreviewed-extra-perspective", status: "pass" });
+    await writeFile(workflowPath, JSON.stringify(workflow), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "workflow-qa")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("gstack perspective rows must exactly match")
     });
   });
 
@@ -1242,6 +1295,19 @@ async function seedPlugAndPlayEvidence(root: string) {
   await writeFile(path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json"), JSON.stringify({
     status: "pass-with-limitations",
     commandUploadEnabled: false,
+    workflows: [
+      { id: "health", status: "pass" },
+      { id: "review", status: "blocked-by-workspace" },
+      { id: "planning", status: "pass" },
+      { id: "qa", status: "pass" }
+    ],
+    perspectives: [
+      { id: "operator", status: "blocked-real-world" },
+      { id: "safety", status: "blocked-real-world" },
+      { id: "dx", status: "ready-local-alpha" },
+      { id: "replay", status: "ready-local-alpha" },
+      { id: "demo-readiness", status: "blocked-real-world" }
+    ],
     healthHistory: { status: "pass" },
     qaReport: {
       status: "pass",
