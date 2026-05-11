@@ -438,6 +438,36 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play smoke or bundle evidence predates acceptance", async () => {
+    const staleGeneratedAt = "2026-05-09T19:59:59.999Z";
+    for (const artifactPath of [
+      ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+      ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+      ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json",
+      ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json"
+    ]) {
+      const absolutePath = path.join(root, artifactPath);
+      const artifact = JSON.parse(await readFile(absolutePath, "utf8"));
+      artifact.generatedAt = staleGeneratedAt;
+      await writeFile(absolutePath, JSON.stringify(artifact), "utf8");
+    }
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    const item = manifest.promptToArtifactChecklist.find((check) => check.id === "plug-and-play-readiness");
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(item).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest rehearsal-start smoke artifact must be newer than or equal to the latest acceptance record")
+    });
+    expect(item?.details).toContain("latest fresh-clone operator smoke artifact must be newer than or equal to the latest acceptance record");
+    expect(item?.details).toContain("latest handoff bundle artifact must be newer than or equal to the latest acceptance record");
+    expect(item?.details).toContain("latest handoff bundle verification artifact must be newer than or equal to the latest acceptance record");
+  });
+
   it("fails local alpha when source-control handoff is not published and clean", async () => {
     const artifactPath = path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json");
     const sourceControl = JSON.parse(await readFile(artifactPath, "utf8"));
@@ -1601,6 +1631,7 @@ async function seedRoot(root: string) {
     validation: { ok: true, warnings: [], blockers: [] }
   }), "utf8");
   await writeFile(path.join(root, bundlePath), JSON.stringify({
+    generatedAt: GENERATED_AT,
     status: "ready-local-alpha-review-bundle",
     commandUploadEnabled: false,
     sourceIndexPath: handoffPath,
@@ -1661,6 +1692,7 @@ async function seedRoot(root: string) {
     validation: { ok: true, warnings: [], blockers: [] }
   }), "utf8");
   await writeFile(path.join(root, bundleVerificationPath), JSON.stringify({
+    generatedAt: GENERATED_AT,
     status: "pass",
     commandUploadEnabled: false,
     sourceBundlePath: bundlePath,
@@ -2453,6 +2485,7 @@ async function seedCompletedHandoffArtifacts(root: string) {
     realWorldBlockers: []
   }), "utf8");
   await writeFile(path.join(root, ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json"), JSON.stringify({
+    generatedAt: GENERATED_AT,
     status: "ready-local-alpha-review-bundle",
     commandUploadEnabled: false,
     sourceIndexPath: ".tmp/handoff-index/seekr-handoff-index-internal-alpha-test.json",

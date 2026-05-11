@@ -853,9 +853,11 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const localAiPrepareManifest = localAiPrepare ? await readJson(localAiPrepare.absolutePath) : undefined;
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
+  const rehearsalStartSmokeManifest = rehearsalStartSmoke ? await readJson(rehearsalStartSmoke.absolutePath) : undefined;
   const freshClone = await latestJson(root, ".tmp/fresh-clone-smoke", (name) => name.startsWith("seekr-fresh-clone-smoke-"));
   const freshCloneManifest = freshClone ? await readJson(freshClone.absolutePath) : undefined;
   const bundle = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-handoff-bundle-"));
+  const bundleManifest = bundle ? await readJson(bundle.absolutePath) : undefined;
   const bundleVerification = await latestJson(root, ".tmp/handoff-bundles", (name) => name.startsWith("seekr-review-bundle-verification-"));
   const bundleVerificationManifest = bundleVerification ? await readJson(bundleVerification.absolutePath) : undefined;
   const workflow = await latestJson(root, ".tmp/gstack-workflow-status", (name) => name.startsWith("seekr-gstack-workflow-status-"));
@@ -942,6 +944,16 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     } else if (!localAiPrepareFreshForAcceptance(localAiPrepareManifest, acceptance)) {
       problems.push("latest local AI prepare artifact must be newer than or equal to the latest acceptance record");
     }
+  }
+  for (const [label, artifact, artifactManifest] of [
+    ["latest rehearsal-start smoke artifact", rehearsalStartSmoke, rehearsalStartSmokeManifest],
+    ["latest fresh-clone operator smoke artifact", freshClone, freshCloneManifest],
+    ["latest handoff bundle artifact", bundle, bundleManifest],
+    ["latest handoff bundle verification artifact", bundleVerification, bundleVerificationManifest]
+  ] as const) {
+    if (!artifact) continue;
+    const freshnessProblem = artifactFreshnessProblem(label, artifactManifest, acceptance);
+    if (freshnessProblem) problems.push(freshnessProblem);
   }
   if (isRecord(manifest) && !readinessSourceControl) {
     problems.push("plug-and-play readiness must publish a source-control summary");
@@ -1189,6 +1201,17 @@ function plugAndPlayReadinessWarningDetails(manifest: unknown) {
       const details = typeof check.details === "string" && check.details.length ? check.details : "warning details unavailable";
       return `${id}: ${details}`;
     });
+}
+
+function artifactFreshnessProblem(label: string, manifest: unknown, acceptance: unknown) {
+  if (!isRecord(acceptance)) return undefined;
+  const acceptanceGeneratedAt = timeMs(acceptance.generatedAt);
+  if (acceptanceGeneratedAt === undefined) return undefined;
+  if (!isRecord(manifest)) return `${label} must be a parseable JSON object before goal audit can verify acceptance freshness`;
+  const generatedAt = timeMs(manifest.generatedAt);
+  if (generatedAt === undefined) return `${label} must record a parseable generatedAt timestamp`;
+  if (generatedAt < acceptanceGeneratedAt) return `${label} must be newer than or equal to the latest acceptance record`;
+  return undefined;
 }
 
 function operatorDoctorPortSummary(doctorPath: string | undefined, manifest: unknown) {
