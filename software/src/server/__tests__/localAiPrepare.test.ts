@@ -2,7 +2,7 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildLocalAiPrepare, writeLocalAiPrepare } from "../../../scripts/local-ai-prepare";
+import { buildLocalAiPrepare, localAiPrepareMatchesAcceptanceModel, writeLocalAiPrepare } from "../../../scripts/local-ai-prepare";
 
 describe("local AI model preparation", () => {
   let root: string;
@@ -59,6 +59,29 @@ describe("local AI model preparation", () => {
       pullModel: "mistral:latest",
       prepareCommand: ["ollama", "pull", "mistral:latest"]
     });
+  });
+
+  it("matches prepared model evidence against acceptance strict AI model", async () => {
+    const manifest = await buildLocalAiPrepare({
+      root,
+      execFileImpl: async () => ({ stdout: "success", stderr: "" })
+    });
+    const acceptance = {
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest"
+      }
+    };
+
+    expect(localAiPrepareMatchesAcceptanceModel(manifest, acceptance)).toBe(true);
+    expect(localAiPrepareMatchesAcceptanceModel(manifest, {
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "mistral:latest"
+      }
+    })).toBe(false);
   });
 
   it("can record the required command without pulling in check-only mode", async () => {

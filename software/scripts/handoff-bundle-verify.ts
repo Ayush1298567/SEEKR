@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
-import { localAiPrepareManifestOk } from "./local-ai-prepare";
+import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -424,6 +424,8 @@ export async function buildHandoffBundleVerification(options: {
     const localAiPrepare = await readCopiedJson(bundleDirectory, localAiPreparePath);
     if (!localAiPrepareManifestOk(localAiPrepare)) {
       blockers.push("Copied local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false.");
+    } else if (!localAiPrepareMatchesAcceptanceModel(localAiPrepare, copiedAcceptance)) {
+      blockers.push("Copied local AI prepare artifact must match the copied acceptance strict local AI model.");
     }
   }
   if (!plugAndPlayDoctorPath) {

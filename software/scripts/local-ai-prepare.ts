@@ -160,6 +160,21 @@ export function localAiPrepareManifestOk(manifest: unknown) {
     );
 }
 
+export function localAiPrepareMatchesAcceptanceModel(manifest: unknown, acceptance: unknown) {
+  if (!localAiPrepareManifestOk(manifest) || !isRecord(manifest) || !isRecord(acceptance)) return false;
+  const strictLocalAi = isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
+  if (!strictLocalAi || strictLocalAi.ok !== true || strictLocalAi.provider !== "ollama") return false;
+  const acceptedModel = typeof strictLocalAi.model === "string" && strictLocalAi.model.length > 0 ? strictLocalAi.model : undefined;
+  if (!acceptedModel) return false;
+  const preparedModel = typeof manifest.model === "string" ? manifest.model : undefined;
+  const preparedPullModel = typeof manifest.pullModel === "string" ? manifest.pullModel : undefined;
+  const prepareCommand = Array.isArray(manifest.prepareCommand) ? manifest.prepareCommand.map(String) : [];
+  const expectedPullModel = normalizePullModel(acceptedModel);
+  return preparedModel === acceptedModel &&
+    preparedPullModel === expectedPullModel &&
+    prepareCommand.at(-1) === expectedPullModel;
+}
+
 function normalizePullModel(model: string) {
   return model === DEFAULT_OLLAMA_MODEL ? "llama3.2" : model;
 }

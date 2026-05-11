@@ -942,6 +942,29 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when local AI prepare model does not match acceptance", async () => {
+    const localAiPrepare = JSON.parse(await readFile(path.join(root, localAiPreparePath), "utf8"));
+    localAiPrepare.model = "mistral:latest";
+    localAiPrepare.pullModel = "mistral:latest";
+    localAiPrepare.prepareCommand = ["ollama", "pull", "mistral:latest"];
+    localAiPrepare.checks[0].details = "ollama pull mistral:latest completed successfully.";
+    localAiPrepare.checks[0].evidence = ["package.json scripts.ai:prepare", "ollama pull mistral:latest"];
+    await writeFile(path.join(root, localAiPreparePath), JSON.stringify(localAiPrepare), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("match the latest acceptance strict local AI model")
+    ]));
+  });
+
   it("blocks bundling when rehearsal-start smoke has not been generated", async () => {
     await rm(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true, force: true });
 
@@ -1611,6 +1634,34 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
       expect.stringContaining("Copied local AI prepare artifact must prove")
+    ]));
+  });
+
+  it("fails bundle verification when copied local AI prepare model drifts from copied acceptance", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedLocalAiPreparePath = path.join(result.bundleDirectory, "artifacts", localAiPreparePath);
+    const copiedLocalAiPrepare = JSON.parse(await readFile(copiedLocalAiPreparePath, "utf8"));
+    copiedLocalAiPrepare.model = "mistral:latest";
+    copiedLocalAiPrepare.pullModel = "mistral:latest";
+    copiedLocalAiPrepare.prepareCommand = ["ollama", "pull", "mistral:latest"];
+    copiedLocalAiPrepare.checks[0].details = "ollama pull mistral:latest completed successfully.";
+    copiedLocalAiPrepare.checks[0].evidence = ["package.json scripts.ai:prepare", "ollama pull mistral:latest"];
+    await writeFile(copiedLocalAiPreparePath, JSON.stringify(copiedLocalAiPrepare), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("match the copied acceptance strict local AI model")
     ]));
   });
 

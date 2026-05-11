@@ -13,7 +13,7 @@ import {
   plugAndPlayDoctorOk,
   plugAndPlaySetupOk
 } from "./plug-and-play-artifact-contract";
-import { localAiPrepareManifestOk } from "./local-ai-prepare";
+import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
@@ -297,6 +297,7 @@ async function operatorSetupCheck(root: string): Promise<PlugAndPlayCheck> {
 async function localAiPrepareCheck(root: string): Promise<PlugAndPlayCheck> {
   const artifact = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const script = await readText(path.join(root, "scripts/local-ai-prepare.ts"));
   const test = await readText(path.join(root, "src/server/__tests__/localAiPrepare.test.ts"));
   const problems: string[] = [];
@@ -311,6 +312,8 @@ async function localAiPrepareCheck(root: string): Promise<PlugAndPlayCheck> {
   }
   if (!localAiPrepareManifestOk(manifest)) {
     problems.push("latest local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false");
+  } else if (!localAiPrepareMatchesAcceptanceModel(manifest, acceptance)) {
+    problems.push("latest local AI prepare artifact must match the latest acceptance strict local AI model");
   }
 
   return {

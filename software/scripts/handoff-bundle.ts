@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
 import { buildHandoffVerification } from "./handoff-verify";
-import { localAiPrepareManifestOk } from "./local-ai-prepare";
+import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -209,6 +209,8 @@ export async function writeHandoffBundle(options: {
     blockers.push("No local AI prepare artifact exists; run npm run ai:prepare before bundling for final internal-alpha review.");
   } else if (!localAiPrepareManifestOk(localAiPrepareManifest)) {
     blockers.push("Local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false before bundling.");
+  } else if (!localAiPrepareMatchesAcceptanceModel(localAiPrepareManifest, acceptanceManifest)) {
+    blockers.push("Local AI prepare artifact must match the latest acceptance strict local AI model before bundling.");
   }
   if (!doctor) {
     blockers.push("No operator-start plug-and-play doctor artifact exists; run npm run doctor before bundling for final internal-alpha review.");
