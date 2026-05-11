@@ -69,7 +69,17 @@ interface LocalGitState {
 
 const DEFAULT_OUT_DIR = ".tmp/source-control-handoff";
 export const EXPECTED_REPOSITORY_URL = "https://github.com/Ayush1298567/SEEKR";
-const REQUIRED_SOURCE_CONTROL_CHECK_IDS = ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"];
+const REQUIRED_SOURCE_CONTROL_CHECK_IDS = ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"];
+const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
+  "git clone https://github.com/Ayush1298567/SEEKR.git",
+  "cd SEEKR/software",
+  "git pull --ff-only",
+  "npm run audit:source-control",
+  "npm run doctor",
+  "npm run rehearsal:start",
+  "command upload",
+  "hardware actuation"
+];
 const execFileAsync = promisify(execFile);
 
 export async function buildSourceControlHandoff(options: {
@@ -107,6 +117,7 @@ export async function buildSourceControlHandoff(options: {
         : "Package metadata or README documentation must name https://github.com/Ayush1298567/SEEKR.",
       evidence: ["package.json repository", "README.md", "../README.md"]
     },
+    githubLandingReadmeCheck(parentReadme),
     {
       id: "local-git-metadata",
       status: gitMetadata ? "pass" : "blocked",
@@ -346,6 +357,26 @@ function renderMarkdown(manifest: SourceControlHandoffManifest) {
   return `${lines.join("\n")}\n`;
 }
 
+function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
+  if (!content) {
+    return {
+      id: "github-landing-readme",
+      status: "blocked",
+      details: "The GitHub landing README is missing, so a fresh-clone operator path cannot be proven.",
+      evidence: ["../README.md"]
+    };
+  }
+  const missing = REQUIRED_GITHUB_LANDING_README_SIGNALS.filter((signal) => !content.includes(signal));
+  return {
+    id: "github-landing-readme",
+    status: missing.length ? "blocked" : "pass",
+    details: missing.length
+      ? `The GitHub landing README is missing fresh-clone plug-and-play signal(s): ${missing.join(", ")}.`
+      : "The GitHub landing README gives a fresh clone path into SEEKR/software, includes source-control audit before startup, and preserves disabled command/hardware authority.",
+    evidence: ["../README.md"]
+  };
+}
+
 async function findGitMetadata(root: string): Promise<{ gitDir: string } | undefined> {
   let current = root;
   while (true) {
@@ -451,6 +482,9 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if ((blockedCheckIds.includes("configured-github-remote") || warningCheckIds.includes("configured-github-remote")) && !nextActions.some((action) => nextActionClearsWithCommand(action, "configured-github-remote", /git remote (add|set-url) origin/i))) {
     problems.push("nextActionChecklist must include a GitHub remote configuration step when the remote cannot be verified");
   }
+  if (blockedCheckIds.includes("github-landing-readme") && !nextActions.some((action) => nextActionClearsWithCommand(action, "github-landing-readme", /README\.md|operatorQuickstartContract/i))) {
+    problems.push("nextActionChecklist must include a GitHub landing README repair step when the clone path is missing");
+  }
   if (blockedCheckIds.includes("github-remote-refs") && !nextActions.some((action) => nextActionClearsWithCommand(action, "github-remote-refs", /git push/i))) {
     problems.push("nextActionChecklist must include a manual publish step when GitHub has no refs");
   }
@@ -486,11 +520,26 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
 function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceControlHandoffNextAction[] {
   const statusFor = (id: string) => checks.find((check) => check.id === id)?.status;
   const localGitMissing = statusFor("local-git-metadata") === "blocked";
+  const githubLandingReadmeMissing = statusFor("github-landing-readme") === "blocked";
   const remoteMissing = statusFor("configured-github-remote") === "blocked" || statusFor("configured-github-remote") === "warn";
   const remoteRefsMissing = statusFor("github-remote-refs") === "blocked";
   const localHeadUnpublished = statusFor("local-head-published") === "blocked";
   const worktreeDirty = statusFor("working-tree-clean") === "blocked";
   const actions: SourceControlHandoffNextAction[] = [];
+
+  if (githubLandingReadmeMissing) {
+    actions.push({
+      id: "repair-github-landing-readme",
+      status: "required",
+      details: "Restore the GitHub landing README fresh-clone path before source-control handoff is considered plug-and-play ready.",
+      commands: [
+        "git diff -- README.md",
+        "npm run test -- operatorQuickstartContract acceptanceScripts",
+        "npm run audit:source-control"
+      ],
+      clearsCheckIds: ["github-landing-readme"]
+    });
+  }
 
   if (localGitMissing) {
     actions.push({

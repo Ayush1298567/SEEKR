@@ -11,12 +11,12 @@ describe("source-control handoff audit", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = path.join(os.tmpdir(), `seekr-source-control-test-${process.pid}-${Date.now()}`);
+    root = path.join(os.tmpdir(), `seekr-source-control-test-${process.pid}-${Date.now()}`, "software");
     await seedSourceControlProject(root);
   });
 
   afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+    await rm(path.dirname(root), { recursive: true, force: true });
   });
 
   it("passes when local git metadata and GitHub remote refs are present", async () => {
@@ -162,6 +162,44 @@ describe("source-control handoff audit", () => {
     ]));
   });
 
+  it("blocks when the GitHub landing README omits the fresh-clone operator path", async () => {
+    await writeFile(path.join(root, "..", "README.md"), "SEEKR source-control handoff: https://github.com/Ayush1298567/SEEKR\n", "utf8");
+
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      })
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("git clone")
+    });
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "repair-github-landing-readme",
+        commands: expect.arrayContaining(["npm run test -- operatorQuickstartContract acceptanceScripts"]),
+        clearsCheckIds: expect.arrayContaining(["github-landing-readme"])
+      })
+    ]));
+  });
+
   it("warns instead of pretending remote refs were checked when ls-remote fails", async () => {
     const manifest = await buildSourceControlHandoff({
       root,
@@ -291,6 +329,23 @@ async function seedSourceControlProject(root: string) {
     }
   }), "utf8");
   await writeFile(path.join(root, "README.md"), "See https://github.com/Ayush1298567/SEEKR for source-control handoff.\n", "utf8");
+  await writeFile(path.join(root, "..", "README.md"), [
+    "# SEEKR",
+    "",
+    "```bash",
+    "git clone https://github.com/Ayush1298567/SEEKR.git",
+    "cd SEEKR/software",
+    "npm ci",
+    "npm run setup:local",
+    "npm run audit:source-control",
+    "npm run doctor",
+    "npm run rehearsal:start",
+    "```",
+    "",
+    "If the repository is already cloned, run git pull --ff-only first.",
+    "The local plug-and-play path keeps command upload and hardware actuation disabled.",
+    ""
+  ].join("\n"), "utf8");
 }
 
 function gitMock(state: { branch: string; headSha: string; status: string }) {

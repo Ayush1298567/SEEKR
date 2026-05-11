@@ -553,6 +553,7 @@ async function seedDoctorProject(root: string) {
     warningCheckCount: 0,
     checks: [
       { id: "repository-reference", status: "pass", details: "Repository reference is present." },
+      { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path." },
       { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
       { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
@@ -565,7 +566,7 @@ async function seedDoctorProject(root: string) {
         status: "verification",
         details: "Rerun the read-only audit before final bundling to keep source-control evidence current.",
         commands: ["npm run audit:source-control"],
-        clearsCheckIds: ["repository-reference", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"]
+        clearsCheckIds: ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "local-head-published", "working-tree-clean"]
       }
     ],
     limitations: [

@@ -16,7 +16,7 @@ npm run rehearsal:start
 
 If the repository is already cloned, run `git pull --ff-only` from the repository root first, then enter `software/` and use the same setup and rehearsal commands.
 
-Source-control reference: <https://github.com/Ayush1298567/SEEKR>. Local rehearsal can run even when Git metadata is missing, but `software` also has a read-only source-control handoff audit that records GitHub publication, local HEAD, and clean-worktree state before review.
+Source-control reference: <https://github.com/Ayush1298567/SEEKR>. Local rehearsal can run even when Git metadata is missing, but `software` also has a read-only source-control handoff audit that records this landing README's fresh-clone path, GitHub publication, local HEAD, and clean-worktree state before review.
 
 The local plug-and-play path keeps command upload and hardware actuation disabled. Real Jetson/Pi hardware validation, real MAVLink/ROS bench telemetry, HIL logs, Isaac Sim to Jetson capture, and reviewed hardware-actuation policy evidence are still required before the system can be treated as physically complete.
 
