@@ -166,8 +166,8 @@ export async function writeHandoffBundle(options: {
   }
   if (!doctor) {
     blockers.push("No operator-start plug-and-play doctor artifact exists; run npm run doctor before bundling for final internal-alpha review.");
-  } else if (!plugAndPlayDoctorOk(doctorManifest, acceptanceManifest)) {
-    blockers.push("Plug-and-play doctor artifact must pass with repository-safety, source-control handoff recording, start-wrapper validation, local Ollama, startup ports, data directory, commandUploadEnabled false, and freshness against acceptance before bundling.");
+  } else if (!plugAndPlayDoctorOk(doctorManifest, acceptanceManifest, sourceControl?.relativePath)) {
+    blockers.push("Plug-and-play doctor artifact must pass with repository-safety, matching source-control handoff recording, start-wrapper validation, local Ollama, startup ports, data directory, commandUploadEnabled false, and freshness against acceptance before bundling.");
   }
   if (!rehearsalStartSmoke) {
     blockers.push("No rehearsal-start smoke artifact exists; run npm run smoke:rehearsal:start before bundling for final internal-alpha review.");

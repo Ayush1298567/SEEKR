@@ -600,6 +600,26 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when the operator doctor references an older source-control handoff", async () => {
+    const newerSourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-zz-newer.json";
+    const sourceControl = JSON.parse(await readFile(path.join(root, sourceControlPath), "utf8"));
+    sourceControl.generatedAt = "2026-05-09T21:02:00.000Z";
+    await writeFile(path.join(root, newerSourceControlPath), JSON.stringify(sourceControl), "utf8");
+    await writeFile(path.join(root, newerSourceControlPath.replace(/\.json$/, ".md")), "# Source Control Handoff\n", "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:03:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("matching source-control handoff")
+    ]));
+  });
+
   it("blocks bundling when plug-and-play setup has not been generated", async () => {
     await rm(path.join(root, ".tmp/plug-and-play-setup"), { recursive: true, force: true });
 
@@ -1719,6 +1739,32 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("fails bundle verification when copied doctor source-control evidence does not match the copied source-control handoff", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedDoctorPath = path.join(result.bundleDirectory, "artifacts", doctorPath);
+    const copiedDoctor = JSON.parse(await readFile(copiedDoctorPath, "utf8"));
+    const sourceControlCheck = copiedDoctor.checks.find((check: { id: string }) => check.id === "source-control-handoff");
+    sourceControlCheck.evidence = [".tmp/source-control-handoff/seekr-source-control-handoff-stale.json"];
+    sourceControlCheck.details = "Source-control handoff artifact .tmp/source-control-handoff/seekr-source-control-handoff-stale.json is ready.";
+    await writeFile(copiedDoctorPath, JSON.stringify(copiedDoctor), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("matching source-control handoff")
+    ]));
+  });
+
   it("fails bundle verification when the copied plug-and-play doctor omits the start-wrapper check", async () => {
     const result = await writeHandoffBundle({
       root,
@@ -2128,6 +2174,13 @@ async function seedBundleEvidence(root: string) {
           details: "Node, package.json engines, packageManager, package-lock.json, node_modules/.bin/tsx, node_modules/.bin/concurrently, and node_modules/.bin/vite are present.",
           evidence: ["process.version", "package.json engines.node", "package.json engines.npm", "package.json packageManager", "package-lock.json", "package-lock.json packages[\"\"].engines", "node_modules/.bin/tsx", "node_modules/.bin/concurrently", "node_modules/.bin/vite"]
         }
+      : id === "source-control-handoff"
+        ? {
+            id,
+            status: "pass",
+            details: `Source-control handoff artifact ${sourceControlPath} is ready.`,
+            evidence: [sourceControlPath]
+          }
       : {
           id,
           status: "pass",

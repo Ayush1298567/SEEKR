@@ -6,6 +6,7 @@ import {
   SOFT_DOCTOR_CHECK_IDS,
   doctorCheckStatusOk,
   doctorRuntimeDependencyEvidenceOk,
+  doctorSourceControlEvidenceOk,
   plugAndPlayDoctorOk,
   plugAndPlaySetupOk
 } from "../../../scripts/plug-and-play-artifact-contract";
@@ -61,6 +62,14 @@ describe("plug-and-play artifact contract", () => {
     expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
   });
 
+  it("requires doctor source-control evidence to match the packaged source-control handoff when provided", () => {
+    const checks = doctorChecks(".tmp/source-control-handoff/seekr-source-control-handoff-current.json");
+
+    expect(doctorSourceControlEvidenceOk(checks, ".tmp/source-control-handoff/seekr-source-control-handoff-current.json")).toBe(true);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }), undefined, ".tmp/source-control-handoff/seekr-source-control-handoff-current.json")).toBe(true);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks }), undefined, ".tmp/source-control-handoff/seekr-source-control-handoff-newer.json")).toBe(false);
+  });
+
   it("rejects warning statuses on critical doctor checks", () => {
     const checks = doctorChecks().map((check) =>
       check.id === "local-ai" ? { ...check, status: "warn" } : check
@@ -108,13 +117,19 @@ function doctorManifest(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function doctorChecks() {
+function doctorChecks(sourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-test.json") {
   return REQUIRED_DOCTOR_CHECK_IDS.map((id) => ({
     id,
     status: "pass",
     details: id === "runtime-dependencies"
       ? `Runtime evidence: ${REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE.join(", ")}`
+      : id === "source-control-handoff"
+        ? `Source-control handoff artifact ${sourceControlPath} is ready.`
       : `${id} ok`,
-    evidence: id === "runtime-dependencies" ? [...REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE] : [id]
+    evidence: id === "runtime-dependencies"
+      ? [...REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE]
+      : id === "source-control-handoff"
+        ? [sourceControlPath]
+        : [id]
   }));
 }

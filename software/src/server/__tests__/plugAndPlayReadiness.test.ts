@@ -697,6 +697,10 @@ describe("plug-and-play readiness audit", () => {
     });
 
     expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest source-control handoff artifact")
+    });
     expect(manifest.checks.find((check) => check.id === "review-bundle")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("latest source-control handoff")
@@ -1193,6 +1197,13 @@ async function seedDoctorFiles(root: string) {
           details: "Node, package.json engines, packageManager, package-lock.json, node_modules/.bin/tsx, node_modules/.bin/concurrently, and node_modules/.bin/vite are present.",
           evidence: ["process.version", "package.json engines.node", "package.json engines.npm", "package.json packageManager", "package-lock.json", "package-lock.json packages[\"\"].engines", "node_modules/.bin/tsx", "node_modules/.bin/concurrently", "node_modules/.bin/vite"]
         }
+      : id === "source-control-handoff"
+        ? {
+            id,
+            status: "pass",
+            details: "Source-control handoff artifact .tmp/source-control-handoff/seekr-source-control-handoff-test.json is ready.",
+            evidence: [".tmp/source-control-handoff/seekr-source-control-handoff-test.json"]
+          }
       : { id, status: "pass", details: `${id} passed.` })
   }), "utf8");
   await writeFile(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), JSON.stringify({

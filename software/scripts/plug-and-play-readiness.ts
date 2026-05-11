@@ -8,6 +8,7 @@ import {
   REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE,
   doctorCheckStatusOk,
   doctorRuntimeDependencyEvidenceOk,
+  doctorSourceControlEvidenceOk,
   plugAndPlaySetupOk
 } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -232,6 +233,7 @@ async function operatorSetupCheck(root: string): Promise<PlugAndPlayCheck> {
 
 async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
   const doctor = await latestOperatorDoctorJson(root);
+  const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const manifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const script = await readText(path.join(root, "scripts/plug-and-play-doctor.ts"));
@@ -277,6 +279,9 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
   if (isRecord(manifest) && !doctorRuntimeDependencyEvidenceOk(checks)) {
     problems.push(`latest plug-and-play doctor runtime-dependencies check must preserve evidence for ${REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE.join(", ")}`);
   }
+  if (isRecord(manifest) && sourceControl && !doctorSourceControlEvidenceOk(checks, sourceControl.relativePath)) {
+    problems.push("latest operator-start plug-and-play doctor must reference the latest source-control handoff artifact");
+  }
   const ai = isRecord(manifest) && isRecord(manifest.ai) ? manifest.ai : undefined;
   if (ai && (ai.provider !== "ollama" || ai.status !== "pass")) problems.push("latest plug-and-play doctor must prove local Ollama is reachable");
   const doctorGeneratedAt = isRecord(manifest) ? timeMs(manifest.generatedAt) : undefined;
@@ -297,6 +302,7 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     evidence: [
       "scripts/plug-and-play-doctor.ts",
       "src/server/__tests__/plugAndPlayDoctor.test.ts",
+      sourceControl?.relativePath,
       doctor?.relativePath ?? ".tmp/plug-and-play-doctor"
     ].filter(isString)
   };

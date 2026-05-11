@@ -279,8 +279,8 @@ export async function buildHandoffBundleVerification(options: {
     const acceptance = manifestFiles.some((file) => file.sourcePath === ".tmp/acceptance-status.json")
       ? await readCopiedJson(bundleDirectory, ".tmp/acceptance-status.json")
       : undefined;
-    if (!plugAndPlayDoctorOk(doctor, acceptance)) {
-      blockers.push("Copied plug-and-play doctor must pass repository-safety, source-control handoff recording, local startup, start-wrapper, local Ollama, ports, data directory, commandUploadEnabled false, and acceptance-freshness semantic checks.");
+    if (!plugAndPlayDoctorOk(doctor, acceptance, sourceControlHandoffPath)) {
+      blockers.push("Copied plug-and-play doctor must pass repository-safety, matching source-control handoff recording, local startup, start-wrapper, local Ollama, ports, data directory, commandUploadEnabled false, and acceptance-freshness semantic checks.");
     }
   }
   if (!rehearsalStartSmokePath) {

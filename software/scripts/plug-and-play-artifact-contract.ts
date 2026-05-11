@@ -48,7 +48,7 @@ export function plugAndPlaySetupOk(manifest: unknown) {
     checks.every((check) => check.status === "pass");
 }
 
-export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unknown) {
+export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unknown, expectedSourceControlPath?: string) {
   if (!isRecord(manifest)) return false;
   const ai = isRecord(manifest.ai) ? manifest.ai : {};
   const summary = isRecord(manifest.summary) ? manifest.summary : {};
@@ -66,6 +66,7 @@ export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unkn
     REQUIRED_DOCTOR_CHECK_IDS.every((id) => checkIds.has(id)) &&
     REQUIRED_DOCTOR_CHECK_IDS.every((id) => doctorCheckStatusOk(checks, id)) &&
     doctorRuntimeDependencyEvidenceOk(checks) &&
+    doctorSourceControlEvidenceOk(checks, expectedSourceControlPath) &&
     (acceptanceGeneratedAt === undefined || (doctorGeneratedAt !== undefined && doctorGeneratedAt >= acceptanceGeneratedAt));
 }
 
@@ -83,6 +84,15 @@ export function doctorRuntimeDependencyEvidenceOk(checks: Record<string, unknown
   const details = typeof check.details === "string" ? check.details : "";
   const haystack = [details, ...evidence].join("\n");
   return REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE.every((item) => haystack.includes(item));
+}
+
+export function doctorSourceControlEvidenceOk(checks: Record<string, unknown>[], expectedSourceControlPath?: string) {
+  if (!expectedSourceControlPath) return true;
+  const check = checks.find((item) => item.id === "source-control-handoff");
+  if (!check) return false;
+  const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
+  const details = typeof check.details === "string" ? check.details : "";
+  return [details, ...evidence].some((item) => item.includes(expectedSourceControlPath));
 }
 
 function timeMs(value: unknown) {

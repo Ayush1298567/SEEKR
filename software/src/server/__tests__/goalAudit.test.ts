@@ -1279,7 +1279,7 @@ async function seedRoot(root: string) {
       { id: "package-scripts", status: "pass" },
       { id: "runtime-dependencies", status: "pass" },
       { id: "repository-safety", status: "pass" },
-      { id: "source-control-handoff", status: "pass" },
+      { id: "source-control-handoff", status: "pass", evidence: [sourceControlPath] },
       { id: "operator-start", status: "pass" },
       { id: "operator-env", status: "pass" },
       { id: "local-ai", status: "pass" },

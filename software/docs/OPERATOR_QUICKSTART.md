@@ -11,7 +11,7 @@
    npm run doctor
    ```
 
-   `setup:local` creates `.env` only when missing and prepares project-local rehearsal data. `audit:source-control` records the current GitHub handoff state, including local HEAD publication and clean-worktree status, plus manual publication next steps without initializing Git, committing, or pushing. `doctor` checks package/runtime metadata, local Ollama, ports, data directory, source-control handoff state, and safety flags without starting the app.
+   `setup:local` creates `.env` only when missing and prepares project-local rehearsal data. `audit:source-control` records the current GitHub handoff state, including local HEAD publication and clean-worktree status, plus manual publication next steps without initializing Git, committing, or pushing. `doctor` checks package/runtime metadata, local Ollama, ports, data directory, source-control handoff state, and safety flags without starting the app. For final review packaging, rerun `doctor` after the bounded smoke proof so the operator-start doctor references the latest source-control handoff artifact.
 
 2. Start the local rehearsal wrapper:
 
@@ -27,7 +27,7 @@
    npm run smoke:rehearsal:start
    ```
 
-   This starts the wrapper on temporary local ports, checks API/client/readiness/source-health, writes `.tmp/rehearsal-start-smoke/`, then shuts down. It is local startup evidence only, not hardware validation.
+   This starts the wrapper on temporary local ports, checks API/client/readiness/source-health, writes `.tmp/rehearsal-start-smoke/`, then shuts down. It is local startup evidence only, not hardware validation. The smoke run refreshes source-control evidence and writes a smoke-profile doctor, so final review packaging should rerun standalone `npm run doctor` afterward.
 
 4. Open `http://127.0.0.1:5173`.
 
