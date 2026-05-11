@@ -9,6 +9,7 @@ import {
   doctorCheckStatusOk,
   doctorRuntimeDependencyEvidenceOk,
   doctorSourceControlEvidenceOk,
+  plugAndPlayDoctorOk,
   plugAndPlaySetupOk
 } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -295,6 +296,9 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
   }
   if (isRecord(manifest) && sourceControl && !doctorSourceControlEvidenceOk(checks, sourceControl.relativePath)) {
     problems.push("latest operator-start plug-and-play doctor must reference the latest source-control handoff artifact");
+  }
+  if (isRecord(manifest) && !plugAndPlayDoctorOk(manifest, acceptance, sourceControl?.relativePath)) {
+    problems.push("latest plug-and-play doctor must satisfy the shared exact-row operator-start artifact contract");
   }
   const ai = isRecord(manifest) && isRecord(manifest.ai) ? manifest.ai : undefined;
   if (ai && (ai.provider !== "ollama" || ai.status !== "pass")) problems.push("latest plug-and-play doctor must prove local Ollama is reachable");

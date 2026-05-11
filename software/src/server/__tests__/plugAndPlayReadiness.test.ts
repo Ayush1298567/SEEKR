@@ -751,6 +751,54 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when operator-start doctor artifact rows are reordered", async () => {
+    const doctorPath = path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json");
+    const doctor = JSON.parse(await readFile(doctorPath, "utf8"));
+    doctor.checks = [
+      doctor.checks.find((check: { id: string }) => check.id === "runtime-dependencies"),
+      doctor.checks.find((check: { id: string }) => check.id === "package-scripts"),
+      ...doctor.checks.filter((check: { id: string }) => !["package-scripts", "runtime-dependencies"].includes(check.id))
+    ];
+    await writeFile(doctorPath, JSON.stringify(doctor), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("shared exact-row operator-start artifact contract")
+    });
+  });
+
+  it("fails when operator-start doctor artifact includes an extra row", async () => {
+    const doctorPath = path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json");
+    const doctor = JSON.parse(await readFile(doctorPath, "utf8"));
+    doctor.summary.pass += 1;
+    doctor.checks.push({
+      id: "unreviewed-extra-doctor-check",
+      status: "pass",
+      details: "Unreviewed extra doctor check passed.",
+      evidence: ["unreviewed-extra-doctor-check"]
+    });
+    await writeFile(doctorPath, JSON.stringify(doctor), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:03:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("shared exact-row operator-start artifact contract")
+    });
+  });
+
   it("allows plug-and-play readiness when only soft operator doctor checks are warnings", async () => {
     const doctor = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"), "utf8"));
     doctor.summary.pass = 7;
