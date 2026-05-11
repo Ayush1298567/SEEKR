@@ -112,6 +112,8 @@ export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
   const hasAutoFallbackEvidence = evidence.some((item) => item.includes("auto-selected free local API/client ports"));
   const fallbackCandidates = fallbackCandidatesFromDetails(details);
   const hasFallbackCandidate = fallbackCandidates !== undefined &&
+    validFallbackCandidates(fallbackCandidates) &&
+    occupiedPorts.every(({ role, port }) => fallbackCandidates[role] !== port) &&
     occupiedPorts.every(({ role }) => evidence.includes(fallbackEvidenceFor(role, fallbackCandidates[role])));
   return hasListenerDetails && hasPortInspectorEvidence && hasAutoFallbackDetails && hasPlugAndPlayGuidance && hasAutoFallbackEvidence && hasFallbackCandidate;
 }
@@ -136,6 +138,17 @@ function fallbackCandidatesFromDetails(details: string) {
 
 function fallbackEvidenceFor(role: "api" | "client", port: string) {
   return role === "api" ? `fallback API port candidate ${port}` : `fallback client port candidate ${port}`;
+}
+
+function validFallbackCandidates(candidates: { api: string; client: string }) {
+  return candidates.api !== candidates.client &&
+    portIsValid(candidates.api) &&
+    portIsValid(candidates.client);
+}
+
+function portIsValid(value: string) {
+  const port = Number(value);
+  return Number.isInteger(port) && port > 0 && port <= 65535;
 }
 
 function timeMs(value: unknown) {
