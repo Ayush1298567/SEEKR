@@ -62,6 +62,16 @@ describe("plug-and-play readiness audit", () => {
         workingTreeClean: true,
         workingTreeStatusLineCount: 0
       },
+      operatorStartPorts: {
+        path: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
+        status: "pass",
+        api: 8787,
+        client: 5173,
+        defaultPortsOccupied: true,
+        autoRecoverable: true,
+        listenerDiagnostics: ["listener 12345 cwd ~/Ayush/Prophet/prophet-console"],
+        details: expect.stringContaining("auto-selects free local API/client ports")
+      },
       reviewBundle: {
         path: ".tmp/handoff-bundles/seekr-handoff-bundle-test.json",
         verificationPath: ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
@@ -1484,6 +1494,7 @@ describe("plug-and-play readiness audit", () => {
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"remainingRealWorldBlockerCount\": 8");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Plug-And-Play Readiness");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Operator start ports");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Remaining real-world blockers");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Count: 8");
   });
@@ -1985,6 +1996,10 @@ async function seedDoctorFiles(root: string) {
     profile: "operator-start",
     status: "ready-local-start",
     commandUploadEnabled: false,
+    ports: {
+      api: 8787,
+      client: 5173
+    },
     ai: {
       provider: "ollama",
       model: "llama3.2:latest",
@@ -2019,6 +2034,20 @@ async function seedDoctorFiles(root: string) {
             status: "pass",
             details: "Source-control handoff artifact .tmp/source-control-handoff/seekr-source-control-handoff-test.json is ready.",
             evidence: [".tmp/source-control-handoff/seekr-source-control-handoff-test.json"]
+          }
+      : id === "local-ports"
+        ? {
+            id,
+            status: "pass",
+            details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set.",
+            evidence: [
+              "PORT",
+              "SEEKR_API_PORT",
+              "SEEKR_CLIENT_PORT",
+              "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+              "lsof -nP -iTCP:5173 -sTCP:LISTEN",
+              "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+            ]
           }
       : { id, status: "pass", details: `${id} passed.` })
   }), "utf8");

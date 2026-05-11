@@ -62,6 +62,16 @@ export interface PlugAndPlayReadinessManifest {
     workingTreeClean?: boolean;
     workingTreeStatusLineCount?: number;
   };
+  operatorStartPorts: {
+    path?: string;
+    status?: string;
+    api?: number;
+    client?: number;
+    defaultPortsOccupied?: boolean;
+    autoRecoverable?: boolean;
+    listenerDiagnostics?: string[];
+    details?: string;
+  };
   reviewBundle: {
     path?: string;
     verificationPath?: string;
@@ -195,6 +205,7 @@ export async function buildPlugAndPlayReadiness(options: {
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
   const sourceControl = await sourceControlSummary(root);
+  const operatorStartPorts = await operatorStartPortsSummary(root);
   const reviewBundle = await reviewBundleSummary(root);
 
   return {
@@ -213,6 +224,7 @@ export async function buildPlugAndPlayReadiness(options: {
       caseNames: stringArray(strictLocalAi?.caseNames)
     },
     sourceControl,
+    operatorStartPorts,
     reviewBundle,
     summary,
     checks,
@@ -1086,6 +1098,17 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     typeof manifest.sourceControl.workingTreeClean === "boolean" ? `- Working tree clean: ${manifest.sourceControl.workingTreeClean}` : undefined,
     typeof manifest.sourceControl.workingTreeStatusLineCount === "number" ? `- Working tree status lines: ${manifest.sourceControl.workingTreeStatusLineCount}` : undefined,
     "",
+    "Operator start ports:",
+    "",
+    manifest.operatorStartPorts.path ? `- Doctor: ${manifest.operatorStartPorts.path}` : undefined,
+    manifest.operatorStartPorts.status ? `- Port check status: ${manifest.operatorStartPorts.status}` : undefined,
+    typeof manifest.operatorStartPorts.api === "number" ? `- API port: ${manifest.operatorStartPorts.api}` : undefined,
+    typeof manifest.operatorStartPorts.client === "number" ? `- Client port: ${manifest.operatorStartPorts.client}` : undefined,
+    typeof manifest.operatorStartPorts.defaultPortsOccupied === "boolean" ? `- Default ports occupied: ${manifest.operatorStartPorts.defaultPortsOccupied}` : undefined,
+    typeof manifest.operatorStartPorts.autoRecoverable === "boolean" ? `- Auto-recoverable by wrapper fallback: ${manifest.operatorStartPorts.autoRecoverable}` : undefined,
+    manifest.operatorStartPorts.listenerDiagnostics?.length ? `- Listener diagnostics: ${manifest.operatorStartPorts.listenerDiagnostics.join("; ")}` : undefined,
+    manifest.operatorStartPorts.details ? `- Details: ${manifest.operatorStartPorts.details}` : undefined,
+    "",
     "Review bundle:",
     "",
     manifest.reviewBundle.path ? `- Bundle: ${manifest.reviewBundle.path}` : undefined,
@@ -1208,6 +1231,30 @@ async function sourceControlSummary(root: string): Promise<PlugAndPlayReadinessM
     remoteDefaultBranchSha: stringOrUndefined(manifest.remoteDefaultBranchSha),
     workingTreeClean: booleanOrUndefined(manifest.workingTreeClean),
     workingTreeStatusLineCount: numberOrUndefined(manifest.workingTreeStatusLineCount)
+  };
+}
+
+async function operatorStartPortsSummary(root: string): Promise<PlugAndPlayReadinessManifest["operatorStartPorts"]> {
+  const doctor = await latestOperatorDoctorJson(root);
+  const manifest = doctor ? await readJson(doctor.absolutePath) : undefined;
+  if (!isRecord(manifest)) return {};
+  const ports = isRecord(manifest.ports) ? manifest.ports : {};
+  const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
+  const portCheck = checks.find((check) => check.id === "local-ports");
+  const evidence = isRecord(portCheck) && Array.isArray(portCheck.evidence) ? portCheck.evidence.map(String) : [];
+  const details = isRecord(portCheck) ? stringOrUndefined(portCheck.details) : undefined;
+  const status = isRecord(portCheck) ? stringOrUndefined(portCheck.status) : undefined;
+  const listenerDiagnostics = evidence.filter((item) => /^listener\s+\d+\s+cwd\s+/.test(item));
+  const text = [details, ...evidence].filter(isString).join(" ");
+  return {
+    path: doctor?.relativePath,
+    status,
+    api: numberOrUndefined(ports.api),
+    client: numberOrUndefined(ports.client),
+    defaultPortsOccupied: /already in use|occupied|busy/i.test(text),
+    autoRecoverable: /auto-selects free local API\/client ports|auto-selected free local API\/client ports|auto-selected free local/i.test(text),
+    listenerDiagnostics,
+    details
   };
 }
 
@@ -1355,6 +1402,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     commandUploadEnabled: result.manifest.commandUploadEnabled,
     ai: result.manifest.ai,
     sourceControl: result.manifest.sourceControl,
+    operatorStartPorts: result.manifest.operatorStartPorts,
     reviewBundle: result.manifest.reviewBundle,
     summary: result.manifest.summary,
     remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,

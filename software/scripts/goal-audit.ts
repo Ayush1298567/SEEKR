@@ -846,6 +846,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const apiProbe = await latestJson(root, ".tmp/api-probe", (name) => name.startsWith("seekr-api-probe-"));
   const setup = await latestJson(root, ".tmp/plug-and-play-setup", (name) => name.startsWith("seekr-local-setup-"));
   const doctor = await latestOperatorDoctorJson(root);
+  const doctorManifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", (name) => name.startsWith("seekr-source-control-handoff-"));
   const sourceControlManifest = sourceControl ? await readJson(sourceControl.absolutePath) : undefined;
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
@@ -857,6 +858,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
   const todo = await latestJson(root, ".tmp/todo-audit", (name) => name.startsWith("seekr-todo-audit-"));
   const ai = isRecord(manifest) && isRecord(manifest.ai) ? manifest.ai : {};
   const readinessSourceControl = isRecord(manifest) && isRecord(manifest.sourceControl) ? manifest.sourceControl : undefined;
+  const readinessPorts = isRecord(manifest) && isRecord(manifest.operatorStartPorts) ? manifest.operatorStartPorts : undefined;
   const readinessReviewBundle = isRecord(manifest) && isRecord(manifest.reviewBundle) ? manifest.reviewBundle : undefined;
   const bundleSecretScan = isRecord(bundleVerificationManifest) && isRecord(bundleVerificationManifest.secretScan) ? bundleVerificationManifest.secretScan : undefined;
   const blockers = isRecord(manifest) && Array.isArray(manifest.remainingRealWorldBlockers)
@@ -979,6 +981,33 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
       problems.push("plug-and-play readiness source-control working-tree status line summary must match the latest source-control handoff");
     }
   }
+  if (isRecord(manifest) && !readinessPorts) {
+    problems.push("plug-and-play readiness must publish an operator-start port summary");
+  }
+  const doctorPorts = operatorDoctorPortSummary(doctor?.relativePath, doctorManifest);
+  if (readinessPorts && doctorPorts) {
+    if (normalizeArtifactPath(root, readinessPorts.path) !== doctorPorts.path) {
+      problems.push("plug-and-play readiness operator-start port summary must point at the latest operator-start doctor");
+    }
+    if (stringOrUndefined(readinessPorts.status) !== doctorPorts.status) {
+      problems.push("plug-and-play readiness operator-start port status summary must match the latest doctor local-ports check");
+    }
+    if (numberOrUndefined(readinessPorts.api) !== doctorPorts.api) {
+      problems.push("plug-and-play readiness operator-start API port summary must match the latest doctor");
+    }
+    if (numberOrUndefined(readinessPorts.client) !== doctorPorts.client) {
+      problems.push("plug-and-play readiness operator-start client port summary must match the latest doctor");
+    }
+    if (booleanOrUndefined(readinessPorts.defaultPortsOccupied) !== doctorPorts.defaultPortsOccupied) {
+      problems.push("plug-and-play readiness operator-start default-port occupancy summary must match the latest doctor local-ports evidence");
+    }
+    if (booleanOrUndefined(readinessPorts.autoRecoverable) !== doctorPorts.autoRecoverable) {
+      problems.push("plug-and-play readiness operator-start port fallback summary must match the latest doctor local-ports evidence");
+    }
+    if (!sameStringArray(stringArray(readinessPorts.listenerDiagnostics), doctorPorts.listenerDiagnostics)) {
+      problems.push("plug-and-play readiness operator-start listener diagnostics summary must match the latest doctor local-ports evidence");
+    }
+  }
   if (isRecord(manifest) && !readinessReviewBundle) {
     problems.push("plug-and-play readiness must publish a review-bundle summary");
   }
@@ -1076,6 +1105,25 @@ function plugAndPlayReadinessWarningDetails(manifest: unknown) {
       const details = typeof check.details === "string" && check.details.length ? check.details : "warning details unavailable";
       return `${id}: ${details}`;
     });
+}
+
+function operatorDoctorPortSummary(doctorPath: string | undefined, manifest: unknown) {
+  if (!doctorPath || !isRecord(manifest)) return undefined;
+  const ports = isRecord(manifest.ports) ? manifest.ports : {};
+  const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
+  const portCheck = checks.find((check) => check.id === "local-ports");
+  const evidence = isRecord(portCheck) && Array.isArray(portCheck.evidence) ? portCheck.evidence.map(String) : [];
+  const details = isRecord(portCheck) ? stringOrUndefined(portCheck.details) : undefined;
+  const text = [details, ...evidence].filter(isString).join(" ");
+  return {
+    path: doctorPath,
+    status: isRecord(portCheck) ? stringOrUndefined(portCheck.status) : undefined,
+    api: numberOrUndefined(ports.api),
+    client: numberOrUndefined(ports.client),
+    defaultPortsOccupied: /already in use|occupied|busy/i.test(text),
+    autoRecoverable: /auto-selects free local API\/client ports|auto-selected free local API\/client ports|auto-selected free local/i.test(text),
+    listenerDiagnostics: evidence.filter((item) => /^listener\s+\d+\s+cwd\s+/.test(item))
+  };
 }
 
 function plugAndPlayReadinessEvidencePaths(root: string, manifest: unknown) {

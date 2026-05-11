@@ -265,6 +265,27 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when plug-and-play readiness hides operator-start port fallback diagnostics", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.operatorStartPorts.defaultPortsOccupied = false;
+    readiness.operatorStartPorts.autoRecoverable = false;
+    readiness.operatorStartPorts.listenerDiagnostics = [];
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("operator-start default-port occupancy summary")
+    });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("listener diagnostics summary");
+  });
+
   it("fails local alpha when plug-and-play readiness does not reference source-control handoff evidence", async () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
@@ -1746,6 +1767,7 @@ async function seedRoot(root: string) {
     status: "ready-local-start",
     commandUploadEnabled: false,
     ai: { provider: "ollama", model: "llama3.2:latest", status: "pass" },
+    ports: { api: 8787, client: 5173 },
     summary: { pass: 10, warn: 0, fail: 0 },
     checks: [
       { id: "package-scripts", status: "pass" },
@@ -1755,7 +1777,16 @@ async function seedRoot(root: string) {
       { id: "operator-start", status: "pass" },
       { id: "operator-env", status: "pass" },
       { id: "local-ai", status: "pass" },
-      { id: "local-ports", status: "pass" },
+      {
+        id: "local-ports",
+        status: "pass",
+        details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set.",
+        evidence: [
+          "scripts/rehearsal-start.sh auto-selected free local API/client ports",
+          "lsof -nP -iTCP:5173 -sTCP:LISTEN",
+          "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+        ]
+      },
       { id: "data-dir", status: "pass" },
       { id: "safety-boundary", status: "pass" }
     ]
@@ -1954,6 +1985,16 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       remoteDefaultBranchSha: "abc1234567890",
       workingTreeClean: true,
       workingTreeStatusLineCount: 0
+    },
+    operatorStartPorts: {
+      path: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
+      status: "pass",
+      api: 8787,
+      client: 5173,
+      defaultPortsOccupied: true,
+      autoRecoverable: true,
+      listenerDiagnostics: ["listener 12345 cwd ~/Ayush/Prophet/prophet-console"],
+      details: "Default port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: client 5173. Listener diagnostics: client 5173 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. npm run rehearsal:start auto-selects free local API/client ports when no explicit port variables are set."
     },
     reviewBundle: {
       path: ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json",
