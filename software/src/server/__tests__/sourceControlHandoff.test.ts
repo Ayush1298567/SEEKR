@@ -74,6 +74,7 @@ describe("source-control handoff audit", () => {
     expect(manifest.checks.every((check) => check.status === "pass")).toBe(true);
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.details).toContain("ordered fresh clone path");
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.evidence).toContain("github-landing-readme-command-order");
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.evidence).toContain("github-landing-readme-ai-readiness-proof");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm ci --dry-run");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("operator quickstart contract");
     expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.evidence).toContain("fresh-clone-operator-quickstart-contract");
@@ -600,11 +601,11 @@ describe("source-control handoff audit", () => {
       checks: manifest.checks.map((check) => check.id === "github-landing-readme"
         ? {
           ...check,
-          evidence: ["../README.md"]
+          evidence: ["../README.md", "github-landing-readme-command-order"]
         }
         : check)
     }).problems).toEqual(expect.arrayContaining([
-      expect.stringContaining("github-landing-readme pass")
+      expect.stringContaining("final AI/readiness proof evidence")
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,

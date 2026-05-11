@@ -2539,7 +2539,7 @@ async function seedBundleEvidence(root: string) {
         id: "github-landing-readme",
         status: "pass",
         details: "The GitHub landing README has a fresh clone path.",
-        evidence: ["../README.md", "github-landing-readme-command-order"]
+        evidence: ["../README.md", "github-landing-readme-command-order", "github-landing-readme-ai-readiness-proof"]
       },
       {
         id: "local-git-metadata",

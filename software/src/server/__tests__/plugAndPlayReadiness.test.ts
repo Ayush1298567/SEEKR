@@ -523,7 +523,7 @@ describe("plug-and-play readiness audit", () => {
       warningCheckCount: 4,
       checks: [
         { id: "repository-reference", status: "pass", details: "Repository reference is present." },
-        { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order"] },
+        { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order", "github-landing-readme-ai-readiness-proof"] },
         { id: "local-git-metadata", status: "blocked", details: "This workspace is not a Git worktree." },
         { id: "configured-github-remote", status: "warn", details: "No local Git metadata exists." },
         { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs." },
@@ -919,7 +919,7 @@ describe("plug-and-play readiness audit", () => {
       warningCheckCount: 0,
       checks: [
         { id: "repository-reference", status: "pass", details: "Repository reference is present." },
-        { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order"] },
+        { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order", "github-landing-readme-ai-readiness-proof"] },
         { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
         { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
         { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
@@ -1531,7 +1531,7 @@ async function seedDoctorFiles(root: string) {
     warningCheckCount: 0,
     checks: [
       { id: "repository-reference", status: "pass", details: "Repository reference is present." },
-      { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order"] },
+      { id: "github-landing-readme", status: "pass", details: "GitHub landing README has a fresh clone path.", evidence: ["../README.md", "github-landing-readme-command-order", "github-landing-readme-ai-readiness-proof"] },
       { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
       { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },

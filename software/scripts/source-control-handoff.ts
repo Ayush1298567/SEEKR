@@ -84,6 +84,8 @@ interface LocalGitState {
 const DEFAULT_OUT_DIR = ".tmp/source-control-handoff";
 export const EXPECTED_REPOSITORY_URL = "https://github.com/Ayush1298567/SEEKR";
 const REQUIRED_SOURCE_CONTROL_CHECK_IDS = ["repository-reference", "github-landing-readme", "local-git-metadata", "configured-github-remote", "github-remote-refs", "fresh-clone-smoke", "local-head-published", "working-tree-clean"];
+const GITHUB_LANDING_README_COMMAND_ORDER_EVIDENCE = "github-landing-readme-command-order";
+const GITHUB_LANDING_README_AI_READINESS_EVIDENCE = "github-landing-readme-ai-readiness-proof";
 const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "git clone https://github.com/Ayush1298567/SEEKR.git",
   "cd SEEKR/software",
@@ -489,7 +491,11 @@ function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
     details: problems.length
       ? `The GitHub landing README violates fresh-clone plug-and-play guidance: ${problems.join(", ")}.`
       : "The GitHub landing README gives an ordered fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke, strict local AI smoke, and plug-and-play audit guidance, and preserves disabled command/hardware authority.",
-    evidence: problems.length ? ["../README.md"] : ["../README.md", "github-landing-readme-command-order"]
+    evidence: problems.length ? ["../README.md"] : [
+      "../README.md",
+      GITHUB_LANDING_README_COMMAND_ORDER_EVIDENCE,
+      GITHUB_LANDING_README_AI_READINESS_EVIDENCE
+    ]
   };
 }
 
@@ -673,7 +679,7 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   const freshCloneCheck = checks.find((check) => check.id === "fresh-clone-smoke");
   const githubLandingCheck = checks.find((check) => check.id === "github-landing-readme");
   if (githubLandingCheck?.status === "pass" && !githubLandingPassEvidenceOk(githubLandingCheck)) {
-    problems.push("github-landing-readme pass must include ordered landing README command proof");
+    problems.push("github-landing-readme pass must include ordered landing README command proof plus final AI/readiness proof evidence");
   }
   if (freshCloneCheck?.status === "pass" && !freshClonePassEvidenceOk(freshCloneCheck)) {
     problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, operator quickstart contract proof, and all required startup-file evidence");
@@ -742,7 +748,9 @@ function freshClonePassEvidenceOk(check: Record<string, unknown>) {
 
 function githubLandingPassEvidenceOk(check: Record<string, unknown>) {
   const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
-  return evidence.includes("../README.md") && evidence.includes("github-landing-readme-command-order");
+  return evidence.includes("../README.md") &&
+    evidence.includes(GITHUB_LANDING_README_COMMAND_ORDER_EVIDENCE) &&
+    evidence.includes(GITHUB_LANDING_README_AI_READINESS_EVIDENCE);
 }
 
 function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceControlHandoffNextAction[] {
