@@ -28,11 +28,26 @@ describe("operator quickstart contract", () => {
     ]));
   });
 
+  it("pins occupied-port recovery guidance as required signals", () => {
+    expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
+      "non-SEEKR or unhealthy listener",
+      "Listener diagnostics",
+      "Stop the existing process"
+    ]));
+  });
+
   it("rejects quickstarts that omit advisory AI command-safety guidance", () => {
     const content = validQuickstartContent().replace("AI output is advisory\n", "");
 
     expect(operatorQuickstartOk(content)).toBe(false);
     expect(operatorQuickstartProblems(content)).toContain("AI output is advisory");
+  });
+
+  it("rejects quickstarts that omit occupied-port recovery guidance", () => {
+    const content = validQuickstartContent().replace("Listener diagnostics\n", "");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toContain("Listener diagnostics");
   });
 
   it("rejects quickstarts that put source-control audit after startup", () => {

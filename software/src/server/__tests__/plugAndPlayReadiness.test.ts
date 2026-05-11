@@ -1165,6 +1165,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     "```",
     "",
     "Local AI uses Ollama with llama3.2:latest for advisory proposals.",
+    "If doctor reports a non-SEEKR or unhealthy listener, use the Listener diagnostics line to identify the process. Stop the existing process before startup.",
     "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
     "",
     "Inspect /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays during rehearsal.",
