@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
 import { buildCompletionAudit, type CompletionAuditManifest } from "./completion-audit";
 import { buildTodoAudit, type TodoAuditManifest } from "./todo-audit";
+import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../src/server/ai/localAiEvidence";
 
 type GoalAuditStatus = "pass" | "warn" | "fail" | "blocked";
 
@@ -288,10 +289,30 @@ async function acceptanceItem(root: string): Promise<GoalAuditItem> {
   const release = await latestJson(root, ".tmp/release-evidence", (name) => name.startsWith("seekr-release-"));
   const releaseManifest = release ? await readJson(release.absolutePath) : undefined;
   const acceptanceRelease = isRecord(acceptance) && isRecord(acceptance.releaseChecksum) ? acceptance.releaseChecksum : {};
+  const strictLocalAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : {};
+  const strictCaseNames = stringArray(strictLocalAi.caseNames);
+  const expectedStrictCaseNames: string[] = [...REQUIRED_STRICT_AI_SMOKE_CASES];
+  const missingStrictCases = expectedStrictCaseNames.filter((name) => !strictCaseNames.includes(name));
+  const unexpectedStrictCases = strictCaseNames.filter((name) => !expectedStrictCaseNames.includes(name));
   const problems: string[] = [];
 
   if (!isRecord(acceptance) || acceptance.ok !== true) problems.push("acceptance status must pass");
   if (!isRecord(acceptance) || acceptance.commandUploadEnabled !== false) problems.push("acceptance status must keep commandUploadEnabled false");
+  if (!isRecord(strictLocalAi) || strictLocalAi.ok !== true) problems.push("strict local AI evidence must pass");
+  if (isRecord(strictLocalAi) && strictLocalAi.provider !== "ollama") problems.push("strict local AI should use the local Ollama provider");
+  if (isRecord(strictLocalAi) && typeof strictLocalAi.model !== "string") problems.push("strict local AI must record the model");
+  if (isRecord(strictLocalAi) && Number(strictLocalAi.caseCount) !== expectedStrictCaseNames.length) {
+    problems.push("strict local AI case count must exactly match the required smoke cases");
+  }
+  if (strictCaseNames.length !== Number(strictLocalAi.caseCount) || !sameStringArray(strictCaseNames, expectedStrictCaseNames)) {
+    problems.push(
+      missingStrictCases.length
+        ? `strict local AI evidence is missing required scenario(s): ${missingStrictCases.join(", ")}`
+        : unexpectedStrictCases.length
+          ? `strict local AI evidence includes unexpected scenario(s): ${unexpectedStrictCases.join(", ")}`
+          : "strict local AI scenario names must exactly match the required ordered smoke cases"
+    );
+  }
   if (!release) problems.push("release checksum evidence is missing");
   if (release && normalizeArtifactPath(root, acceptanceRelease.jsonPath) !== release.relativePath) {
     problems.push("acceptance status must point at the latest release checksum evidence");

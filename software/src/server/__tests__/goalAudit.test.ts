@@ -165,6 +165,30 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when acceptance strict AI scenario names include untracked extras", async () => {
+    const acceptancePath = path.join(root, ".tmp/acceptance-status.json");
+    const probePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const acceptance = JSON.parse(await readFile(acceptancePath, "utf8"));
+    const probe = JSON.parse(await readFile(probePath, "utf8"));
+    acceptance.strictLocalAi.caseNames = [...REQUIRED_STRICT_AI_SMOKE_CASES, "untracked-extra-ai-scenario"];
+    acceptance.strictLocalAi.caseCount = acceptance.strictLocalAi.caseNames.length;
+    probe.sessionAcceptance.strictLocalAi.caseNames = acceptance.strictLocalAi.caseNames;
+    probe.sessionAcceptance.strictLocalAi.caseCount = acceptance.strictLocalAi.caseCount;
+    await writeFile(acceptancePath, JSON.stringify(acceptance), "utf8");
+    await writeFile(probePath, JSON.stringify(probe), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "acceptance-and-release")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("untracked-extra-ai-scenario")
+    });
+  });
+
   it("fails local alpha when plug-and-play readiness does not reference the latest setup artifact", async () => {
     await writeFile(path.join(root, ".tmp/plug-and-play-setup/seekr-local-setup-zz-newer.json"), JSON.stringify({
       ok: true,

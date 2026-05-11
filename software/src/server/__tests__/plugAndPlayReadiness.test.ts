@@ -150,6 +150,31 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
+  it("fails when strict local AI scenario names include untracked extras", async () => {
+    const acceptancePath = path.join(root, ".tmp/acceptance-status.json");
+    const apiProbePath = path.join(root, ".tmp/api-probe/seekr-api-probe-test.json");
+    const acceptance = JSON.parse(await readFile(acceptancePath, "utf8"));
+    const apiProbe = JSON.parse(await readFile(apiProbePath, "utf8"));
+    acceptance.strictLocalAi.caseNames = [...REQUIRED_STRICT_AI_SMOKE_CASES, "untracked-extra-ai-scenario"];
+    acceptance.strictLocalAi.caseCount = acceptance.strictLocalAi.caseNames.length;
+    apiProbe.sessionAcceptance.strictLocalAi.caseNames = acceptance.strictLocalAi.caseNames;
+    apiProbe.sessionAcceptance.strictLocalAi.caseCount = acceptance.strictLocalAi.caseCount;
+    await writeFile(acceptancePath, JSON.stringify(acceptance), "utf8");
+    await writeFile(apiProbePath, JSON.stringify(apiProbe), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "acceptance-ai")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("untracked-extra-ai-scenario")
+    });
+  });
+
   it("fails when operator AI environment defaults are incomplete", async () => {
     await writeFile(path.join(root, ".env.example"), [
       "PORT=8787",
