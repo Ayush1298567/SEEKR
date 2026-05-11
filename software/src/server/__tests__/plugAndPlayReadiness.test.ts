@@ -54,6 +54,8 @@ describe("plug-and-play readiness audit", () => {
         localBranch: "main",
         remoteDefaultBranch: "main",
         remoteRefCount: 1,
+        blockedCheckCount: 0,
+        warningCheckCount: 0,
         localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         remoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         workingTreeClean: true,
@@ -72,6 +74,8 @@ describe("plug-and-play readiness audit", () => {
         sourceControlHandoffLocalBranch: "main",
         sourceControlHandoffRemoteDefaultBranch: "main",
         sourceControlHandoffRemoteRefCount: 1,
+        sourceControlHandoffBlockedCheckCount: 0,
+        sourceControlHandoffWarningCheckCount: 0,
         sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         sourceControlHandoffWorkingTreeClean: true,
@@ -103,6 +107,8 @@ describe("plug-and-play readiness audit", () => {
     verification.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
     verification.sourceControlHandoffLocalBranch = "release";
     verification.sourceControlHandoffRemoteDefaultBranch = "release";
+    verification.sourceControlHandoffBlockedCheckCount = 99;
+    verification.sourceControlHandoffWarningCheckCount = 99;
     verification.sourceControlHandoffWorkingTreeClean = false;
     await writeFile(verificationPath, JSON.stringify(verification), "utf8");
 
@@ -118,6 +124,8 @@ describe("plug-and-play readiness audit", () => {
       status: "fail",
       details: expect.stringContaining("repository URL summary must match")
     });
+    expect(manifest.checks.find((check) => check.id === "review-bundle")?.details).toContain("blocked-check summary must match");
+    expect(manifest.checks.find((check) => check.id === "review-bundle")?.details).toContain("warning-check summary must match");
   });
 
   it("fails closed when completion audit is not complete even if the blocker list is empty", async () => {
@@ -695,6 +703,7 @@ describe("plug-and-play readiness audit", () => {
     sourceControl.remoteDefaultBranch = undefined;
     sourceControl.remoteDefaultBranchSha = undefined;
     sourceControl.remoteRefCount = 0;
+    sourceControl.blockedCheckCount = 0;
     sourceControl.warningCheckCount = 3;
     sourceControl.checks = sourceControl.checks.map((check: { id: string; status: string; details: string }) =>
       ["github-remote-refs", "fresh-clone-smoke", "local-head-published"].includes(check.id)
@@ -716,6 +725,8 @@ describe("plug-and-play readiness audit", () => {
     verification.sourceControlHandoffRemoteDefaultBranch = undefined;
     verification.sourceControlHandoffRemoteDefaultBranchSha = undefined;
     verification.sourceControlHandoffRemoteRefCount = 0;
+    verification.sourceControlHandoffBlockedCheckCount = 0;
+    verification.sourceControlHandoffWarningCheckCount = 3;
     await writeFile(verificationPath, JSON.stringify(verification), "utf8");
 
     const manifest = await buildPlugAndPlayReadiness({
@@ -728,7 +739,14 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.summary.warn).toBe(1);
     expect(manifest.sourceControl).toMatchObject({
       status: "ready-source-control-handoff-with-warnings",
-      remoteRefCount: 0
+      remoteRefCount: 0,
+      blockedCheckCount: 0,
+      warningCheckCount: 3
+    });
+    expect(manifest.reviewBundle).toMatchObject({
+      sourceControlHandoffRemoteRefCount: 0,
+      sourceControlHandoffBlockedCheckCount: 0,
+      sourceControlHandoffWarningCheckCount: 3
     });
     expect(manifest.sourceControl.remoteDefaultBranchSha).toBeUndefined();
     expect(manifest.reviewBundle.sourceControlHandoffRemoteDefaultBranchSha).toBeUndefined();
@@ -1654,6 +1672,8 @@ async function seedPlugAndPlayEvidence(root: string) {
     sourceControlHandoffLocalBranch: "main",
     sourceControlHandoffRemoteDefaultBranch: "main",
     sourceControlHandoffRemoteRefCount: 1,
+    sourceControlHandoffBlockedCheckCount: 0,
+    sourceControlHandoffWarningCheckCount: 0,
     sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sourceControlHandoffWorkingTreeClean: true,
