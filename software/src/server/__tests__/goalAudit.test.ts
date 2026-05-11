@@ -423,6 +423,9 @@ describe("goal audit", () => {
     readiness.reviewBundle.sourceControlHandoffLocalHeadSha = "stale-head";
     readiness.reviewBundle.sourceControlHandoffBlockedCheckCount = 99;
     readiness.reviewBundle.sourceControlHandoffWarningCheckCount = 99;
+    readiness.reviewBundle.plugAndPlaySetupPath = ".tmp/plug-and-play-setup/stale-setup.json";
+    readiness.reviewBundle.plugAndPlaySetupGeneratedAt = "2026-05-09T20:59:59.999Z";
+    readiness.reviewBundle.plugAndPlaySetupStatus = "stale-local-setup";
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
     const manifest = await buildGoalAudit({
@@ -437,6 +440,9 @@ describe("goal audit", () => {
     });
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle source-control blocked-check summary must match");
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle source-control warning-check summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle setup path summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle setup generatedAt summary must match");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("review-bundle setup status summary must match");
   });
 
   it("fails local alpha when plug-and-play readiness review-bundle local branch summary drifts from latest verification", async () => {
@@ -1737,6 +1743,8 @@ async function seedRoot(root: string) {
     sourceControlHandoffWorkingTreeClean: true,
     sourceControlHandoffWorkingTreeStatusLineCount: 0,
     plugAndPlaySetupPath,
+    plugAndPlaySetupGeneratedAt: GENERATED_AT,
+    plugAndPlaySetupStatus: "ready-local-setup",
     localAiPreparePath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
@@ -2237,7 +2245,10 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       sourceControlHandoffFreshCloneInstallDryRunOk: true,
       sourceControlHandoffFreshCloneCheckedPathCount: REQUIRED_FRESH_CLONE_PATH_COUNT,
       sourceControlHandoffWorkingTreeClean: true,
-      sourceControlHandoffWorkingTreeStatusLineCount: 0
+      sourceControlHandoffWorkingTreeStatusLineCount: 0,
+      plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+      plugAndPlaySetupGeneratedAt: GENERATED_AT,
+      plugAndPlaySetupStatus: "ready-local-setup"
     },
     remainingRealWorldBlockerIds,
     remainingRealWorldBlockers,

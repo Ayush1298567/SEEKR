@@ -1170,6 +1170,15 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (numberOrUndefined(readinessReviewBundle.sourceControlHandoffWorkingTreeStatusLineCount) !== numberOrUndefined(bundleVerificationManifest.sourceControlHandoffWorkingTreeStatusLineCount)) {
       problems.push("plug-and-play readiness review-bundle source-control working-tree status line summary must match the latest bundle verification");
     }
+    if (normalizeArtifactPath(root, readinessReviewBundle.plugAndPlaySetupPath) !== normalizeArtifactPath(root, bundleVerificationManifest.plugAndPlaySetupPath)) {
+      problems.push("plug-and-play readiness review-bundle setup path summary must match the latest bundle verification");
+    }
+    if (stringOrUndefined(readinessReviewBundle.plugAndPlaySetupGeneratedAt) !== stringOrUndefined(bundleVerificationManifest.plugAndPlaySetupGeneratedAt)) {
+      problems.push("plug-and-play readiness review-bundle setup generatedAt summary must match the latest bundle verification");
+    }
+    if (stringOrUndefined(readinessReviewBundle.plugAndPlaySetupStatus) !== stringOrUndefined(bundleVerificationManifest.plugAndPlaySetupStatus)) {
+      problems.push("plug-and-play readiness review-bundle setup status summary must match the latest bundle verification");
+    }
   }
 
   return {
