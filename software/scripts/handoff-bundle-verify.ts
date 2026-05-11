@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
-import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
+import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
@@ -474,6 +474,8 @@ export async function buildHandoffBundleVerification(options: {
       blockers.push("Copied local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false.");
     } else if (!localAiPrepareMatchesAcceptanceModel(localAiPrepare, copiedAcceptance)) {
       blockers.push("Copied local AI prepare artifact must match the copied acceptance strict local AI model.");
+    } else if (!localAiPrepareFreshForAcceptance(localAiPrepare, copiedAcceptance)) {
+      blockers.push("Copied local AI prepare artifact must be newer than or equal to the copied acceptance record.");
     }
   }
   if (!plugAndPlayDoctorPath) {

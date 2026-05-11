@@ -190,6 +190,15 @@ export function localAiPrepareMatchesAcceptanceModel(manifest: unknown, acceptan
     prepareCommand.at(-1) === expectedPullModel;
 }
 
+export function localAiPrepareFreshForAcceptance(manifest: unknown, acceptance: unknown) {
+  if (!localAiPrepareManifestOk(manifest) || !isRecord(manifest) || !isRecord(acceptance)) return false;
+  const prepareGeneratedAt = timeMs(manifest.generatedAt);
+  const acceptanceGeneratedAt = timeMs(acceptance.generatedAt);
+  return prepareGeneratedAt !== undefined &&
+    acceptanceGeneratedAt !== undefined &&
+    prepareGeneratedAt >= acceptanceGeneratedAt;
+}
+
 function normalizePullModel(model: string) {
   return model === DEFAULT_OLLAMA_MODEL ? "llama3.2" : model;
 }
@@ -206,6 +215,15 @@ function isOllamaCommand(command: string | undefined) {
   if (!command) return false;
   return command === DEFAULT_OLLAMA_COMMAND ||
     (path.isAbsolute(command) && path.basename(command) === DEFAULT_OLLAMA_COMMAND);
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim().length) {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
 }
 
 async function defaultExecFile(

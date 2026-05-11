@@ -2,7 +2,7 @@ import { mkdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildLocalAiPrepare, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel, writeLocalAiPrepare } from "../../../scripts/local-ai-prepare";
+import { buildLocalAiPrepare, localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel, writeLocalAiPrepare } from "../../../scripts/local-ai-prepare";
 
 describe("local AI model preparation", () => {
   let root: string;
@@ -64,9 +64,11 @@ describe("local AI model preparation", () => {
   it("matches prepared model evidence against acceptance strict AI model", async () => {
     const manifest = await buildLocalAiPrepare({
       root,
+      generatedAt: "2026-05-11T12:01:00.000Z",
       execFileImpl: async () => ({ stdout: "success", stderr: "" })
     });
     const acceptance = {
+      generatedAt: Date.parse("2026-05-11T12:00:00.000Z"),
       strictLocalAi: {
         ok: true,
         provider: "ollama",
@@ -75,13 +77,19 @@ describe("local AI model preparation", () => {
     };
 
     expect(localAiPrepareMatchesAcceptanceModel(manifest, acceptance)).toBe(true);
+    expect(localAiPrepareFreshForAcceptance(manifest, acceptance)).toBe(true);
     expect(localAiPrepareMatchesAcceptanceModel(manifest, {
+      generatedAt: Date.parse("2026-05-11T12:00:00.000Z"),
       strictLocalAi: {
         ok: true,
         provider: "ollama",
         model: "mistral:latest"
       }
     })).toBe(false);
+    expect(localAiPrepareFreshForAcceptance({
+      ...manifest,
+      generatedAt: "2026-05-11T11:59:59.999Z"
+    }, acceptance)).toBe(false);
   });
 
   it("rejects local AI prepare evidence that did not run an Ollama pull command", async () => {

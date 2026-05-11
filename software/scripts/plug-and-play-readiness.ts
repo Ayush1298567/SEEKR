@@ -13,7 +13,7 @@ import {
   plugAndPlayDoctorOk,
   plugAndPlaySetupOk
 } from "./plug-and-play-artifact-contract";
-import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
+import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { REQUIRED_FRESH_CLONE_PATHS, validateSourceControlHandoffManifest } from "./source-control-handoff";
@@ -357,6 +357,8 @@ async function localAiPrepareCheck(root: string): Promise<PlugAndPlayCheck> {
     problems.push("latest local AI prepare artifact must prove a passing Ollama model preparation run with commandUploadEnabled false");
   } else if (!localAiPrepareMatchesAcceptanceModel(manifest, acceptance)) {
     problems.push("latest local AI prepare artifact must match the latest acceptance strict local AI model");
+  } else if (!localAiPrepareFreshForAcceptance(manifest, acceptance)) {
+    problems.push("latest local AI prepare artifact must be newer than or equal to the latest acceptance record");
   }
 
   return {
