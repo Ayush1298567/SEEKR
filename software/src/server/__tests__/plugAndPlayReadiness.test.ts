@@ -44,6 +44,7 @@ describe("plug-and-play readiness audit", () => {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
@@ -333,7 +334,7 @@ describe("plug-and-play readiness audit", () => {
       ok: true,
       generatedAt: Date.parse("2026-05-10T07:00:00.000Z"),
       commandUploadEnabled: false,
-      strictLocalAi: { ok: false, provider: "rules", model: "deterministic-v1", caseCount: 0, caseNames: [] },
+      strictLocalAi: { ok: false, provider: "rules", model: "deterministic-v1", commandUploadEnabled: false, caseCount: 0, caseNames: [] },
       releaseChecksum: {
         jsonPath: ".tmp/release-evidence/seekr-release-test.json",
         overallSha256: "a".repeat(64),
@@ -1859,7 +1860,8 @@ async function seedPlugAndPlayEvidence(root: string) {
       provider: "ollama",
       model: "llama3.2:latest",
       ollamaUrl: "http://127.0.0.1:11434",
-        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      commandUploadEnabled: false,
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     releaseChecksum: {
@@ -1892,6 +1894,7 @@ async function seedPlugAndPlayEvidence(root: string) {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },

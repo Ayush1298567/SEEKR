@@ -31,6 +31,7 @@ export interface StrictAiSmokeStatus {
   model: string;
   ollamaUrl: string;
   requireOllama: boolean;
+  commandUploadEnabled: false;
   caseCount: number;
   cases: StrictAiSmokeCase[];
 }
@@ -54,6 +55,9 @@ export async function readStrictAiSmokeEvidence(nowMs = Date.now(), filePath = a
   try {
     const status = JSON.parse(await readFile(filePath, "utf8")) as StrictAiSmokeStatus;
     if (!status.ok) return { ok: false, status, reason: "Strict local AI smoke status recorded a failure." };
+    if (status.commandUploadEnabled !== false) {
+      return { ok: false, status, reason: "Strict local AI smoke status must record commandUploadEnabled false." };
+    }
     if (status.softwareVersion !== SEEKR_SOFTWARE_VERSION) {
       return { ok: false, status, reason: `Strict local AI smoke was run on ${status.softwareVersion}, current build is ${SEEKR_SOFTWARE_VERSION}.` };
     }

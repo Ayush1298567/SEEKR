@@ -42,6 +42,7 @@ export interface PlugAndPlayReadinessManifest {
     provider?: string;
     model?: string;
     ollamaUrl?: string;
+    commandUploadEnabled: false;
     caseCount?: number;
     caseNames?: string[];
   };
@@ -257,6 +258,7 @@ export async function buildPlugAndPlayReadiness(options: {
       provider: stringOrUndefined(strictLocalAi?.provider),
       model: stringOrUndefined(strictLocalAi?.model),
       ollamaUrl: stringOrUndefined(strictLocalAi?.ollamaUrl),
+      commandUploadEnabled: false,
       caseCount: typeof strictLocalAi?.caseCount === "number" ? strictLocalAi.caseCount : undefined,
       caseNames: stringArray(strictLocalAi?.caseNames)
     },
@@ -851,6 +853,7 @@ async function acceptanceAndAiCheck(root: string): Promise<PlugAndPlayCheck> {
   if (isRecord(strictLocalAi) && strictLocalAi.provider !== "ollama") problems.push("strict local AI should use the local Ollama provider for plug-and-play AI readiness");
   if (isRecord(strictLocalAi) && typeof strictLocalAi.model !== "string") problems.push("strict local AI must record the model");
   if (isRecord(strictLocalAi) && !isLocalOllamaUrl(strictLocalAi.ollamaUrl)) problems.push("strict local AI must record a loopback Ollama URL");
+  if (isRecord(strictLocalAi) && strictLocalAi.commandUploadEnabled !== false) problems.push("strict local AI must preserve commandUploadEnabled false");
   if (isRecord(strictLocalAi) && Number(strictLocalAi.caseCount) !== expectedStrictCaseNames.length) {
     problems.push("strict local AI case count must exactly match the required smoke cases");
   }
@@ -917,6 +920,8 @@ async function apiProbeCheck(root: string): Promise<PlugAndPlayCheck> {
       probeAi.provider !== acceptanceAi.provider ||
       probeAi.model !== acceptanceAi.model ||
       probeAi.ollamaUrl !== acceptanceAi.ollamaUrl ||
+      probeAi.commandUploadEnabled !== false ||
+      acceptanceAi.commandUploadEnabled !== false ||
       !isLocalOllamaUrl(acceptanceAi.ollamaUrl) ||
       Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount) ||
       !sameStringArray(probeAiCaseNames, acceptanceAiCaseNames)
@@ -1220,6 +1225,7 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     `- Implemented: ${manifest.ai.implemented}`,
     manifest.ai.provider ? `- Provider: ${manifest.ai.provider}` : undefined,
     manifest.ai.model ? `- Model: ${manifest.ai.model}` : undefined,
+    "- Command upload enabled: false",
     typeof manifest.ai.caseCount === "number" ? `- Smoke cases: ${manifest.ai.caseCount}` : undefined,
     manifest.ai.caseNames?.length ? `- Smoke scenario names: ${manifest.ai.caseNames.join(", ")}` : undefined,
     "",

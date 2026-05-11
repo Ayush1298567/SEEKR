@@ -327,6 +327,7 @@ async function acceptanceItem(root: string): Promise<GoalAuditItem> {
   if (isRecord(strictLocalAi) && strictLocalAi.provider !== "ollama") problems.push("strict local AI should use the local Ollama provider");
   if (isRecord(strictLocalAi) && typeof strictLocalAi.model !== "string") problems.push("strict local AI must record the model");
   if (isRecord(strictLocalAi) && !isLocalOllamaUrl(strictLocalAi.ollamaUrl)) problems.push("strict local AI must record a loopback Ollama URL");
+  if (isRecord(strictLocalAi) && strictLocalAi.commandUploadEnabled !== false) problems.push("strict local AI must preserve commandUploadEnabled false");
   if (isRecord(strictLocalAi) && Number(strictLocalAi.caseCount) !== expectedStrictCaseNames.length) {
     problems.push("strict local AI case count must exactly match the required smoke cases");
   }
@@ -410,6 +411,8 @@ async function apiProbeItem(root: string): Promise<GoalAuditItem> {
       probeAi.provider !== acceptanceAi.provider ||
       probeAi.model !== acceptanceAi.model ||
       probeAi.ollamaUrl !== acceptanceAi.ollamaUrl ||
+      probeAi.commandUploadEnabled !== false ||
+      acceptanceAi.commandUploadEnabled !== false ||
       !isLocalOllamaUrl(acceptanceAi.ollamaUrl) ||
       Number(probeAi.caseCount) !== Number(acceptanceAi.caseCount) ||
       !sameStringArray(probeAiCaseNames, acceptanceAiCaseNames)

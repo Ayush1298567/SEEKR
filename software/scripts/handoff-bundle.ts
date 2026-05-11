@@ -852,12 +852,14 @@ function strictAiSmokeStatusOk(manifest: unknown, acceptance: unknown) {
   const generatedAt = timeMs(manifest.generatedAt);
   const acceptanceAiGeneratedAt = timeMs(strictLocalAi.generatedAt);
   return manifest.ok === true &&
+    manifest.commandUploadEnabled === false &&
     manifest.provider === "ollama" &&
     manifest.requireOllama === true &&
     typeof manifest.model === "string" &&
     manifest.model.length > 0 &&
     isLocalOllamaUrl(manifest.ollamaUrl) &&
     strictLocalAi.ok === true &&
+    strictLocalAi.commandUploadEnabled === false &&
     strictLocalAi.provider === manifest.provider &&
     strictLocalAi.model === manifest.model &&
     strictLocalAi.ollamaUrl === manifest.ollamaUrl &&

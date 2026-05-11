@@ -241,7 +241,8 @@ async function seedHandoffEvidence(root: string) {
       provider: "ollama",
       model: "llama3.2:latest",
       ollamaUrl: "http://127.0.0.1:11434",
-        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      commandUploadEnabled: false,
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     releaseChecksum: {
@@ -296,6 +297,7 @@ async function seedHandoffEvidence(root: string) {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },

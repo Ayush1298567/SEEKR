@@ -37,6 +37,7 @@ export interface AcceptanceRunStatus {
     provider: string;
     model: string;
     ollamaUrl: string;
+    commandUploadEnabled: false;
     caseCount: number;
     caseNames: string[];
     generatedAt: number;
@@ -80,6 +81,7 @@ export interface AcceptanceEvidence {
     provider: string;
     model: string;
     ollamaUrl: string;
+    commandUploadEnabled: false;
     caseCount: number;
     caseNames: string[];
   };
@@ -133,6 +135,7 @@ export function readAcceptanceEvidence(
             provider: status.strictLocalAi.provider,
             model: status.strictLocalAi.model,
             ollamaUrl: status.strictLocalAi.ollamaUrl,
+            commandUploadEnabled: status.strictLocalAi.commandUploadEnabled,
             caseCount: status.strictLocalAi.caseCount,
             caseNames: strictAiCaseNames
           }
@@ -189,6 +192,9 @@ export function readAcceptanceEvidence(
     }
     if (status.strictLocalAi?.provider !== "ollama" || !isLocalOllamaUrl(status.strictLocalAi.ollamaUrl)) {
       return { ok: false, status: "unsafe", ...base, reason: "Acceptance status strict local AI evidence must use a loopback Ollama URL." };
+    }
+    if (status.strictLocalAi?.commandUploadEnabled !== false) {
+      return { ok: false, status: "unsafe", ...base, reason: "Acceptance status strict local AI evidence must preserve commandUploadEnabled false." };
     }
     if (
       status.commandBoundaryScan?.status !== "pass" ||

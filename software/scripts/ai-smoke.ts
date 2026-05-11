@@ -110,6 +110,7 @@ if (failures.length) {
     model: result.cases[0]?.model ?? status.model,
     ollamaUrl: status.ollamaUrl,
     requireOllama,
+    commandUploadEnabled: false,
     caseCount: result.cases.length,
     cases: result.cases.map(({ name, provider, model, plan, validator, elapsedMs, unsafeOperatorTextPresent, mutatedWhileThinking }) => ({
       name,

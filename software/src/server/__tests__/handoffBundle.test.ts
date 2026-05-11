@@ -155,6 +155,7 @@ describe("handoff bundle", () => {
     expect(copiedRehearsalStartSmoke.commandUploadEnabled).toBe(false);
     const copiedStrictAiSmoke = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", strictAiSmokePath), "utf8"));
     expect(copiedStrictAiSmoke.ok).toBe(true);
+    expect(copiedStrictAiSmoke.commandUploadEnabled).toBe(false);
     expect(copiedStrictAiSmoke.cases.map((testCase: { name: string }) => testCase.name)).toEqual(REQUIRED_STRICT_AI_SMOKE_CASES);
     expect(copiedStrictAiSmoke.cases.every((testCase: { validatorOk: boolean }) => testCase.validatorOk)).toBe(true);
     expect(copiedStrictAiSmoke.cases.some((testCase: { unsafeOperatorTextPresent: boolean }) => testCase.unsafeOperatorTextPresent)).toBe(false);
@@ -1390,6 +1391,25 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when strict local AI smoke proof omits disabled command authority", async () => {
+    const strictAiSmoke = JSON.parse(await readFile(path.join(root, strictAiSmokePath), "utf8"));
+    delete strictAiSmoke.commandUploadEnabled;
+    await writeFile(path.join(root, strictAiSmokePath), JSON.stringify(strictAiSmoke), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("keep command upload disabled")
+    ]));
+  });
+
   it("blocks bundling when strict local AI smoke proof uses a non-loopback Ollama URL", async () => {
     const strictAiSmoke = JSON.parse(await readFile(path.join(root, strictAiSmokePath), "utf8"));
     strictAiSmoke.ollamaUrl = "https://api.example.com:11434";
@@ -1693,6 +1713,31 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
       expect.stringContaining("Copied strict local AI smoke status must match copied acceptance")
+    ]));
+  });
+
+  it("fails bundle verification when copied strict local AI smoke proof drops disabled command authority", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedStrictAiSmokePath = path.join(result.bundleDirectory, "artifacts", strictAiSmokePath);
+    const copiedStrictAiSmoke = JSON.parse(await readFile(copiedStrictAiSmokePath, "utf8"));
+    delete copiedStrictAiSmoke.commandUploadEnabled;
+    const content = JSON.stringify(copiedStrictAiSmoke);
+    await writeFile(copiedStrictAiSmokePath, content, "utf8");
+    await updateBundleManifestDigest(result.jsonPath, strictAiSmokePath, content);
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("keep command upload disabled")
     ]));
   });
 
@@ -2872,7 +2917,8 @@ async function seedBundleEvidence(root: string) {
       provider: "ollama",
       model: "llama3.2:latest",
       ollamaUrl: "http://127.0.0.1:11434",
-        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      commandUploadEnabled: false,
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
       generatedAt: strictAiGeneratedAt
     },
@@ -2902,6 +2948,7 @@ async function seedBundleEvidence(root: string) {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
         generatedAt: strictAiGeneratedAt
@@ -2926,6 +2973,7 @@ async function seedBundleEvidence(root: string) {
     provider: "ollama",
     model: "llama3.2:latest",
     ollamaUrl: "http://127.0.0.1:11434",
+    commandUploadEnabled: false,
     requireOllama: true,
     caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
     cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name, index) => ({

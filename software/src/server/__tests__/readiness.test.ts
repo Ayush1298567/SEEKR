@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -114,6 +114,7 @@ describe("readiness reports", () => {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
@@ -151,6 +152,7 @@ describe("readiness reports", () => {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
@@ -180,6 +182,47 @@ describe("readiness reports", () => {
     }
   });
 
+  it("warns when strict local AI smoke evidence omits disabled command authority", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "seekr-readiness-ai-smoke-command-boundary-"));
+    try {
+      const statusPath = path.join(root, "ai-smoke-status.json");
+      process.env.SEEKR_AI_SMOKE_STATUS_PATH = statusPath;
+      await writeFile(statusPath, JSON.stringify({
+        ok: true,
+        generatedAt: fixedClock(),
+        softwareVersion: SEEKR_SOFTWARE_VERSION,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
+        requireOllama: true,
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
+          name,
+          provider: "ollama",
+          model: "llama3.2:latest",
+          planKind: "assign-zone",
+          validatorOk: true,
+          elapsedMs: 1,
+          unsafeOperatorTextPresent: false,
+          mutatedWhileThinking: false
+        }))
+      }), "utf8");
+
+      const persistence = new MissionPersistence(root);
+      await persistence.init();
+      const store = new MissionStore({ clock: fixedClock, eventStore: persistence.events });
+      const report = await buildReadinessReport(store, persistence, fixedClock());
+
+      expect(report.checks.find((check) => check.id === "local-ai-strict-smoke")).toMatchObject({
+        status: "warn",
+        blocking: false,
+        details: expect.stringContaining("commandUploadEnabled false")
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("warns when strict local AI smoke evidence lacks validator safety proof", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "seekr-readiness-ai-smoke-unsafe-"));
     try {
@@ -192,6 +235,7 @@ describe("readiness reports", () => {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
@@ -234,6 +278,7 @@ describe("readiness reports", () => {
         model: "llama3.2:latest",
         ollamaUrl: "https://api.example.com:11434",
         requireOllama: true,
+        commandUploadEnabled: false,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
           name,
@@ -274,6 +319,7 @@ describe("readiness reports", () => {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         requireOllama: true,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({

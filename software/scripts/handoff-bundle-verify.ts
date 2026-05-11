@@ -1146,6 +1146,7 @@ function acceptanceStrictLocalAiOk(manifest: unknown) {
     strictLocalAi.provider === "ollama" &&
     typeof strictLocalAi.model === "string" &&
     isLocalOllamaUrl(strictLocalAi.ollamaUrl) &&
+    strictLocalAi.commandUploadEnabled === false &&
     Number(strictLocalAi.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
     Number(strictLocalAi.caseCount) === caseNames.length &&
     arraysEqual(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES]);
@@ -1160,12 +1161,14 @@ function strictAiSmokeStatusOk(manifest: unknown, acceptance: unknown) {
   const generatedAt = timeMs(manifest.generatedAt);
   const acceptanceAiGeneratedAt = timeMs(strictLocalAi.generatedAt);
   return manifest.ok === true &&
+    manifest.commandUploadEnabled === false &&
     manifest.provider === "ollama" &&
     manifest.requireOllama === true &&
     typeof manifest.model === "string" &&
     manifest.model.length > 0 &&
     isLocalOllamaUrl(manifest.ollamaUrl) &&
     strictLocalAi.ok === true &&
+    strictLocalAi.commandUploadEnabled === false &&
     strictLocalAi.provider === manifest.provider &&
     strictLocalAi.model === manifest.model &&
     strictLocalAi.ollamaUrl === manifest.ollamaUrl &&
@@ -1213,6 +1216,8 @@ function apiProbeAcceptanceReadbackOk(apiProbe: unknown, acceptance: unknown) {
     probeAi.provider === acceptanceAi.provider &&
     probeAi.model === acceptanceAi.model &&
     probeAi.ollamaUrl === acceptanceAi.ollamaUrl &&
+    probeAi.commandUploadEnabled === false &&
+    acceptanceAi.commandUploadEnabled === false &&
     isLocalOllamaUrl(acceptanceAi.ollamaUrl) &&
     Number(probeAi.caseCount) === Number(acceptanceAi.caseCount) &&
     arraysEqual(probeAiCaseNames, acceptanceAiCaseNames) &&

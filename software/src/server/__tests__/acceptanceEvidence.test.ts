@@ -42,6 +42,7 @@ describe("acceptance evidence", () => {
         provider: "ollama",
         model: "llama3.2:latest",
         ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
         caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
         caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
       },
@@ -124,7 +125,8 @@ function status(overrides: Partial<AcceptanceRunStatus>): AcceptanceRunStatus {
       provider: "ollama",
       model: "llama3.2:latest",
       ollamaUrl: "http://127.0.0.1:11434",
-        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+      commandUploadEnabled: false,
+      caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES],
       generatedAt: 1_800_000_000_000
     },

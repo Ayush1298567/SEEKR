@@ -423,6 +423,8 @@ function strictLocalAiReadbackMatches(probeAi: Record<string, unknown>, acceptan
     probeAi.provider === acceptanceAi.provider &&
     probeAi.model === acceptanceAi.model &&
     probeAi.ollamaUrl === acceptanceAi.ollamaUrl &&
+    probeAi.commandUploadEnabled === false &&
+    acceptanceAi.commandUploadEnabled === false &&
     isLocalOllamaUrl(acceptanceAi.ollamaUrl) &&
     Number(probeAi.caseCount) === REQUIRED_STRICT_AI_SMOKE_CASES.length &&
     Number(probeAi.caseCount) === Number(acceptanceAi.caseCount) &&
