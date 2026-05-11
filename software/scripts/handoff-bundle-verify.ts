@@ -248,8 +248,13 @@ export async function buildHandoffBundleVerification(options: {
   }
   if (bundleDirectory && bundleDirectoryOk && sourceControlHandoffPath) {
     const sourceControl = await readCopiedJson(bundleDirectory, sourceControlHandoffPath);
+    const acceptance = manifestFiles.some((file) => file.sourcePath === ".tmp/acceptance-status.json")
+      ? await readCopiedJson(bundleDirectory, ".tmp/acceptance-status.json")
+      : undefined;
     if (!sourceControlHandoffOk(sourceControl)) {
       blockers.push("Copied source-control handoff must be read-only, name the SEEKR GitHub repository, include local Git, remote-ref, published-HEAD, and clean-worktree checks, and keep commandUploadEnabled false.");
+    } else if (!sourceControlHandoffFreshForAcceptance(sourceControl, acceptance)) {
+      blockers.push("Copied ready source-control handoff must be newer than or equal to the copied acceptance record.");
     } else if (isRecord(sourceControl) && sourceControl.ready !== true) {
       warnings.push("Copied source-control handoff remains not ready for publication; local Git/GitHub limitation is preserved for review.");
     }
@@ -856,8 +861,24 @@ function sourceControlHandoffOk(manifest: unknown) {
   return validateSourceControlHandoffManifest(manifest).ok;
 }
 
+function sourceControlHandoffFreshForAcceptance(manifest: unknown, acceptance: unknown) {
+  if (!isRecord(manifest) || manifest.ready !== true) return true;
+  if (!isRecord(acceptance)) return false;
+  const acceptanceGeneratedAt = timeMs(acceptance.generatedAt);
+  if (acceptanceGeneratedAt === undefined) return false;
+  const generatedAt = timeMs(manifest.generatedAt);
+  return generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt;
+}
+
 function rehearsalStartSmokeOk(manifest: unknown) {
   return validateRehearsalStartSmokeManifest(manifest).ok;
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function stringOrUndefined(value: unknown) {

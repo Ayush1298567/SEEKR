@@ -556,6 +556,33 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when ready source-control handoff predates acceptance", async () => {
+    const staleSourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-zz-stale.json";
+    const sourceControl = JSON.parse(await readFile(path.join(root, sourceControlPath), "utf8"));
+    markSourceControlReady(sourceControl);
+    sourceControl.generatedAt = "2026-05-09T20:56:00.000Z";
+    await writeFile(path.join(root, staleSourceControlPath), JSON.stringify(sourceControl), "utf8");
+    await writeFile(path.join(root, staleSourceControlPath.replace(/\.json$/, ".md")), "# Source Control Handoff\n", "utf8");
+    const doctor = JSON.parse(await readFile(path.join(root, doctorPath), "utf8"));
+    const sourceControlCheck = doctor.checks.find((check: { id: string }) => check.id === "source-control-handoff");
+    sourceControlCheck.evidence = [staleSourceControlPath];
+    sourceControlCheck.details = `Source-control handoff artifact ${staleSourceControlPath} is ready.`;
+    await writeFile(path.join(root, doctorPath), JSON.stringify(doctor), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("newer than or equal to the latest acceptance record")
+    ]));
+  });
+
   it("blocks bundling when plug-and-play doctor has not been generated", async () => {
     await rm(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true, force: true });
 
@@ -1115,6 +1142,33 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
       expect.stringContaining("Copied source-control handoff must be read-only")
+    ]));
+  });
+
+  it("fails bundle verification when copied ready source-control handoff predates copied acceptance", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedSourceControlPath = path.join(result.bundleDirectory, "artifacts", sourceControlPath);
+    const copiedSourceControl = JSON.parse(await readFile(copiedSourceControlPath, "utf8"));
+    markSourceControlReady(copiedSourceControl);
+    copiedSourceControl.generatedAt = "2026-05-09T20:56:00.000Z";
+    const copiedSourceControlText = JSON.stringify(copiedSourceControl);
+    await writeFile(copiedSourceControlPath, copiedSourceControlText, "utf8");
+    await updateBundleManifestDigest(result.jsonPath, sourceControlPath, copiedSourceControlText);
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("newer than or equal to the copied acceptance record")
     ]));
   });
 
@@ -2305,6 +2359,42 @@ function digest(filePath: string, content: string) {
     bytes: Buffer.byteLength(content),
     sha256: createHash("sha256").update(content).digest("hex")
   };
+}
+
+async function updateBundleManifestDigest(manifestPath: string, sourcePath: string, content: string) {
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const file = manifest.files.find((item: { sourcePath: string }) => item.sourcePath === sourcePath);
+  file.bytes = Buffer.byteLength(content);
+  file.sha256 = createHash("sha256").update(content).digest("hex");
+  await writeFile(manifestPath, JSON.stringify(manifest), "utf8");
+}
+
+function markSourceControlReady(manifest: {
+  status: string;
+  ready: boolean;
+  configuredRemoteUrls: string[];
+  remoteRefCount: number;
+  blockedCheckCount: number;
+  warningCheckCount: number;
+  checks: Array<{ id: string; status: string; details: string; evidence: string[] }>;
+  localHeadSha?: string;
+  remoteDefaultBranchSha?: string;
+  workingTreeStatusLineCount?: number;
+}) {
+  manifest.status = "ready-source-control-handoff";
+  manifest.ready = true;
+  manifest.configuredRemoteUrls = ["https://github.com/Ayush1298567/SEEKR.git"];
+  manifest.remoteRefCount = 1;
+  manifest.blockedCheckCount = 0;
+  manifest.warningCheckCount = 0;
+  manifest.localHeadSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
+  manifest.remoteDefaultBranchSha = "1551c2f20dd0d51858200be22fde06f7b749f53d";
+  manifest.workingTreeStatusLineCount = 0;
+  manifest.checks = manifest.checks.map((check) => ({
+    ...check,
+    status: "pass",
+    details: `${check.id} passed for a published clean source-control handoff.`
+  }));
 }
 
 function falseClaims() {

@@ -156,6 +156,8 @@ export async function writeHandoffBundle(options: {
     blockers.push("No source-control handoff artifact exists; run npm run audit:source-control before bundling for final internal-alpha review.");
   } else if (!sourceControlHandoffOk(sourceControlManifest)) {
     blockers.push("Source-control handoff artifact must be read-only, name the SEEKR GitHub repository, include local Git and remote-ref checks, and keep commandUploadEnabled false before bundling.");
+  } else if (!sourceControlHandoffFreshForAcceptance(sourceControlManifest, acceptanceManifest)) {
+    blockers.push("Ready source-control handoff artifact must be newer than or equal to the latest acceptance record before bundling.");
   } else if (isRecord(sourceControlManifest) && sourceControlManifest.ready !== true) {
     warnings.push("Source-control handoff is not ready for publication yet; review bundle preserves the local Git/GitHub limitation without blocking local alpha.");
   }
@@ -723,8 +725,24 @@ function sourceControlHandoffOk(manifest: unknown) {
   return validateSourceControlHandoffManifest(manifest).ok;
 }
 
+function sourceControlHandoffFreshForAcceptance(manifest: unknown, acceptance: unknown) {
+  if (!isRecord(manifest) || manifest.ready !== true) return true;
+  if (!isRecord(acceptance)) return false;
+  const acceptanceGeneratedAt = timeMs(acceptance.generatedAt);
+  if (acceptanceGeneratedAt === undefined) return false;
+  const generatedAt = timeMs(manifest.generatedAt);
+  return generatedAt !== undefined && generatedAt >= acceptanceGeneratedAt;
+}
+
 function rehearsalStartSmokeOk(manifest: unknown) {
   return validateRehearsalStartSmokeManifest(manifest).ok;
+}
+
+function timeMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 function isInsideRoot(root: string, absolutePath: string) {
