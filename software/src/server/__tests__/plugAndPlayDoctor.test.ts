@@ -402,6 +402,34 @@ describe("plug-and-play doctor", () => {
     });
   });
 
+  it("fails when the rehearsal start wrapper skips port normalization and automatic fallback", async () => {
+    await writeFile(path.join(root, "scripts/rehearsal-start.sh"), [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
+      "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
+      "npm run setup:local",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "exec npm run dev",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildPlugAndPlayDoctor({
+      root,
+      env: {},
+      fetchImpl: mockOllamaFetch(["llama3.2:latest"]),
+      portAvailable: async () => true
+    });
+
+    expect(manifest.ok).toBe(false);
+    expect(manifest.status).toBe("blocked-local-start");
+    expect(manifest.checks.find((check) => check.id === "operator-start")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("select_free_port")
+    });
+  });
+
   it("writes JSON and Markdown doctor artifacts", async () => {
     const result = await writePlugAndPlayDoctor({
       root,
@@ -538,6 +566,14 @@ async function seedDoctorProject(root: string) {
     "set -euo pipefail",
     "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
     "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
+    "select_free_port() { echo 49111; }",
+    "port_is_busy() { return 1; }",
+    "export PORT=\"${PORT:-8787}\"",
+    "export SEEKR_API_PORT=\"${SEEKR_API_PORT:-$PORT}\"",
+    "export SEEKR_CLIENT_PORT=\"${SEEKR_CLIENT_PORT:-5173}\"",
+    "echo \"PORT and SEEKR_API_PORT disagree; set only one API port or set both to the same value before running npm run rehearsal:start.\"",
+    "echo \"Default SEEKR API port 8787 is busy; auto-selected free local API port $SEEKR_API_PORT.\"",
+    "echo \"Default SEEKR client port 5173 is busy; auto-selected free local client port $SEEKR_CLIENT_PORT.\"",
     "npm run setup:local",
     "npm run audit:source-control",
     "npm run doctor",

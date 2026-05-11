@@ -8,6 +8,7 @@ export const REQUIRED_OPERATOR_QUICKSTART_SIGNALS = [
   "non-SEEKR or unhealthy listener",
   "Listener diagnostics",
   "Stop the existing process",
+  "free local API/client ports",
   "npm run rehearsal:start",
   "Ollama",
   "llama3.2:latest",

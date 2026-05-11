@@ -262,6 +262,7 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     "node_modules/.bin/vite",
     "local-ai",
     "local-ports",
+    "auto-selected free local",
     "probeOccupiedSeekrPort",
     "healthy SEEKR local instance",
     "SEEKR_DOCTOR_PROFILE",
@@ -278,7 +279,8 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
     "occupied local ports already serve a healthy SEEKR instance",
     "healthy SEEKR local instance",
     "unsafe local environment flags",
-    "rehearsal start wrapper skips the doctor preflight"
+    "rehearsal start wrapper skips the doctor preflight",
+    "port normalization and automatic fallback"
   ]) {
     if (test && !test.includes(signal)) problems.push(`plugAndPlayDoctor.test.ts missing ${signal}`);
   }
@@ -417,6 +419,12 @@ async function operatorStartCheck(root: string): Promise<PlugAndPlayCheck> {
       "set -euo pipefail",
       ".tmp/rehearsal-data",
       "SEEKR_EXPECTED_SOURCES",
+      "select_free_port",
+      "port_is_busy",
+      "SEEKR_API_PORT",
+      "SEEKR_CLIENT_PORT",
+      "PORT and SEEKR_API_PORT disagree",
+      "auto-selected free local",
       "mavlink:telemetry:drone-1",
       "ros2-slam:map",
       "lidar-slam:lidar",
@@ -451,7 +459,7 @@ async function operatorStartCheck(root: string): Promise<PlugAndPlayCheck> {
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "npm run rehearsal:start sets a project-local data directory, declares expected read-only sources, runs npm run setup:local, refreshes source-control handoff evidence, runs npm run doctor, and launches npm run dev.",
+      : "npm run rehearsal:start sets a project-local data directory, declares expected read-only sources, normalizes API/client port environment, auto-selects free local ports when unconfigured defaults are busy, runs npm run setup:local, refreshes source-control handoff evidence, runs npm run doctor, and launches npm run dev.",
     evidence: ["package.json scripts.rehearsal:start", "scripts/rehearsal-start.sh"]
   };
 }

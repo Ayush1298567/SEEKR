@@ -1165,7 +1165,7 @@ async function seedPlugAndPlayEvidence(root: string) {
     "```",
     "",
     "Local AI uses Ollama with llama3.2:latest for advisory proposals.",
-    "If doctor reports a non-SEEKR or unhealthy listener, use the Listener diagnostics line to identify the process. Stop the existing process before startup.",
+    "If doctor reports a non-SEEKR or unhealthy listener, use the Listener diagnostics line to identify the process. Stop the existing process before startup; if no port variables are explicit, npm run rehearsal:start uses auto-selected free local API/client ports when defaults are busy.",
     "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
     "",
     "Inspect /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays during rehearsal.",
@@ -1184,6 +1184,14 @@ async function seedPlugAndPlayEvidence(root: string) {
     "set -euo pipefail",
     "export SEEKR_DATA_DIR=\"${SEEKR_DATA_DIR:-.tmp/rehearsal-data}\"",
     "export SEEKR_EXPECTED_SOURCES=\"${SEEKR_EXPECTED_SOURCES:-mavlink:telemetry:drone-1,ros2-slam:map,detection:spatial,lidar-slam:lidar,lidar-slam:slam,isaac-nvblox:costmap,isaac-nvblox:perception}\"",
+    "select_free_port() { echo 49111; }",
+    "port_is_busy() { return 1; }",
+    "export PORT=\"${PORT:-8787}\"",
+    "export SEEKR_API_PORT=\"${SEEKR_API_PORT:-$PORT}\"",
+    "export SEEKR_CLIENT_PORT=\"${SEEKR_CLIENT_PORT:-5173}\"",
+    "echo \"PORT and SEEKR_API_PORT disagree; set only one API port or set both to the same value before running npm run rehearsal:start.\"",
+    "echo \"Default SEEKR API port 8787 is busy; auto-selected free local API port $SEEKR_API_PORT.\"",
+    "echo \"Default SEEKR client port 5173 is busy; auto-selected free local client port $SEEKR_CLIENT_PORT.\"",
     "npm run setup:local",
     "npm run audit:source-control",
     "npm run doctor",
@@ -1413,7 +1421,7 @@ async function seedDoctorFiles(root: string) {
   await writeFile(path.join(root, "scripts/plug-and-play-doctor.ts"), [
     "export async function buildPlugAndPlayDoctor() { return {}; }",
     "export async function writePlugAndPlayDoctor() { return {}; }",
-    "const checks = ['runtime-dependencies', 'repository-safety', 'source-control-handoff', 'packageManager', 'engines.node', '.npmrc', 'node_modules/.bin/concurrently', 'node_modules/.bin/vite', 'local-ai', 'local-ports', 'SEEKR_DOCTOR_PROFILE'];",
+    "const checks = ['runtime-dependencies', 'repository-safety', 'source-control-handoff', 'packageManager', 'engines.node', '.npmrc', 'node_modules/.bin/concurrently', 'node_modules/.bin/vite', 'local-ai', 'local-ports', 'auto-selected free local', 'SEEKR_DOCTOR_PROFILE'];",
     "function probeOccupiedSeekrPort() { return true; }",
     "const healthy = 'healthy SEEKR local instance';",
     "const disabled = process.env.SEEKR_COMMAND_UPLOAD_ENABLED;",
@@ -1428,6 +1436,7 @@ async function seedDoctorFiles(root: string) {
     "const details = 'healthy SEEKR local instance';",
     "it('fails when unsafe local environment flags are true', () => {});",
     "it('fails when the rehearsal start wrapper skips the doctor preflight', () => {});",
+    "it('fails when the rehearsal start wrapper skips port normalization and automatic fallback', () => {});",
     ""
   ].join("\n"), "utf8");
   await writeFile(path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"), JSON.stringify({

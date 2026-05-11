@@ -324,6 +324,12 @@ async function operatorStartScriptCheck(root: string): Promise<PlugAndPlayDoctor
       "set -euo pipefail",
       ".tmp/rehearsal-data",
       "SEEKR_EXPECTED_SOURCES",
+      "select_free_port",
+      "port_is_busy",
+      "SEEKR_API_PORT",
+      "SEEKR_CLIENT_PORT",
+      "PORT and SEEKR_API_PORT disagree",
+      "auto-selected free local",
       "mavlink:telemetry:drone-1",
       "ros2-slam:map",
       "lidar-slam:lidar",
@@ -357,7 +363,7 @@ async function operatorStartScriptCheck(root: string): Promise<PlugAndPlayDoctor
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : "npm run rehearsal:start is wired to a local wrapper that sets rehearsal defaults, runs safe setup, refreshes source-control handoff evidence, runs doctor preflight, and then launches npm run dev.",
+      : "npm run rehearsal:start is wired to a local wrapper that sets rehearsal defaults, normalizes API/client port environment, auto-selects free local ports when unconfigured defaults are occupied, runs safe setup, refreshes source-control handoff evidence, runs doctor preflight, and then launches npm run dev.",
     evidence: ["package.json scripts.rehearsal:start", "scripts/rehearsal-start.sh"]
   };
 }

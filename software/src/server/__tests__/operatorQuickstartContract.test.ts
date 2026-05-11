@@ -32,7 +32,8 @@ describe("operator quickstart contract", () => {
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
       "non-SEEKR or unhealthy listener",
       "Listener diagnostics",
-      "Stop the existing process"
+      "Stop the existing process",
+      "free local API/client ports"
     ]));
   });
 
