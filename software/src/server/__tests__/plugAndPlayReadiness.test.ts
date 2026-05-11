@@ -922,7 +922,7 @@ describe("plug-and-play readiness audit", () => {
         { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
         { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
         { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
-        { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run." },
+        { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run.", evidence: freshCloneSmokeEvidence() },
         { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
         { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
       ],
@@ -1534,7 +1534,7 @@ async function seedDoctorFiles(root: string) {
       { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
       { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
-      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run." },
+      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run.", evidence: freshCloneSmokeEvidence() },
       { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
       { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
     ],
@@ -1553,6 +1553,20 @@ async function seedDoctorFiles(root: string) {
       "Real command upload and hardware actuation remain disabled."
     ]
   }), "utf8");
+}
+
+function freshCloneSmokeEvidence() {
+  return [
+    "https://github.com/Ayush1298567/SEEKR",
+    "git clone --depth 1",
+    "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
+    "fresh-clone:README.md",
+    "fresh-clone:software/package.json",
+    "fresh-clone:software/package-lock.json",
+    "fresh-clone:software/.env.example",
+    "fresh-clone:software/scripts/rehearsal-start.sh",
+    "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
+  ];
 }
 
 async function seedEnvLoaderFiles(root: string) {

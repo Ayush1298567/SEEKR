@@ -606,6 +606,10 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
   if (!checks.every((check) => ["pass", "warn", "blocked"].includes(String(check.status)) && typeof check.details === "string")) {
     problems.push("checks must use pass/warn/blocked statuses and include details");
   }
+  const freshCloneCheck = checks.find((check) => check.id === "fresh-clone-smoke");
+  if (freshCloneCheck?.status === "pass" && !freshClonePassEvidenceOk(freshCloneCheck)) {
+    problems.push("fresh-clone-smoke pass must include shallow clone, npm ci dry-run, and all required startup-file evidence");
+  }
   if (!nextActions.length) {
     problems.push("nextActionChecklist must include publication or verification steps");
   }
@@ -657,6 +661,14 @@ export function validateSourceControlHandoffManifest(manifest: unknown) {
     warningCheckIds,
     ready
   };
+}
+
+function freshClonePassEvidenceOk(check: Record<string, unknown>) {
+  const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
+  return evidence.includes(EXPECTED_REPOSITORY_URL) &&
+    evidence.some((item) => item.includes("git clone --depth 1")) &&
+    evidence.some((item) => item.includes("npm ci --dry-run")) &&
+    REQUIRED_FRESH_CLONE_PATHS.every((relativePath) => evidence.includes(`fresh-clone:${relativePath}`));
 }
 
 function sourceControlNextActions(checks: SourceControlHandoffCheck[]): SourceControlHandoffNextAction[] {

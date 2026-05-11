@@ -414,6 +414,21 @@ describe("source-control handoff audit", () => {
     ]));
     expect(validateSourceControlHandoffManifest({
       ...manifest,
+      checks: manifest.checks.map((check) => check.id === "fresh-clone-smoke"
+        ? {
+          ...check,
+          evidence: [
+            "https://github.com/Ayush1298567/SEEKR",
+            "git clone --depth 1",
+            "fresh-clone:README.md"
+          ]
+        }
+        : check)
+    }).problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("fresh-clone-smoke pass")
+    ]));
+    expect(validateSourceControlHandoffManifest({
+      ...manifest,
       checks: [
         ...manifest.checks,
         { id: "unreviewed-extra-check", status: "pass", details: "Unexpected check should not be accepted." }

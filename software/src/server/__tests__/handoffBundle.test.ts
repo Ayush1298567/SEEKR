@@ -2822,8 +2822,23 @@ function markSourceControlReady(manifest: {
   manifest.checks = manifest.checks.map((check) => ({
     ...check,
     status: "pass",
-    details: `${check.id} passed for a published clean source-control handoff.`
+    details: `${check.id} passed for a published clean source-control handoff.`,
+    evidence: check.id === "fresh-clone-smoke" ? freshCloneSmokeEvidence() : check.evidence
   }));
+}
+
+function freshCloneSmokeEvidence() {
+  return [
+    "https://github.com/Ayush1298567/SEEKR",
+    "git clone --depth 1",
+    "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
+    "fresh-clone:README.md",
+    "fresh-clone:software/package.json",
+    "fresh-clone:software/package-lock.json",
+    "fresh-clone:software/.env.example",
+    "fresh-clone:software/scripts/rehearsal-start.sh",
+    "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
+  ];
 }
 
 function falseClaims() {

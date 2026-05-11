@@ -419,6 +419,20 @@ async function seedPackageEvidence(root: string) {
   await writeFile(path.join(root, ".tmp/overnight/STATUS.md"), "- Last update: 2026-05-09T19:30:00Z\n- Cycle: 12\n- Verdict: pass\n", "utf8");
 }
 
+function freshCloneSmokeEvidence() {
+  return [
+    "https://github.com/Ayush1298567/SEEKR",
+    "git clone --depth 1",
+    "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
+    "fresh-clone:README.md",
+    "fresh-clone:software/package.json",
+    "fresh-clone:software/package-lock.json",
+    "fresh-clone:software/.env.example",
+    "fresh-clone:software/scripts/rehearsal-start.sh",
+    "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
+  ];
+}
+
 async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-05-09T19:30:00.000Z") {
   const sourceControlPath = ".tmp/source-control-handoff/seekr-source-control-handoff-test.json";
   const manifest = {
@@ -445,7 +459,7 @@ async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-
       { id: "local-git-metadata", status: "pass", details: "Git metadata present.", evidence: ["../.git"] },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote configured.", evidence: ["origin"] },
       { id: "github-remote-refs", status: "pass", details: "GitHub refs available.", evidence: ["refs/heads/main"] },
-      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run.", evidence: ["git clone --depth 1", "npm ci --dry-run"] },
+      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run.", evidence: freshCloneSmokeEvidence() },
       { id: "local-head-published", status: "pass", details: "Local HEAD is published.", evidence: ["origin/main"] },
       { id: "working-tree-clean", status: "pass", details: "Working tree is clean.", evidence: ["git status --short"] }
     ],
