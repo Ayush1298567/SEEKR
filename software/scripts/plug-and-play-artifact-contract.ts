@@ -101,11 +101,13 @@ export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
   const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
   const details = typeof check.details === "string" ? check.details : "";
   if (!/non-SEEKR or unhealthy listener/.test(details)) return true;
-  const occupiedPorts = occupiedPortPairsFromDetails(details);
+  const occupiedPorts = occupiedPortDiagnosticsFromDetails(details);
   const hasListenerDetails = occupiedPorts.length > 0 &&
-    occupiedPorts.every(({ role, port }) => new RegExp(`${role} ${port} -> .*pid \\d+`).test(details));
-  const hasPortInspectorEvidence = occupiedPorts.every(({ port }) => evidence.includes(`lsof -nP -iTCP:${port} -sTCP:LISTEN`)) &&
-    evidence.some((item) => /^listener \d+ (cwd|command) /.test(item));
+    occupiedPorts.every(({ role, port, pid }) => new RegExp(`${role} ${port} -> .*pid ${pid}\\b`).test(details));
+  const hasPortInspectorEvidence = occupiedPorts.every(({ port, pid }) =>
+    evidence.includes(`lsof -nP -iTCP:${port} -sTCP:LISTEN`) &&
+    evidence.some((item) => item.startsWith(`listener ${pid} `))
+  );
   if (check.status === "warn") return hasListenerDetails && hasPortInspectorEvidence;
   const hasAutoFallbackDetails = /auto-selects free local API\/client ports/.test(details);
   const hasPlugAndPlayGuidance = /npm run plug-and-play/.test(details);
@@ -118,12 +120,11 @@ export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
   return hasListenerDetails && hasPortInspectorEvidence && hasAutoFallbackDetails && hasPlugAndPlayGuidance && hasAutoFallbackEvidence && hasFallbackCandidate;
 }
 
-function occupiedPortPairsFromDetails(details: string) {
-  const match = details.match(/non-SEEKR or unhealthy listener: ([^.]+)\./);
-  const summary = match?.[1] ?? "";
-  return Array.from(summary.matchAll(/\b(api|client) (\d{1,5})\b/g)).map((item) => ({
+function occupiedPortDiagnosticsFromDetails(details: string) {
+  return Array.from(details.matchAll(/\b(api|client) (\d{1,5}) -> .*?pid (\d+)\b/g)).map((item) => ({
     role: item[1] as "api" | "client",
-    port: item[2]
+    port: item[2],
+    pid: item[3]
   }));
 }
 

@@ -250,7 +250,7 @@ describe("plug-and-play artifact contract", () => {
     expect(plugAndPlayDoctorOk(doctorManifest({ checks }))).toBe(false);
   });
 
-  it("rejects occupied-port evidence that omits per-port listener inspection", () => {
+  it("rejects occupied-port evidence that omits copied listener evidence for one detailed PID", () => {
     const checks = doctorChecks().map((check) =>
       check.id === "local-ports"
         ? {
@@ -267,6 +267,7 @@ describe("plug-and-play artifact contract", () => {
               "http://127.0.0.1:8787/api/health",
               "http://127.0.0.1:5173/",
               "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+              "lsof -nP -iTCP:5173 -sTCP:LISTEN",
               "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
             ]
           }
