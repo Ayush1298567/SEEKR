@@ -36,7 +36,7 @@ export interface RehearsalStartSmokeManifest {
 }
 
 const DEFAULT_OUT_DIR = ".tmp/rehearsal-start-smoke";
-const REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS = [
+export const REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS = [
   "wrapper-started",
   "api-health",
   "client-shell",
@@ -185,7 +185,7 @@ export function validateRehearsalStartSmokeManifest(manifest: unknown) {
     return { ok: false, problems: ["rehearsal-start smoke artifact is not a JSON object"] };
   }
   const checks = Array.isArray(manifest.checks) ? manifest.checks.filter(isRecord) : [];
-  const checkIds = new Set(checks.map((check) => String(check.id ?? "")));
+  const checked = Array.isArray(manifest.checked) ? manifest.checked.map(String) : [];
   if (manifest.schemaVersion !== 1) problems.push("schemaVersion must be 1");
   if (manifest.ok !== true) problems.push("ok must be true");
   if (manifest.status !== "pass") problems.push("status must be pass");
@@ -194,8 +194,11 @@ export function validateRehearsalStartSmokeManifest(manifest: unknown) {
   if (!Number.isFinite(Number(manifest.apiPort)) || Number(manifest.apiPort) <= 0) problems.push("apiPort must be positive");
   if (!Number.isFinite(Number(manifest.clientPort)) || Number(manifest.clientPort) <= 0) problems.push("clientPort must be positive");
   if (typeof manifest.dataDirPath !== "string" || !manifest.dataDirPath.includes(".tmp/rehearsal-start-smoke/")) problems.push("dataDirPath must be project-local rehearsal-start-smoke storage");
-  for (const id of REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS) {
-    if (!checkIds.has(id)) problems.push(`missing check ${id}`);
+  if (!arraysEqual(checked, REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS)) {
+    problems.push("checked must exactly match the required rehearsal-start smoke check IDs in order");
+  }
+  if (!checkIdsAreExact(checks, REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS)) {
+    problems.push("checks must exactly match the required rehearsal-start smoke check IDs in order");
   }
   for (const check of checks) {
     if (check.status !== "pass") problems.push(`check ${String(check.id ?? "unknown")} must pass`);
@@ -302,6 +305,15 @@ function safetyBoundaryFalse(manifest: Record<string, unknown>) {
   return boundary.realAircraftCommandUpload === false &&
     boundary.hardwareActuationEnabled === false &&
     boundary.runtimePolicyInstalled === false;
+}
+
+function checkIdsAreExact(checks: Record<string, unknown>[], requiredIds: readonly string[]) {
+  return checks.length === requiredIds.length &&
+    checks.every((check, index) => check.id === requiredIds[index]);
+}
+
+function arraysEqual(left: string[], right: readonly string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

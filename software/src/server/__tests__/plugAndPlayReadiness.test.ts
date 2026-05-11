@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 import { buildPlugAndPlayReadiness, writePlugAndPlayReadiness } from "../../../scripts/plug-and-play-readiness";
+import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 describe("plug-and-play readiness audit", () => {
@@ -315,6 +316,60 @@ describe("plug-and-play readiness audit", () => {
     expect(manifest.checks.find((check) => check.id === "operator-start-smoke")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("status must be pass")
+    });
+  });
+
+  it("fails when rehearsal-start smoke evidence has an extra check row", async () => {
+    const smokePath = path.join(root, ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json");
+    const smoke = JSON.parse(await readFile(smokePath, "utf8"));
+    smoke.checked = [...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS, "unreviewed-extra-smoke-check"];
+    smoke.checks = [
+      ...smoke.checks,
+      {
+        id: "unreviewed-extra-smoke-check",
+        status: "pass",
+        details: "Unreviewed extra smoke check passed.",
+        evidence: ["unreviewed-extra-smoke-check"]
+      }
+    ];
+    await writeFile(smokePath, JSON.stringify(smoke), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "operator-start-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("exactly match the required rehearsal-start smoke check IDs")
+    });
+  });
+
+  it("fails when rehearsal-start smoke evidence rows are reordered", async () => {
+    const smokePath = path.join(root, ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json");
+    const smoke = JSON.parse(await readFile(smokePath, "utf8"));
+    smoke.checked = [
+      "api-health",
+      "wrapper-started",
+      ...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS.slice(2)
+    ];
+    smoke.checks = [
+      smoke.checks.find((check: { id: string }) => check.id === "api-health"),
+      smoke.checks.find((check: { id: string }) => check.id === "wrapper-started"),
+      ...smoke.checks.filter((check: { id: string }) => !["api-health", "wrapper-started"].includes(check.id))
+    ];
+    await writeFile(smokePath, JSON.stringify(smoke), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "operator-start-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("exactly match the required rehearsal-start smoke check IDs")
     });
   });
 

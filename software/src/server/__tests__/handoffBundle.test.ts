@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeHandoffBundle } from "../../../scripts/handoff-bundle";
 import { writeHandoffBundleVerification } from "../../../scripts/handoff-bundle-verify";
+import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
 
 describe("handoff bundle", () => {
@@ -692,6 +693,34 @@ describe("handoff bundle", () => {
     smoke.ok = false;
     smoke.status = "fail";
     smoke.checks.find((check: { id: string }) => check.id === "runtime-config").status = "fail";
+    await writeFile(path.join(root, rehearsalStartSmokePath), JSON.stringify(smoke), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.copiedFileCount).toBe(0);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Rehearsal-start smoke artifact must pass")
+    ]));
+  });
+
+  it("blocks bundling when rehearsal-start smoke check rows are not exact", async () => {
+    const smoke = JSON.parse(await readFile(path.join(root, rehearsalStartSmokePath), "utf8"));
+    smoke.checked = [...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS, "unreviewed-extra-smoke-check"];
+    smoke.checks = [
+      ...smoke.checks,
+      {
+        id: "unreviewed-extra-smoke-check",
+        status: "pass",
+        details: "Unreviewed extra smoke check passed.",
+        evidence: ["unreviewed-extra-smoke-check"]
+      }
+    ];
     await writeFile(path.join(root, rehearsalStartSmokePath), JSON.stringify(smoke), "utf8");
 
     const result = await writeHandoffBundle({
