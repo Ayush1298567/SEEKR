@@ -78,6 +78,8 @@ describe("plug-and-play readiness audit", () => {
         repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
         localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         cloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         localAiPrepareModel: "llama3.2:latest",
         sourceControlHandoffStatus: "ready-source-control-handoff",
         sourceControlHandoffReady: true,
@@ -170,6 +172,27 @@ describe("plug-and-play readiness audit", () => {
       status: "fail",
       details: expect.stringContaining("fresh-clone operator smoke artifact")
     });
+  });
+
+  it("fails when fresh-clone source-control HEAD summaries are missing", async () => {
+    const smokePath = path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json");
+    const smoke = JSON.parse(await readFile(smokePath, "utf8"));
+    delete smoke.sourceControlHandoffLocalHeadSha;
+    delete smoke.sourceControlHandoffRemoteDefaultBranchSha;
+    await writeFile(smokePath, JSON.stringify(smoke), "utf8");
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.status).toBe("blocked-local-plug-and-play");
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-operator-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("source-control local HEAD summary")
+    });
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-operator-smoke")?.details).toContain("source-control remote default SHA summary");
   });
 
   it("fails closed when completion audit is not complete even if the blocker list is empty", async () => {

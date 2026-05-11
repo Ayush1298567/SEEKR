@@ -325,6 +325,8 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
     REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS.every((id, index) => checks[index]?.id === id && checks[index]?.status === "pass");
   const localHeadSha = typeof manifest.localHeadSha === "string" ? manifest.localHeadSha : undefined;
   const cloneHeadSha = typeof manifest.cloneHeadSha === "string" ? manifest.cloneHeadSha : undefined;
+  const sourceControlLocalHeadSha = typeof manifest.sourceControlHandoffLocalHeadSha === "string" ? manifest.sourceControlHandoffLocalHeadSha : undefined;
+  const sourceControlRemoteDefaultBranchSha = typeof manifest.sourceControlHandoffRemoteDefaultBranchSha === "string" ? manifest.sourceControlHandoffRemoteDefaultBranchSha : undefined;
   const acceptanceStrictAi = isRecord(acceptance) && isRecord(acceptance.strictLocalAi) ? acceptance.strictLocalAi : undefined;
   const acceptanceModel = typeof acceptanceStrictAi?.model === "string" ? acceptanceStrictAi.model : undefined;
   const modelMatches = !acceptanceModel || manifest.localAiPrepareModel === acceptanceModel;
@@ -339,7 +341,11 @@ export function freshCloneOperatorSmokeOk(manifest: unknown, acceptance?: unknow
     typeof manifest.sourceControlHandoffPath === "string" &&
     typeof manifest.plugAndPlayDoctorPath === "string" &&
     typeof manifest.rehearsalStartSmokePath === "string" &&
+    typeof sourceControlLocalHeadSha === "string" &&
+    typeof sourceControlRemoteDefaultBranchSha === "string" &&
     (!localHeadSha || !cloneHeadSha || localHeadSha === cloneHeadSha) &&
+    (!cloneHeadSha || sourceControlLocalHeadSha === cloneHeadSha) &&
+    (!cloneHeadSha || sourceControlRemoteDefaultBranchSha === cloneHeadSha) &&
     modelMatches &&
     safetyBoundaryFalse(manifest);
 }

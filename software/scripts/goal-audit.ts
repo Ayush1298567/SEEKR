@@ -1031,6 +1031,12 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     if (stringOrUndefined(readinessFreshClone.cloneHeadSha) !== stringOrUndefined(freshCloneManifest.cloneHeadSha)) {
       problems.push("plug-and-play readiness fresh-clone clone HEAD summary must match the latest fresh-clone operator smoke");
     }
+    if (stringOrUndefined(readinessFreshClone.sourceControlHandoffLocalHeadSha) !== stringOrUndefined(freshCloneManifest.sourceControlHandoffLocalHeadSha)) {
+      problems.push("plug-and-play readiness fresh-clone source-control local HEAD summary must match the latest fresh-clone operator smoke");
+    }
+    if (stringOrUndefined(readinessFreshClone.sourceControlHandoffRemoteDefaultBranchSha) !== stringOrUndefined(freshCloneManifest.sourceControlHandoffRemoteDefaultBranchSha)) {
+      problems.push("plug-and-play readiness fresh-clone source-control remote default SHA summary must match the latest fresh-clone operator smoke");
+    }
     if (stringOrUndefined(readinessFreshClone.localAiPrepareModel) !== stringOrUndefined(freshCloneManifest.localAiPrepareModel)) {
       problems.push("plug-and-play readiness fresh-clone local AI model summary must match the latest fresh-clone operator smoke");
     }

@@ -78,6 +78,8 @@ export interface PlugAndPlayReadinessManifest {
     repositoryUrl?: string;
     localHeadSha?: string;
     cloneHeadSha?: string;
+    sourceControlHandoffLocalHeadSha?: string;
+    sourceControlHandoffRemoteDefaultBranchSha?: string;
     localAiPrepareModel?: string;
     sourceControlHandoffStatus?: string;
     sourceControlHandoffReady?: boolean;
@@ -535,6 +537,27 @@ async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCh
   if (!script) problems.push("scripts/fresh-clone-operator-smoke.ts is missing");
   for (const signal of ["git clone", "npm ci", "npm run smoke:rehearsal:start", "npm run doctor", "commandUploadEnabled: false"]) {
     if (script && !script.includes(signal)) problems.push(`scripts/fresh-clone-operator-smoke.ts missing ${signal}`);
+  }
+  if (isRecord(manifest)) {
+    const localHeadSha = stringOrUndefined(manifest.localHeadSha);
+    const cloneHeadSha = stringOrUndefined(manifest.cloneHeadSha);
+    const sourceControlLocalHeadSha = stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha);
+    const sourceControlRemoteDefaultBranchSha = stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha);
+    if (!sourceControlLocalHeadSha) {
+      problems.push("latest fresh-clone operator smoke artifact must publish source-control local HEAD summary");
+    }
+    if (!sourceControlRemoteDefaultBranchSha) {
+      problems.push("latest fresh-clone operator smoke artifact must publish source-control remote default SHA summary");
+    }
+    if (sourceControlLocalHeadSha && cloneHeadSha && sourceControlLocalHeadSha !== cloneHeadSha) {
+      problems.push("latest fresh-clone operator smoke source-control local HEAD summary must match clone HEAD");
+    }
+    if (sourceControlRemoteDefaultBranchSha && cloneHeadSha && sourceControlRemoteDefaultBranchSha !== cloneHeadSha) {
+      problems.push("latest fresh-clone operator smoke source-control remote default SHA summary must match clone HEAD");
+    }
+    if (localHeadSha && cloneHeadSha && localHeadSha !== cloneHeadSha) {
+      problems.push("latest fresh-clone operator smoke local HEAD summary must match clone HEAD");
+    }
   }
   if (!freshCloneOperatorSmokeOk(manifest, acceptance)) {
     problems.push("latest fresh-clone operator smoke artifact must pass exact clone/install/operator-start/doctor checks with commandUploadEnabled false");
@@ -1131,6 +1154,8 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     manifest.freshClone.repositoryUrl ? `- Repository: ${manifest.freshClone.repositoryUrl}` : undefined,
     manifest.freshClone.localHeadSha ? `- Local HEAD: ${manifest.freshClone.localHeadSha}` : undefined,
     manifest.freshClone.cloneHeadSha ? `- Clone HEAD: ${manifest.freshClone.cloneHeadSha}` : undefined,
+    manifest.freshClone.sourceControlHandoffLocalHeadSha ? `- Source-control local HEAD: ${manifest.freshClone.sourceControlHandoffLocalHeadSha}` : undefined,
+    manifest.freshClone.sourceControlHandoffRemoteDefaultBranchSha ? `- Source-control remote default SHA: ${manifest.freshClone.sourceControlHandoffRemoteDefaultBranchSha}` : undefined,
     manifest.freshClone.localAiPrepareModel ? `- Local AI model: ${manifest.freshClone.localAiPrepareModel}` : undefined,
     manifest.freshClone.sourceControlHandoffStatus ? `- Source-control handoff status: ${manifest.freshClone.sourceControlHandoffStatus}` : undefined,
     typeof manifest.freshClone.sourceControlHandoffReady === "boolean" ? `- Source-control handoff ready: ${manifest.freshClone.sourceControlHandoffReady}` : undefined,
@@ -1297,6 +1322,8 @@ async function freshCloneSummary(root: string): Promise<PlugAndPlayReadinessMani
     repositoryUrl: stringOrUndefined(manifest.repositoryUrl),
     localHeadSha: stringOrUndefined(manifest.localHeadSha),
     cloneHeadSha: stringOrUndefined(manifest.cloneHeadSha),
+    sourceControlHandoffLocalHeadSha: stringOrUndefined(manifest.sourceControlHandoffLocalHeadSha),
+    sourceControlHandoffRemoteDefaultBranchSha: stringOrUndefined(manifest.sourceControlHandoffRemoteDefaultBranchSha),
     localAiPrepareModel: stringOrUndefined(manifest.localAiPrepareModel),
     sourceControlHandoffStatus: stringOrUndefined(manifest.sourceControlHandoffStatus),
     sourceControlHandoffReady: booleanOrUndefined(manifest.sourceControlHandoffReady),

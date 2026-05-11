@@ -291,6 +291,8 @@ describe("goal audit", () => {
     const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
     const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
     readiness.freshClone.cloneHeadSha = "stale-clone-head";
+    readiness.freshClone.sourceControlHandoffLocalHeadSha = "stale-source-control-local-head";
+    readiness.freshClone.sourceControlHandoffRemoteDefaultBranchSha = "stale-source-control-remote-head";
     readiness.freshClone.checked = readiness.freshClone.checked.slice(0, -1);
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
@@ -304,6 +306,8 @@ describe("goal audit", () => {
       status: "fail",
       details: expect.stringContaining("fresh-clone clone HEAD summary")
     });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("fresh-clone source-control local HEAD summary");
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("fresh-clone source-control remote default SHA summary");
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("fresh-clone checked-row summary");
   });
 
@@ -2065,6 +2069,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       localHeadSha: "abc1234567890",
       cloneHeadSha: "abc1234567890",
+      sourceControlHandoffLocalHeadSha: "abc1234567890",
+      sourceControlHandoffRemoteDefaultBranchSha: "abc1234567890",
       localAiPrepareModel: "llama3.2:latest",
       sourceControlHandoffStatus: "ready-source-control-handoff",
       sourceControlHandoffReady: true,

@@ -41,6 +41,8 @@ describe("fresh clone operator smoke", () => {
       cloneHeadSha: SHA,
       localAiPrepareModel: "llama3.2:latest",
       sourceControlHandoffStatus: "ready-source-control-handoff",
+      sourceControlHandoffLocalHeadSha: SHA,
+      sourceControlHandoffRemoteDefaultBranchSha: SHA,
       plugAndPlayDoctorStatus: "ready-local-start",
       rehearsalStartSmokeStatus: "pass"
     });
@@ -71,6 +73,28 @@ describe("fresh clone operator smoke", () => {
 
     expect(manifest.ok).toBe(true);
     expect(freshCloneOperatorSmokeOk(manifest, {
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest"
+      }
+    })).toBe(false);
+  });
+
+  it("fails closed when source-control HEAD summaries are not preserved", async () => {
+    const manifest = await buildFreshCloneOperatorSmoke({
+      root,
+      generatedAt: "2026-05-11T17:00:00.000Z",
+      execFileImpl: fakeExec()
+    });
+
+    const unsafeManifest = {
+      ...manifest,
+      sourceControlHandoffLocalHeadSha: undefined,
+      sourceControlHandoffRemoteDefaultBranchSha: undefined
+    };
+
+    expect(freshCloneOperatorSmokeOk(unsafeManifest, {
       strictLocalAi: {
         ok: true,
         provider: "ollama",
