@@ -1057,6 +1057,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     sourceControlHandoffWorkingTreeClean: result.manifest.sourceControlHandoffWorkingTreeClean,
     sourceControlHandoffWorkingTreeStatusLineCount: result.manifest.sourceControlHandoffWorkingTreeStatusLineCount,
     plugAndPlaySetupPath: result.manifest.plugAndPlaySetupPath,
+    plugAndPlaySetupGeneratedAt: result.manifest.plugAndPlaySetupGeneratedAt,
     plugAndPlaySetupStatus: result.manifest.plugAndPlaySetupStatus,
     localAiPreparePath: result.manifest.localAiPreparePath,
     localAiPrepareStatus: result.manifest.localAiPrepareStatus,

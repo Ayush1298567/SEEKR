@@ -65,6 +65,7 @@ describe("handoff bundle", () => {
       sourceControlHandoffConfiguredRemoteUrls: [],
       sourceControlHandoffRemoteRefCount: 0,
       plugAndPlaySetupPath: setupPath,
+      plugAndPlaySetupGeneratedAt: "2026-05-09T20:58:00.000Z",
       plugAndPlaySetupStatus: "ready-local-setup",
       localAiPreparePath,
       localAiPrepareStatus: "ready-local-ai-model",
@@ -168,6 +169,8 @@ describe("handoff bundle", () => {
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("TODO audit");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control handoff");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play setup");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play setup generated at: 2026-05-09T20:58:00.000Z");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play setup verdict: ready-local-setup");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Local AI prepare");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Plug-and-play doctor");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Rehearsal-start smoke");
