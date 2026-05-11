@@ -508,13 +508,13 @@ async function operatorQuickstartDocCheck(root: string): Promise<PlugAndPlayChec
 
   return {
     id: "operator-quickstart-doc",
-    requirement: "The operator quickstart documents local setup, source-control audit, start, local AI, evidence checks, and safety limits for plug-and-play use.",
+    requirement: "The operator quickstart documents local setup, source-control audit, start, strict local AI smoke proof, evidence checks, and safety limits for plug-and-play use.",
     status: !content || problems.length ? "fail" : "pass",
     details: !content
       ? `${OPERATOR_QUICKSTART_PATH} is missing.`
       : problems.length
         ? `${OPERATOR_QUICKSTART_PATH} is missing plug-and-play signal(s): ${problems.join(", ")}.`
-        : "Operator quickstart covers local setup, source-control audit, start, advisory-only Ollama AI, API evidence checks, source-health proof, and the disabled command/hardware boundary.",
+        : "Operator quickstart covers local setup, source-control audit, start, strict local AI smoke proof, advisory-only Ollama AI, API evidence checks, source-health proof, and the disabled command/hardware boundary.",
     evidence: [OPERATOR_QUICKSTART_PATH]
   };
 }

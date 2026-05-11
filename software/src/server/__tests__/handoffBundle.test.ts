@@ -2721,6 +2721,7 @@ async function seedBundleEvidence(root: string) {
     "```",
     "",
     "Local AI uses Ollama with llama3.2:latest.",
+    "Run npm run test:ai:local before final packaging; it writes .tmp/ai-smoke-status.json with strict local AI smoke cases, validator pass, no unsafe operator-facing text, and no mutation while thinking.",
     "If doctor reports a non-SEEKR or unhealthy listener, use the Listener diagnostics line to identify the process. Stop the existing process before startup; if no port variables are explicit, npm run rehearsal:start uses auto-selected free local API/client ports when defaults are busy.",
     "AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.",
     "Check /api/config, /api/readiness, /api/source-health, /api/verify, and /api/replays before handoff.",

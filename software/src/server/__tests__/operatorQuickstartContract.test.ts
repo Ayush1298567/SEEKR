@@ -28,6 +28,17 @@ describe("operator quickstart contract", () => {
     ]));
   });
 
+  it("pins strict local AI smoke proof guidance as required signals", () => {
+    expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
+      "npm run test:ai:local",
+      ".tmp/ai-smoke-status.json",
+      "strict local AI smoke",
+      "validator pass",
+      "no unsafe operator-facing text",
+      "no mutation while thinking"
+    ]));
+  });
+
   it("pins occupied-port recovery guidance as required signals", () => {
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
       "non-SEEKR or unhealthy listener",

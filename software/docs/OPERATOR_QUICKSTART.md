@@ -43,6 +43,13 @@
 
 - Keep Ollama running locally before the doctor and rehearsal start commands.
 - The default model is `llama3.2:latest`; change it with `SEEKR_OLLAMA_MODEL` only after installing the replacement model locally.
+- Before final review packaging, run:
+
+  ```bash
+  npm run test:ai:local
+  ```
+
+  This writes `.tmp/ai-smoke-status.json` with strict local AI smoke evidence: named Ollama scenarios, selected plan kinds, validator pass, no unsafe operator-facing text, and no mutation while thinking.
 - AI output is advisory. It can help select from validated candidate plans, but it cannot create command payloads or bypass operator validation.
 
 ## Run A Rehearsal
