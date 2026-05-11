@@ -5,6 +5,7 @@ import {
   REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE,
   SOFT_DOCTOR_CHECK_IDS,
   doctorCheckStatusOk,
+  doctorPortWarningEvidenceOk,
   doctorRuntimeDependencyEvidenceOk,
   doctorSourceControlEvidenceOk,
   plugAndPlayDoctorOk,
@@ -84,6 +85,45 @@ describe("plug-and-play artifact contract", () => {
     expect(doctorSourceControlEvidenceOk(checks, ".tmp/source-control-handoff/seekr-source-control-handoff-current.json")).toBe(true);
     expect(plugAndPlayDoctorOk(doctorManifest({ checks }), undefined, ".tmp/source-control-handoff/seekr-source-control-handoff-current.json")).toBe(true);
     expect(plugAndPlayDoctorOk(doctorManifest({ checks }), undefined, ".tmp/source-control-handoff/seekr-source-control-handoff-newer.json")).toBe(false);
+  });
+
+  it("requires listener diagnostics when local ports are occupied by non-SEEKR listeners", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ports"
+        ? {
+            ...check,
+            status: "warn",
+            details: "Port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787. Listener diagnostics: api 8787 -> node pid 12345 cwd ~/Ayush/Prophet/prophet-console. Stop the existing process before starting a fresh npm run dev.",
+            evidence: [
+              "PORT",
+              "SEEKR_API_PORT",
+              "SEEKR_CLIENT_PORT",
+              "http://127.0.0.1:8787/api/health",
+              "lsof -nP -iTCP:8787 -sTCP:LISTEN",
+              "listener 12345 cwd ~/Ayush/Prophet/prophet-console"
+            ]
+          }
+        : check
+    );
+
+    expect(doctorPortWarningEvidenceOk(checks)).toBe(true);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks, summary: { pass: 9, warn: 1, fail: 0 } }))).toBe(true);
+  });
+
+  it("rejects non-SEEKR local-port warnings that drop listener diagnostics", () => {
+    const checks = doctorChecks().map((check) =>
+      check.id === "local-ports"
+        ? {
+            ...check,
+            status: "warn",
+            details: "Port(s) already in use on 127.0.0.1 by a non-SEEKR or unhealthy listener: api 8787. Stop the existing process before starting a fresh npm run dev.",
+            evidence: ["PORT", "SEEKR_API_PORT", "http://127.0.0.1:8787/api/health"]
+          }
+        : check
+    );
+
+    expect(doctorPortWarningEvidenceOk(checks)).toBe(false);
+    expect(plugAndPlayDoctorOk(doctorManifest({ checks, summary: { pass: 9, warn: 1, fail: 0 } }))).toBe(false);
   });
 
   it("rejects warning statuses on critical doctor checks", () => {

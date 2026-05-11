@@ -65,6 +65,7 @@ export function plugAndPlayDoctorOk(manifest: unknown, acceptanceManifest?: unkn
     REQUIRED_DOCTOR_CHECK_IDS.every((id) => doctorCheckStatusOk(checks, id)) &&
     doctorRuntimeDependencyEvidenceOk(checks) &&
     doctorSourceControlEvidenceOk(checks, expectedSourceControlPath) &&
+    doctorPortWarningEvidenceOk(checks) &&
     (acceptanceGeneratedAt === undefined || (doctorGeneratedAt !== undefined && doctorGeneratedAt >= acceptanceGeneratedAt));
 }
 
@@ -91,6 +92,20 @@ export function doctorSourceControlEvidenceOk(checks: Record<string, unknown>[],
   const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
   const details = typeof check.details === "string" ? check.details : "";
   return [details, ...evidence].some((item) => item.includes(expectedSourceControlPath));
+}
+
+export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
+  const check = checks.find((item) => item.id === "local-ports");
+  if (!check) return false;
+  if (check.status === "pass") return true;
+  if (check.status !== "warn") return false;
+  const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
+  const details = typeof check.details === "string" ? check.details : "";
+  if (!/non-SEEKR or unhealthy listener/.test(details)) return true;
+  const hasListenerDetails = /Listener diagnostics: .*pid \d+/.test(details);
+  const hasPortInspectorEvidence = evidence.some((item) => item.startsWith("lsof -nP -iTCP:")) &&
+    evidence.some((item) => /^listener \d+ (cwd|command) /.test(item));
+  return hasListenerDetails && hasPortInspectorEvidence;
 }
 
 function timeMs(value: unknown) {
