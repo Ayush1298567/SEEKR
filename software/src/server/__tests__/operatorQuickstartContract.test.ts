@@ -74,6 +74,20 @@ describe("operator quickstart contract", () => {
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toContain("npm run smoke:rehearsal:start");
   });
 
+  it("rejects quickstarts with negated command or hardware boundary wording", () => {
+    const content = [
+      ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS,
+      "Command upload is not disabled.",
+      "Hardware actuation is not locked."
+    ].join("\n");
+
+    expect(operatorQuickstartOk(content)).toBe(false);
+    expect(operatorQuickstartProblems(content)).toEqual(expect.arrayContaining([
+      "non-negated command upload boundary",
+      "non-negated hardware actuation boundary"
+    ]));
+  });
+
   it("rejects quickstarts that omit advisory AI command-safety guidance", () => {
     const content = validQuickstartContent().replace("AI output is advisory\n", "");
 
@@ -167,5 +181,9 @@ describe("operator quickstart contract", () => {
 });
 
 function validQuickstartContent() {
-  return REQUIRED_OPERATOR_QUICKSTART_SIGNALS.join("\n");
+  return [
+    ...REQUIRED_OPERATOR_QUICKSTART_SIGNALS,
+    "No real aircraft command upload.",
+    "No hardware actuation."
+  ].join("\n");
 }

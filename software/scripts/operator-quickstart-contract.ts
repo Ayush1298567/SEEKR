@@ -50,9 +50,27 @@ export const REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER = [
   "npm run smoke:rehearsal:start"
 ] as const;
 
+const OPERATOR_QUICKSTART_SAFETY_REQUIREMENTS = [
+  {
+    label: "non-negated command upload boundary",
+    pattern: /\b(?:no\b[^.]{0,80}\bcommand upload\b|\bcommand upload\b[^.]{0,160}\b(?:disabled|blocked|locked|false|not allowed|not permitted)\b)/i,
+    negatedPattern: /\bcommand upload\b[^.]{0,160}\b(?:not|never|isn't|is not|doesn't|does not|no longer)\s+(?:disabled|blocked|locked|false)\b/i
+  },
+  {
+    label: "non-negated hardware actuation boundary",
+    pattern: /\b(?:no\b[^.]{0,80}\bhardware actuation\b|\bhardware actuation\b[^.]{0,160}\b(?:disabled|blocked|locked|false|not allowed|not permitted)\b)/i,
+    negatedPattern: /\bhardware actuation\b[^.]{0,160}\b(?:not|never|isn't|is not|doesn't|does not|no longer)\s+(?:disabled|blocked|locked|false)\b/i
+  }
+] as const;
+
 export function operatorQuickstartProblems(content: string) {
   const missing: string[] = REQUIRED_OPERATOR_QUICKSTART_SIGNALS.filter((signal) => !content.includes(signal));
   const problems = [...missing];
+  for (const requirement of OPERATOR_QUICKSTART_SAFETY_REQUIREMENTS) {
+    if (!requirement.pattern.test(content) || requirement.negatedPattern.test(content)) {
+      problems.push(requirement.label);
+    }
+  }
   if (content && !missing.length && !operatorQuickstartCommandOrderOk(content)) {
     problems.push(REQUIRED_OPERATOR_QUICKSTART_COMMAND_ORDER.join(" before "));
   }
