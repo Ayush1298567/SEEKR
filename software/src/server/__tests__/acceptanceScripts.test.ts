@@ -194,8 +194,29 @@ describe("acceptance script contract", () => {
     for (const command of requiredMatrixCommands) {
       expect(testMatrix).toContain(command);
     }
-    expect(testMatrix.indexOf("npm run ai:prepare")).toBeGreaterThan(testMatrix.indexOf("npm run setup:local"));
-    expect(testMatrix.indexOf("npm run doctor")).toBeGreaterThan(testMatrix.indexOf("npm run ai:prepare"));
+    const primaryCommands = extractPrimaryTestMatrixCommands(testMatrix);
+    expectOrderedCommands(primaryCommands, [
+      "npm run setup:local",
+      "npm run ai:prepare",
+      "npm run doctor",
+      "npm run rehearsal:start"
+    ]);
+    expectOrderedCommands(primaryCommands, [
+      "npm run handoff:verify",
+      "npm run qa:gstack",
+      "npm run health:gstack",
+      "npm run audit:gstack",
+      "npm run audit:source-control",
+      "npm run audit:todo",
+      "npm run setup:local",
+      "npm run ai:prepare",
+      "npm run smoke:rehearsal:start",
+      "npm run doctor",
+      "npm run handoff:bundle",
+      "npm run handoff:bundle:verify",
+      "npm run audit:plug-and-play",
+      "npm run audit:goal"
+    ]);
     expect(gcsTodo).toContain("real `/map`, pose, detection, LiDAR, and costmap topics");
   });
 
@@ -225,3 +246,18 @@ describe("acceptance script contract", () => {
     expect(overnightLoop).toContain("docs/SEEKR_COMPLETION_PLAN.md");
   });
 });
+
+function extractPrimaryTestMatrixCommands(testMatrix: string) {
+  const match = /Primary commands:\n\n```bash\n([\s\S]*?)\n```/.exec(testMatrix);
+  expect(match?.[1]).toBeTruthy();
+  return match![1].split("\n").map((line) => line.trim()).filter(Boolean);
+}
+
+function expectOrderedCommands(commands: string[], expected: string[]) {
+  let cursor = -1;
+  for (const command of expected) {
+    const nextIndex = commands.findIndex((candidate, index) => index > cursor && candidate === command);
+    expect(nextIndex, `${command} should appear after ${commands[cursor] ?? "the start"} in TEST_MATRIX primary commands`).toBeGreaterThan(cursor);
+    cursor = nextIndex;
+  }
+}

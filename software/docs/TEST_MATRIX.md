@@ -43,7 +43,9 @@ npm run health:gstack
 npm run audit:gstack
 npm run audit:source-control
 npm run audit:todo
+npm run setup:local
 npm run ai:prepare
+npm run smoke:rehearsal:start
 npm run doctor
 npm run handoff:bundle
 npm run handoff:bundle:verify
