@@ -104,11 +104,13 @@ const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
 const REQUIRED_GITHUB_LANDING_README_SAFETY_PATTERNS = [
   {
     label: "command upload disabled",
-    pattern: /\bcommand upload\b[^.]{0,160}\b(disabled|blocked|locked|false)\b/i
+    pattern: /\bcommand upload\b[^.]{0,160}\b(disabled|blocked|locked|false)\b/i,
+    negatedPattern: /\bcommand upload\b[^.]{0,160}\b(?:not|never|isn't|is not|doesn't|does not|no longer)\s+(?:disabled|blocked|locked|false)\b/i
   },
   {
     label: "hardware actuation disabled",
-    pattern: /\bhardware actuation\b[^.]{0,160}\b(disabled|blocked|locked|false)\b/i
+    pattern: /\bhardware actuation\b[^.]{0,160}\b(disabled|blocked|locked|false)\b/i,
+    negatedPattern: /\bhardware actuation\b[^.]{0,160}\b(?:not|never|isn't|is not|doesn't|does not|no longer)\s+(?:disabled|blocked|locked|false)\b/i
   }
 ];
 const REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER = [
@@ -515,7 +517,9 @@ function githubLandingReadmeProblems(content: string) {
   const missing = REQUIRED_GITHUB_LANDING_README_SIGNALS.filter((signal) => !content.includes(signal));
   const problems = [...missing];
   for (const requirement of REQUIRED_GITHUB_LANDING_README_SAFETY_PATTERNS) {
-    if (!requirement.pattern.test(content)) problems.push(`must state ${requirement.label}`);
+    if (!requirement.pattern.test(content) || requirement.negatedPattern.test(content)) {
+      problems.push(`must state non-negated ${requirement.label}`);
+    }
   }
   if (content && !missing.length && !githubLandingReadmeCommandOrderOk(content)) {
     problems.push(`fenced shell command line order must be ${REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER.join(" before ")}`);
