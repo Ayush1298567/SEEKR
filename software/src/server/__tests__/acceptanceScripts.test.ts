@@ -33,6 +33,7 @@ describe("acceptance script contract", () => {
     expect(acceptance).toContain("npm run probe:api");
     expect(scripts["smoke:preview"]).toBe("npm run build && npm run probe:preview");
     expect(scripts["smoke:rehearsal:start"]).toBe("tsx scripts/rehearsal-start-smoke.ts");
+    expect(scripts["smoke:fresh-clone"]).toBe("tsx scripts/fresh-clone-operator-smoke.ts");
     expect(scripts["setup:local"]).toBe("tsx scripts/local-setup.ts");
     expect(scripts["ai:prepare"]).toBe("tsx scripts/local-ai-prepare.ts");
     expect(scripts["doctor"]).toBe("tsx scripts/plug-and-play-doctor.ts");
@@ -129,6 +130,7 @@ describe("acceptance script contract", () => {
       "npm run ai:prepare",
       "npm run doctor",
       "npm run rehearsal:start",
+      "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
       "npm run audit:goal",
       "npm run bridge:mavlink:serial",
@@ -177,6 +179,7 @@ describe("acceptance script contract", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
       "npm run audit:goal",
       "npm run bridge:mavlink:serial",
@@ -222,6 +225,7 @@ describe("acceptance script contract", () => {
       "npm run ai:prepare",
       "npm run smoke:rehearsal:start",
       "npm run doctor",
+      "npm run smoke:fresh-clone",
       "npm run handoff:bundle",
       "npm run handoff:bundle:verify",
       "npm run audit:plug-and-play",

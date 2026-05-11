@@ -42,6 +42,7 @@
     "probe:preview": "tsx scripts/preview-smoke.ts",
     "smoke:preview": "npm run build && npm run probe:preview",
     "smoke:rehearsal:start": "tsx scripts/rehearsal-start-smoke.ts",
+    "smoke:fresh-clone": "tsx scripts/fresh-clone-operator-smoke.ts",
     "release:checksum": "tsx scripts/release-checksums.ts",
     "acceptance:record": "tsx scripts/acceptance-record.ts",
     "fixtures:update": "tsx scripts/update-fixtures.ts",

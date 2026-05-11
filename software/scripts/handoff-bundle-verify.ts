@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
 import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
+import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -52,6 +53,7 @@ export interface HandoffBundleVerificationManifest {
   localAiPreparePath?: string;
   plugAndPlayDoctorPath?: string;
   rehearsalStartSmokePath?: string;
+  freshCloneSmokePath?: string;
   strictAiSmokeStatusPath?: string;
   operatorQuickstartPath?: string;
   checkedFileCount: number;
@@ -403,6 +405,7 @@ export async function buildHandoffBundleVerification(options: {
   const plugAndPlaySetupPath = isRecord(manifest) ? stringOrUndefined(manifest.plugAndPlaySetupPath) : undefined;
   const localAiPreparePath = isRecord(manifest) ? stringOrUndefined(manifest.localAiPreparePath) : undefined;
   const rehearsalStartSmokePath = isRecord(manifest) ? stringOrUndefined(manifest.rehearsalStartSmokePath) : undefined;
+  const freshCloneSmokePath = isRecord(manifest) ? stringOrUndefined(manifest.freshCloneSmokePath) : undefined;
   const operatorQuickstartPath = isRecord(manifest) ? stringOrUndefined(manifest.operatorQuickstartPath) : undefined;
   if (!plugAndPlaySetupPath) {
     blockers.push("Handoff bundle must name the source plug-and-play setup JSON.");
@@ -450,6 +453,17 @@ export async function buildHandoffBundleVerification(options: {
       blockers.push("Copied rehearsal-start smoke must pass local API/client startup, source-health, readiness, clean shutdown, and commandUploadEnabled false semantic checks.");
     }
   }
+  if (!freshCloneSmokePath) {
+    blockers.push("Handoff bundle must name the source fresh-clone operator smoke JSON.");
+  } else if (!manifestFiles.some((file) => file.sourcePath === freshCloneSmokePath)) {
+    blockers.push("Handoff bundle does not include the source fresh-clone operator smoke JSON.");
+  }
+  if (bundleDirectory && bundleDirectoryOk && freshCloneSmokePath) {
+    const freshCloneSmoke = await readCopiedJson(bundleDirectory, freshCloneSmokePath);
+    if (!freshCloneOperatorSmokeOk(freshCloneSmoke, copiedAcceptance)) {
+      blockers.push("Copied fresh-clone operator smoke must pass clone/install/operator-start/final-doctor checks, match the copied acceptance strict AI model, and keep commandUploadEnabled false.");
+    }
+  }
   if (operatorQuickstartPath !== OPERATOR_QUICKSTART_PATH) {
     blockers.push(`Handoff bundle must name ${OPERATOR_QUICKSTART_PATH} as the operator quickstart.`);
   } else if (!manifestFiles.some((file) => file.sourcePath === operatorQuickstartPath)) {
@@ -493,6 +507,7 @@ export async function buildHandoffBundleVerification(options: {
     localAiPreparePath,
     plugAndPlayDoctorPath,
     rehearsalStartSmokePath,
+    freshCloneSmokePath,
     strictAiSmokeStatusPath,
     operatorQuickstartPath,
     checkedFileCount: files.length,
@@ -511,7 +526,7 @@ export async function buildHandoffBundleVerification(options: {
     limitations: [
       "This verification checks a copied local handoff bundle manifest and the SHA-256 digests it recorded for copied artifacts.",
       "It scans copied text artifacts for high-confidence secret patterns before review handoff.",
-      "It semantically checks the copied acceptance status, strict local AI smoke status, API-probe acceptance readback, gstack workflow-status, TODO audit, source-control handoff, plug-and-play setup, plug-and-play doctor, rehearsal-start smoke, and operator quickstart artifacts included in the review packet.",
+      "It semantically checks the copied acceptance status, strict local AI smoke status, API-probe acceptance readback, gstack workflow-status, TODO audit, source-control handoff, plug-and-play setup, plug-and-play doctor, rehearsal-start smoke, fresh-clone operator smoke, and operator quickstart artifacts included in the review packet.",
       "When the bundle names a local gstack browser QA report, this verifier checks that the report and named screenshots were copied and secret-scanned with the rest of the packet.",
       "It does not regenerate acceptance, completion-audit, demo, bench, hardware, policy, safety, API, overnight, handoff index, or handoff verification evidence.",
       "It does not validate Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim capture, or hardware actuation."
@@ -748,6 +763,7 @@ function renderMarkdown(manifest: HandoffBundleVerificationManifest) {
     manifest.localAiPreparePath ? `Local AI prepare: ${manifest.localAiPreparePath}` : undefined,
     manifest.plugAndPlayDoctorPath ? `Plug-and-play doctor: ${manifest.plugAndPlayDoctorPath}` : undefined,
     manifest.rehearsalStartSmokePath ? `Rehearsal-start smoke: ${manifest.rehearsalStartSmokePath}` : undefined,
+    manifest.freshCloneSmokePath ? `Fresh-clone smoke: ${manifest.freshCloneSmokePath}` : undefined,
     manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
     manifest.operatorQuickstartPath ? `Operator quickstart: ${manifest.operatorQuickstartPath}` : undefined,
     "",
@@ -1275,6 +1291,7 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     localAiPreparePath: result.manifest.localAiPreparePath,
     plugAndPlayDoctorPath: result.manifest.plugAndPlayDoctorPath,
     rehearsalStartSmokePath: result.manifest.rehearsalStartSmokePath,
+    freshCloneSmokePath: result.manifest.freshCloneSmokePath,
     strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
     operatorQuickstartPath: result.manifest.operatorQuickstartPath,
     checkedFileCount: result.manifest.checkedFileCount,

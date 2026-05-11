@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
+import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
 import { buildPlugAndPlayReadiness, writePlugAndPlayReadiness } from "../../../scripts/plug-and-play-readiness";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
@@ -65,7 +66,7 @@ describe("plug-and-play readiness audit", () => {
         path: ".tmp/handoff-bundles/seekr-handoff-bundle-test.json",
         verificationPath: ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
         status: "pass",
-        checkedFileCount: 8,
+        checkedFileCount: 9,
         secretScanStatus: "pass",
         sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
         sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
@@ -131,6 +132,21 @@ describe("plug-and-play readiness audit", () => {
     });
     expect(manifest.checks.find((check) => check.id === "review-bundle")?.details).toContain("blocked-check summary must match");
     expect(manifest.checks.find((check) => check.id === "review-bundle")?.details).toContain("warning-check summary must match");
+  });
+
+  it("fails when the fresh-clone operator smoke proof is missing", async () => {
+    await rm(path.join(root, ".tmp/fresh-clone-smoke"), { recursive: true, force: true });
+
+    const manifest = await buildPlugAndPlayReadiness({
+      root,
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    expect(manifest.localPlugAndPlayOk).toBe(false);
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-operator-smoke")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("fresh-clone operator smoke artifact")
+    });
   });
 
   it("fails closed when completion audit is not complete even if the blocker list is empty", async () => {
@@ -1481,6 +1497,7 @@ async function seedPlugAndPlayEvidence(root: string) {
   await mkdir(path.join(root, ".tmp/local-ai-prepare"), { recursive: true });
   await mkdir(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true });
   await mkdir(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true });
+  await mkdir(path.join(root, ".tmp/fresh-clone-smoke"), { recursive: true });
   await mkdir(path.join(root, ".tmp/source-control-handoff"), { recursive: true });
   await mkdir(path.join(root, ".tmp/gstack-workflow-status"), { recursive: true });
   await mkdir(path.join(root, ".tmp/handoff-bundles"), { recursive: true });
@@ -1508,6 +1525,7 @@ async function seedPlugAndPlayEvidence(root: string) {
       "acceptance",
       "test:ai:local",
       "smoke:rehearsal:start",
+      "smoke:fresh-clone",
       "qa:gstack",
       "audit:completion",
       "demo:package",
@@ -1599,6 +1617,14 @@ async function seedPlugAndPlayEvidence(root: string) {
     "const command = ['npm', 'run', 'rehearsal:start'];",
     "const endpoints = ['/api/config', '/api/source-health', '/api/readiness'];",
     "const safety = 'commandUploadEnabled';",
+    ""
+  ].join("\n"), "utf8");
+  await writeFile(path.join(root, "scripts/fresh-clone-operator-smoke.ts"), [
+    "const clone = 'git clone';",
+    "const install = 'npm ci';",
+    "const start = 'npm run smoke:rehearsal:start';",
+    "const doctor = 'npm run doctor';",
+    "const manifest = { commandUploadEnabled: false };",
     ""
   ].join("\n"), "utf8");
   await seedEnvLoaderFiles(root);
@@ -1782,13 +1808,14 @@ async function seedPlugAndPlayEvidence(root: string) {
     localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
     rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+    freshCloneSmokePath: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
     strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
     operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md",
-    checkedFileCount: 8,
+    checkedFileCount: 9,
     secretScan: {
       status: "pass",
-      expectedFileCount: 8,
-      scannedFileCount: 8,
+      expectedFileCount: 9,
+      scannedFileCount: 9,
       findingCount: 0
     }
   }), "utf8");
@@ -1808,6 +1835,42 @@ async function seedPlugAndPlayEvidence(root: string) {
     plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-smoke-test.json",
     checked: [...REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS],
     checks: REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS.map((id) => ({
+      id,
+      status: "pass",
+      details: `${id} passed.`,
+      evidence: [id]
+    })),
+    safetyBoundary: {
+      realAircraftCommandUpload: false,
+      hardwareActuationEnabled: false,
+      runtimePolicyInstalled: false
+    }
+  }), "utf8");
+  await writeFile(path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"), JSON.stringify({
+    schemaVersion: 1,
+    generatedAt: "2026-05-10T07:03:00.000Z",
+    ok: true,
+    status: "pass",
+    commandUploadEnabled: false,
+    repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    cloneCommand: ["git", "clone", "--depth", "1", "https://github.com/Ayush1298567/SEEKR"],
+    installCommand: ["npm", "ci", "--ignore-scripts", "--no-audit", "--fund=false", "--prefer-offline"],
+    localHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    cloneHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-fresh-clone.json",
+    localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-fresh-clone.json",
+    localAiPrepareModel: "llama3.2:latest",
+    sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-fresh-clone.json",
+    sourceControlHandoffStatus: "ready-source-control-handoff",
+    sourceControlHandoffReady: true,
+    sourceControlHandoffLocalHeadSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    sourceControlHandoffRemoteDefaultBranchSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-fresh-clone.json",
+    plugAndPlayDoctorStatus: "ready-local-start",
+    rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-fresh-clone.json",
+    rehearsalStartSmokeStatus: "pass",
+    checked: [...REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS],
+    checks: REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS.map((id) => ({
       id,
       status: "pass",
       details: `${id} passed.`,

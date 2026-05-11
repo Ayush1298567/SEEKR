@@ -124,6 +124,7 @@ const REQUIRED_GITHUB_LANDING_README_SIGNALS = [
   "npm run rehearsal:start",
   "npm run smoke:rehearsal:start",
   "npm run test:ai:local",
+  "npm run smoke:fresh-clone",
   "npm run audit:plug-and-play",
   "command upload",
   "hardware actuation"
@@ -154,6 +155,7 @@ const REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER = [
   "npm run smoke:rehearsal:start",
   "npm run doctor",
   "npm run test:ai:local",
+  "npm run smoke:fresh-clone",
   "npm run audit:plug-and-play"
 ];
 const REQUIRED_FRESH_CLONE_PATHS = [

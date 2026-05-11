@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeFileNamePart, safeIsoTimestampForFileName } from "./artifact-paths";
 import { buildHandoffVerification } from "./handoff-verify";
 import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
+import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator-quickstart-contract";
 import { plugAndPlayDoctorOk, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
@@ -69,6 +70,10 @@ export interface HandoffBundleManifest {
   rehearsalStartSmokePath?: string;
   rehearsalStartSmokeGeneratedAt?: string;
   rehearsalStartSmokeStatus?: string;
+  freshCloneSmokePath?: string;
+  freshCloneSmokeGeneratedAt?: string;
+  freshCloneSmokeStatus?: string;
+  freshCloneSmokeCloneHeadSha?: string;
   strictAiSmokeStatusPath?: string;
   strictAiSmokeGeneratedAt?: number;
   strictAiSmokeProvider?: string;
@@ -111,6 +116,7 @@ const PLUG_AND_PLAY_SETUP_DIR = ".tmp/plug-and-play-setup";
 const LOCAL_AI_PREPARE_DIR = ".tmp/local-ai-prepare";
 const PLUG_AND_PLAY_DOCTOR_DIR = ".tmp/plug-and-play-doctor";
 const REHEARSAL_START_SMOKE_DIR = ".tmp/rehearsal-start-smoke";
+const FRESH_CLONE_SMOKE_DIR = ".tmp/fresh-clone-smoke";
 const STRICT_AI_SMOKE_STATUS_PATH = ".tmp/ai-smoke-status.json";
 const REQUIRED_WORKFLOW_IDS = ["health", "review", "planning", "qa"];
 const REQUIRED_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
@@ -157,6 +163,8 @@ export async function writeHandoffBundle(options: {
   const doctorManifest = doctor ? await readJson(doctor.absolutePath) : undefined;
   const rehearsalStartSmoke = await latestJson(root, REHEARSAL_START_SMOKE_DIR, (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
   const rehearsalStartSmokeManifest = rehearsalStartSmoke ? await readJson(rehearsalStartSmoke.absolutePath) : undefined;
+  const freshCloneSmoke = await latestJson(root, FRESH_CLONE_SMOKE_DIR, (name) => name.startsWith("seekr-fresh-clone-smoke-"));
+  const freshCloneSmokeManifest = freshCloneSmoke ? await readJson(freshCloneSmoke.absolutePath) : undefined;
   const strictAiSmokePath = await pathExists(path.join(root, STRICT_AI_SMOKE_STATUS_PATH))
     ? STRICT_AI_SMOKE_STATUS_PATH
     : undefined;
@@ -222,6 +230,11 @@ export async function writeHandoffBundle(options: {
   } else if (!rehearsalStartSmokeOk(rehearsalStartSmokeManifest)) {
     blockers.push("Rehearsal-start smoke artifact must pass API/client startup, source-health, readiness, clean shutdown, and commandUploadEnabled false before bundling.");
   }
+  if (!freshCloneSmoke) {
+    blockers.push("No fresh-clone operator smoke artifact exists; run npm run smoke:fresh-clone before bundling for final internal-alpha review.");
+  } else if (!freshCloneOperatorSmokeOk(freshCloneSmokeManifest, acceptanceManifest)) {
+    blockers.push("Fresh-clone operator smoke artifact must pass clone/install/operator-start/final-doctor checks, match the latest acceptance strict AI model, and keep commandUploadEnabled false before bundling.");
+  }
   if (!strictAiSmokePath) {
     blockers.push("No strict local AI smoke status exists; run npm run test:ai:local before bundling for final internal-alpha review.");
   } else if (!strictAiSmokeStatusOk(strictAiSmokeManifest, acceptanceManifest)) {
@@ -245,6 +258,7 @@ export async function writeHandoffBundle(options: {
         ...(localAiPrepare ? [localAiPrepare.relativePath, replaceExtension(localAiPrepare.relativePath, ".md")] : []),
         ...(doctor ? [doctor.relativePath, replaceExtension(doctor.relativePath, ".md")] : []),
         ...(rehearsalStartSmoke ? [rehearsalStartSmoke.relativePath, replaceExtension(rehearsalStartSmoke.relativePath, ".md")] : []),
+        ...(freshCloneSmoke ? [freshCloneSmoke.relativePath, replaceExtension(freshCloneSmoke.relativePath, ".md")] : []),
         ...(strictAiSmokePath ? [strictAiSmokePath] : []),
         OPERATOR_QUICKSTART_PATH
       ]
@@ -306,6 +320,10 @@ export async function writeHandoffBundle(options: {
     rehearsalStartSmokePath: rehearsalStartSmoke?.relativePath,
     rehearsalStartSmokeGeneratedAt: isRecord(rehearsalStartSmokeManifest) ? stringOrUndefined(rehearsalStartSmokeManifest.generatedAt) : undefined,
     rehearsalStartSmokeStatus: isRecord(rehearsalStartSmokeManifest) ? stringOrUndefined(rehearsalStartSmokeManifest.status) : undefined,
+    freshCloneSmokePath: freshCloneSmoke?.relativePath,
+    freshCloneSmokeGeneratedAt: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.generatedAt) : undefined,
+    freshCloneSmokeStatus: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.status) : undefined,
+    freshCloneSmokeCloneHeadSha: isRecord(freshCloneSmokeManifest) ? stringOrUndefined(freshCloneSmokeManifest.cloneHeadSha) : undefined,
     strictAiSmokeStatusPath: strictAiSmokePath,
     strictAiSmokeGeneratedAt: isRecord(strictAiSmokeManifest) ? numberOrUndefined(strictAiSmokeManifest.generatedAt) : undefined,
     strictAiSmokeProvider: isRecord(strictAiSmokeManifest) ? stringOrUndefined(strictAiSmokeManifest.provider) : undefined,
@@ -341,7 +359,7 @@ export async function writeHandoffBundle(options: {
       "When the workflow-status artifact names a local gstack browser QA report, the bundle also copies that report and its named screenshots for review.",
       "It also copies the latest TODO audit artifact so reviewers can inspect TODO/blocker consistency with the handoff packet.",
       "It also copies the latest source-control handoff artifact so reviewers can inspect local Git metadata and GitHub publication readiness separately from hardware readiness.",
-      "It also copies the latest plug-and-play setup, local AI prepare, doctor, and rehearsal-start smoke artifacts so reviewers can inspect local env/data preparation, Ollama model preparation, start-wrapper, AI, port, data-directory, startup, source-health, readiness, shutdown, and safety preflight evidence.",
+      "It also copies the latest plug-and-play setup, local AI prepare, doctor, rehearsal-start smoke, and fresh-clone operator smoke artifacts so reviewers can inspect local env/data preparation, Ollama model preparation, start-wrapper, AI, port, data-directory, startup, source-health, readiness, shutdown, fresh GitHub clone install/start proof, and safety preflight evidence.",
       "It also copies the strict local AI smoke status so reviewers can inspect per-scenario Ollama plan-kind, validator, unsafe-text, and mutation safety proof.",
       "It also copies the operator quickstart that the plug-and-play readiness audit checks for local setup, source-control audit, start, advisory-only AI, API evidence, source-health, and safety-boundary instructions.",
       "It does not regenerate acceptance, completion-audit, demo, bench, hardware, policy, safety, API, or overnight evidence.",
@@ -528,6 +546,10 @@ function renderMarkdown(manifest: HandoffBundleManifest) {
     manifest.rehearsalStartSmokePath ? `Rehearsal-start smoke: ${manifest.rehearsalStartSmokePath}` : undefined,
     manifest.rehearsalStartSmokeGeneratedAt ? `Rehearsal-start smoke generated at: ${manifest.rehearsalStartSmokeGeneratedAt}` : undefined,
     manifest.rehearsalStartSmokeStatus ? `Rehearsal-start smoke verdict: ${manifest.rehearsalStartSmokeStatus}` : undefined,
+    manifest.freshCloneSmokePath ? `Fresh-clone smoke: ${manifest.freshCloneSmokePath}` : undefined,
+    manifest.freshCloneSmokeGeneratedAt ? `Fresh-clone smoke generated at: ${manifest.freshCloneSmokeGeneratedAt}` : undefined,
+    manifest.freshCloneSmokeStatus ? `Fresh-clone smoke verdict: ${manifest.freshCloneSmokeStatus}` : undefined,
+    manifest.freshCloneSmokeCloneHeadSha ? `Fresh-clone smoke HEAD: ${manifest.freshCloneSmokeCloneHeadSha}` : undefined,
     manifest.strictAiSmokeStatusPath ? `Strict AI smoke status: ${manifest.strictAiSmokeStatusPath}` : undefined,
     typeof manifest.strictAiSmokeGeneratedAt === "number" ? `Strict AI smoke generated at: ${manifest.strictAiSmokeGeneratedAt}` : undefined,
     manifest.strictAiSmokeProvider ? `Strict AI smoke provider: ${manifest.strictAiSmokeProvider}` : undefined,
@@ -1001,6 +1023,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     plugAndPlayDoctorStatus: result.manifest.plugAndPlayDoctorStatus,
     rehearsalStartSmokePath: result.manifest.rehearsalStartSmokePath,
     rehearsalStartSmokeStatus: result.manifest.rehearsalStartSmokeStatus,
+    freshCloneSmokePath: result.manifest.freshCloneSmokePath,
+    freshCloneSmokeStatus: result.manifest.freshCloneSmokeStatus,
+    freshCloneSmokeCloneHeadSha: result.manifest.freshCloneSmokeCloneHeadSha,
     strictAiSmokeStatusPath: result.manifest.strictAiSmokeStatusPath,
     strictAiSmokeProvider: result.manifest.strictAiSmokeProvider,
     strictAiSmokeModel: result.manifest.strictAiSmokeModel,

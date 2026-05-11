@@ -249,6 +249,7 @@ describe("source-control handoff audit", () => {
       "npm run audit:source-control",
       "npm run doctor",
       "npm run test:ai:local",
+      "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
       "```",
       "",
@@ -360,6 +361,7 @@ describe("source-control handoff audit", () => {
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
       "npm run test:ai:local",
+      "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
       "```",
       "",
@@ -413,6 +415,7 @@ describe("source-control handoff audit", () => {
       "npm run smoke:rehearsal:start",
       "npm run doctor",
       "npm run test:ai:local",
+      "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
       "```",
       "",
@@ -467,6 +470,7 @@ describe("source-control handoff audit", () => {
       "npm run smoke:rehearsal:start",
       "npm run doctor",
       "npm run test:ai:local",
+      "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
       "```",
       "",
@@ -521,6 +525,7 @@ describe("source-control handoff audit", () => {
       "npm run smoke:rehearsal:start",
       "npm run doctor",
       "npm run test:ai:local",
+      "npm run smoke:fresh-clone",
       "npm run audit:plug-and-play",
       "```",
       "",
@@ -577,6 +582,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run audit:plug-and-play",
       "npm run test:ai:local",
+      "npm run smoke:fresh-clone",
       "```",
       "",
       "If the repository is already cloned, run git pull --ff-only first.",
@@ -609,7 +615,7 @@ describe("source-control handoff audit", () => {
     expect(manifest.blockedCheckCount).toBe(1);
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
       status: "blocked",
-      details: expect.stringContaining("npm run test:ai:local before npm run audit:plug-and-play")
+      details: expect.stringContaining("npm run test:ai:local before npm run smoke:fresh-clone before npm run audit:plug-and-play")
     });
   });
 
@@ -618,7 +624,7 @@ describe("source-control handoff audit", () => {
       "# SEEKR",
       "",
       "Run `git pull --ff-only` before working from an existing clone.",
-      "For final proof, `npm run test:ai:local` must happen before `npm run audit:plug-and-play`.",
+      "For final proof, `npm run test:ai:local` and `npm run smoke:fresh-clone` must happen before `npm run audit:plug-and-play`.",
       "",
       "```bash",
       "git clone https://github.com/Ayush1298567/SEEKR.git",
@@ -633,6 +639,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run audit:plug-and-play",
       "npm run test:ai:local",
+      "npm run smoke:fresh-clone",
       "```",
       "",
       "The local plug-and-play path keeps command upload and hardware actuation disabled.",
@@ -687,6 +694,7 @@ describe("source-control handoff audit", () => {
       "npm run smoke:rehearsal:start",
       "npm run doctor",
       "# npm run test:ai:local",
+      "# npm run smoke:fresh-clone",
       "# npm run audit:plug-and-play",
       "```",
       ""
@@ -1163,6 +1171,7 @@ async function seedSourceControlProject(root: string) {
     "npm run smoke:rehearsal:start",
     "npm run doctor",
     "npm run test:ai:local",
+    "npm run smoke:fresh-clone",
     "npm run audit:plug-and-play",
     "```",
     "",

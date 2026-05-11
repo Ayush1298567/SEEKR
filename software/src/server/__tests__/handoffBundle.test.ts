@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeHandoffBundle } from "../../../scripts/handoff-bundle";
 import { writeHandoffBundleVerification } from "../../../scripts/handoff-bundle-verify";
+import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
 import { REQUIRED_OPERATOR_QUICKSTART_SIGNALS } from "../../../scripts/operator-quickstart-contract";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
@@ -25,6 +26,7 @@ describe("handoff bundle", () => {
     await mkdir(path.join(root, ".tmp/local-ai-prepare"), { recursive: true });
     await mkdir(path.join(root, ".tmp/plug-and-play-doctor"), { recursive: true });
     await mkdir(path.join(root, ".tmp/rehearsal-start-smoke"), { recursive: true });
+    await mkdir(path.join(root, ".tmp/fresh-clone-smoke"), { recursive: true });
     await mkdir(path.join(root, "docs"), { recursive: true });
     await seedBundleEvidence(root);
   });
@@ -68,12 +70,15 @@ describe("handoff bundle", () => {
       plugAndPlayDoctorStatus: "ready-local-start",
       rehearsalStartSmokePath: rehearsalStartSmokePath,
       rehearsalStartSmokeStatus: "pass",
+      freshCloneSmokePath,
+      freshCloneSmokeStatus: "pass",
+      freshCloneSmokeCloneHeadSha: "a".repeat(40),
       strictAiSmokeStatusPath: strictAiSmokePath,
       strictAiSmokeProvider: "ollama",
       strictAiSmokeModel: "llama3.2:latest",
       strictAiSmokeCaseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       operatorQuickstartPath,
-      copiedFileCount: 25,
+      copiedFileCount: 27,
       safetyBoundary: {
         realAircraftCommandUpload: false,
         hardwareActuationEnabled: false,
@@ -110,6 +115,8 @@ describe("handoff bundle", () => {
       expect.objectContaining({ sourcePath: doctorPath.replace(/\.json$/, ".md") }),
       expect.objectContaining({ sourcePath: rehearsalStartSmokePath }),
       expect.objectContaining({ sourcePath: rehearsalStartSmokePath.replace(/\.json$/, ".md") }),
+      expect.objectContaining({ sourcePath: freshCloneSmokePath }),
+      expect.objectContaining({ sourcePath: freshCloneSmokePath.replace(/\.json$/, ".md") }),
       expect.objectContaining({ sourcePath: strictAiSmokePath }),
       expect.objectContaining({ sourcePath: operatorQuickstartPath })
     ]));
@@ -127,6 +134,8 @@ describe("handoff bundle", () => {
     expect(copiedSourceControl.repositoryUrl).toBe("https://github.com/Ayush1298567/SEEKR");
     const copiedSetup = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", setupPath), "utf8"));
     expect(copiedSetup.commandUploadEnabled).toBe(false);
+    const copiedFreshCloneSmoke = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", freshCloneSmokePath), "utf8"));
+    expect(copiedFreshCloneSmoke.commandUploadEnabled).toBe(false);
     const copiedLocalAiPrepare = JSON.parse(await readFile(path.join(result.bundleDirectory, "artifacts", localAiPreparePath), "utf8"));
     expect(copiedLocalAiPrepare.commandUploadEnabled).toBe(false);
     expect(copiedLocalAiPrepare.status).toBe("ready-local-ai-model");
@@ -176,7 +185,7 @@ describe("handoff bundle", () => {
       rehearsalStartSmokePath,
       strictAiSmokeStatusPath: strictAiSmokePath,
       operatorQuickstartPath,
-      checkedFileCount: 25,
+      checkedFileCount: 27,
       validation: {
         ok: true,
         blockers: []
@@ -1499,8 +1508,8 @@ describe("handoff bundle", () => {
     });
     expect(verification.manifest.secretScan).toMatchObject({
       status: "pass",
-      expectedFileCount: 25,
-      scannedFileCount: 25,
+      expectedFileCount: 27,
+      scannedFileCount: 27,
       findingCount: 0
     });
   });
@@ -2668,12 +2677,12 @@ describe("handoff bundle", () => {
     expect(verification.manifest.commandUploadEnabled).toBe(false);
     expect(verification.manifest.secretScan).toMatchObject({
       status: "fail",
-      expectedFileCount: 25,
-      scannedFileCount: 24,
+      expectedFileCount: 27,
+      scannedFileCount: 26,
       findingCount: 0
     });
     expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
-      expect.stringContaining("Handoff bundle secret scan covered 24/25 copied files")
+      expect.stringContaining("Handoff bundle secret scan covered 26/27 copied files")
     ]));
   });
 });
@@ -2693,6 +2702,7 @@ const setupPath = ".tmp/plug-and-play-setup/seekr-local-setup-test.json";
 const localAiPreparePath = ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json";
 const doctorPath = ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json";
 const rehearsalStartSmokePath = ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json";
+const freshCloneSmokePath = ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json";
 const strictAiSmokePath = ".tmp/ai-smoke-status.json";
 const operatorQuickstartPath = "docs/OPERATOR_QUICKSTART.md";
 const gstackToolRoot = "~/.gstack/repos/gstack/bin";
@@ -3063,6 +3073,47 @@ async function seedBundleEvidence(root: string) {
       "Real command upload and hardware actuation remain disabled."
     ]
   });
+  const freshCloneSmoke = JSON.stringify({
+    schemaVersion: 1,
+    generatedAt: "2026-05-09T21:00:00.000Z",
+    ok: true,
+    status: "pass",
+    commandUploadEnabled: false,
+    repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    cloneCommand: ["git", "clone", "--depth", "1", "https://github.com/Ayush1298567/SEEKR"],
+    installCommand: ["npm", "ci", "--ignore-scripts", "--no-audit", "--fund=false", "--prefer-offline"],
+    localHeadSha: "a".repeat(40),
+    cloneHeadSha: "a".repeat(40),
+    plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-fresh-clone.json",
+    localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-fresh-clone.json",
+    localAiPrepareModel: "llama3.2:latest",
+    sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-fresh-clone.json",
+    sourceControlHandoffStatus: "ready-source-control-handoff",
+    sourceControlHandoffReady: true,
+    sourceControlHandoffLocalHeadSha: "a".repeat(40),
+    sourceControlHandoffRemoteDefaultBranchSha: "a".repeat(40),
+    plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-fresh-clone.json",
+    plugAndPlayDoctorStatus: "ready-local-start",
+    rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-fresh-clone.json",
+    rehearsalStartSmokeStatus: "pass",
+    checked: [...REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS],
+    checks: REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS.map((id) => ({
+      id,
+      status: "pass",
+      details: `${id} passed.`,
+      evidence: [id]
+    })),
+    safetyBoundary: {
+      realAircraftCommandUpload: false,
+      hardwareActuationEnabled: false,
+      runtimePolicyInstalled: false
+    },
+    limitations: [
+      "This smoke proves a fresh GitHub clone can install dependencies and run the local operator-start software path.",
+      "It does not validate actual Jetson/Pi hardware.",
+      "Real command upload and hardware actuation remain disabled."
+    ]
+  });
   await writeFile(path.join(root, acceptancePath), acceptance, "utf8");
   await writeFile(path.join(root, apiProbePath), apiProbe, "utf8");
   await writeFile(path.join(root, strictAiSmokePath), strictAiSmoke, "utf8");
@@ -3104,6 +3155,8 @@ async function seedBundleEvidence(root: string) {
   await writeFile(path.join(root, doctorPath.replace(/\.json$/, ".md")), "# SEEKR Plug-And-Play Doctor\n", "utf8");
   await writeFile(path.join(root, rehearsalStartSmokePath), rehearsalStartSmoke, "utf8");
   await writeFile(path.join(root, rehearsalStartSmokePath.replace(/\.json$/, ".md")), "# SEEKR Rehearsal Start Smoke\n", "utf8");
+  await writeFile(path.join(root, freshCloneSmokePath), freshCloneSmoke, "utf8");
+  await writeFile(path.join(root, freshCloneSmokePath.replace(/\.json$/, ".md")), "# SEEKR Fresh Clone Operator Smoke\n", "utf8");
   await writeFile(path.join(root, operatorQuickstartPath), [
     "# SEEKR Operator Quickstart",
     "",

@@ -14,6 +14,7 @@ import {
   plugAndPlaySetupOk
 } from "./plug-and-play-artifact-contract";
 import { localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
+import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
@@ -116,6 +117,7 @@ const REQUIRED_COMMANDS = [
   "acceptance",
   "test:ai:local",
   "smoke:rehearsal:start",
+  "smoke:fresh-clone",
   "qa:gstack",
   "audit:completion",
   "demo:package",
@@ -159,6 +161,7 @@ export async function buildPlugAndPlayReadiness(options: {
     await localAiPrepareCheck(root),
     await operatorDoctorCheck(root),
     await sourceControlHandoffCheck(root),
+    await freshCloneOperatorSmokeCheck(root),
     await operatorStartCheck(root),
     await operatorStartSmokeCheck(root),
     await operatorQuickstartDocCheck(root),
@@ -492,6 +495,35 @@ async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck
         ? `Source-control handoff has warning(s): ${validation.warningCheckIds.join(", ")}.`
         : "Source-control handoff artifact records local Git metadata, GitHub remote refs/default branch, published local HEAD, and a clean worktree.",
     evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
+  };
+}
+
+async function freshCloneOperatorSmokeCheck(root: string): Promise<PlugAndPlayCheck> {
+  const artifact = await latestJson(root, ".tmp/fresh-clone-smoke", (name) => name.startsWith("seekr-fresh-clone-smoke-"));
+  const manifest = artifact ? await readJson(artifact.absolutePath) : undefined;
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const script = await readText(path.join(root, "scripts/fresh-clone-operator-smoke.ts"));
+  const problems: string[] = [];
+
+  if (!script) problems.push("scripts/fresh-clone-operator-smoke.ts is missing");
+  for (const signal of ["git clone", "npm ci", "npm run smoke:rehearsal:start", "npm run doctor", "commandUploadEnabled: false"]) {
+    if (script && !script.includes(signal)) problems.push(`scripts/fresh-clone-operator-smoke.ts missing ${signal}`);
+  }
+  if (!freshCloneOperatorSmokeOk(manifest, acceptance)) {
+    problems.push("latest fresh-clone operator smoke artifact must pass exact clone/install/operator-start/doctor checks with commandUploadEnabled false");
+  }
+
+  return {
+    id: "fresh-clone-operator-smoke",
+    requirement: "A published GitHub fresh clone can install dependencies and run the local operator-start proof path.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : "Latest fresh-clone operator smoke artifact proves clone, lockfile install, bounded operator-start smoke, final doctor, local AI prepare evidence, and disabled command upload.",
+    evidence: [
+      "scripts/fresh-clone-operator-smoke.ts",
+      artifact?.relativePath ?? ".tmp/fresh-clone-smoke"
+    ].filter(isString)
   };
 }
 
@@ -857,6 +889,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const localAiPrepare = await latestJson(root, ".tmp/local-ai-prepare", (name) => name.startsWith("seekr-local-ai-prepare-"));
   const doctor = await latestOperatorDoctorJson(root);
   const rehearsalStartSmoke = await latestJson(root, ".tmp/rehearsal-start-smoke", (name) => name.startsWith("seekr-rehearsal-start-smoke-"));
+  const freshCloneSmoke = await latestJson(root, ".tmp/fresh-clone-smoke", (name) => name.startsWith("seekr-fresh-clone-smoke-"));
   const sourceBundlePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.sourceBundlePath) : undefined;
   const gstackWorkflowStatusPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.gstackWorkflowStatusPath) : undefined;
   const gstackQaReportPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.gstackQaReportPath) : undefined;
@@ -866,6 +899,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   const localAiPreparePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.localAiPreparePath) : undefined;
   const plugAndPlayDoctorPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.plugAndPlayDoctorPath) : undefined;
   const rehearsalStartSmokePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.rehearsalStartSmokePath) : undefined;
+  const freshCloneSmokePath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.freshCloneSmokePath) : undefined;
   const strictAiSmokeStatusPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.strictAiSmokeStatusPath) : undefined;
   const operatorQuickstartPath = isRecord(manifest) ? normalizeArtifactPath(root, manifest.operatorQuickstartPath) : undefined;
   const latestQaReportPath = isRecord(qaReport) ? normalizeArtifactPath(root, qaReport.path) : undefined;
@@ -919,6 +953,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
   if (!localAiPrepare || localAiPreparePath !== localAiPrepare.relativePath) problems.push("review bundle verification must point at the latest local AI prepare artifact");
   if (!doctor || plugAndPlayDoctorPath !== doctor.relativePath) problems.push("review bundle verification must point at the latest operator-start plug-and-play doctor");
   if (!rehearsalStartSmoke || rehearsalStartSmokePath !== rehearsalStartSmoke.relativePath) problems.push("review bundle verification must point at the latest rehearsal-start smoke");
+  if (!freshCloneSmoke || freshCloneSmokePath !== freshCloneSmoke.relativePath) problems.push("review bundle verification must point at the latest fresh-clone operator smoke");
   if (strictAiSmokeStatusPath !== STRICT_AI_SMOKE_STATUS_PATH) problems.push("review bundle verification must include the strict local AI smoke status");
   if (operatorQuickstartPath !== OPERATOR_QUICKSTART_PATH) problems.push("review bundle verification must include the operator quickstart");
   if (!latestQaReportPath || gstackQaReportPath !== latestQaReportPath) problems.push("review bundle verification must point at the latest gstack QA report");
@@ -934,7 +969,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
     status: problems.length ? "fail" : "pass",
     details: problems.length
       ? problems.join("; ")
-      : `Latest review bundle verification passed with ${checkedFileCount} copied files checked/scanned, current strict-AI/gstack/QA/TODO/source-control/setup/local-AI-prep/doctor/operator-quickstart evidence, and zero secret findings.`,
+      : `Latest review bundle verification passed with ${checkedFileCount} copied files checked/scanned, current strict-AI/gstack/QA/TODO/source-control/setup/local-AI-prep/doctor/fresh-clone/operator-quickstart evidence, and zero secret findings.`,
     evidence: [
       verification?.relativePath ?? ".tmp/handoff-bundles",
       bundle?.relativePath,
@@ -946,6 +981,7 @@ async function reviewBundleCheck(root: string): Promise<PlugAndPlayCheck> {
       localAiPrepare?.relativePath,
       doctor?.relativePath,
       rehearsalStartSmoke?.relativePath,
+      freshCloneSmoke?.relativePath,
       STRICT_AI_SMOKE_STATUS_PATH,
       OPERATOR_QUICKSTART_PATH
     ].filter(isString)

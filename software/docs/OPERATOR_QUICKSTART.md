@@ -35,9 +35,10 @@
 
    ```bash
    npm run smoke:rehearsal:start
+   npm run smoke:fresh-clone
    ```
 
-   This starts the wrapper on temporary local ports, checks API/client/readiness/source-health, writes `.tmp/rehearsal-start-smoke/`, then shuts down. It is local startup evidence only, not hardware validation. The smoke run refreshes source-control evidence and writes a smoke-profile doctor, so final review packaging should rerun standalone `npm run doctor` afterward.
+   The bounded wrapper smoke starts on temporary local ports, checks API/client/readiness/source-health, writes `.tmp/rehearsal-start-smoke/`, then shuts down. It is local startup evidence only, not hardware validation. The smoke run refreshes source-control evidence and writes a smoke-profile doctor, so final review packaging should rerun standalone `npm run doctor` afterward. After the current HEAD is published, `smoke:fresh-clone` proves a clean GitHub clone can run install, bounded startup smoke, and final doctor while command upload remains disabled.
 
 5. Open the client URL printed by `npm run rehearsal:start`; by default it is `http://127.0.0.1:5173`.
 
@@ -82,6 +83,7 @@
 
 - `npm run doctor` passes with only allowed soft warnings.
 - `npm run smoke:rehearsal:start` passes for a bounded local startup proof.
+- `npm run smoke:fresh-clone` passes after the current HEAD is published to GitHub.
 - Readiness has no blocking failures.
 - Hash-chain verification passes.
 - Safety boundary passes.
