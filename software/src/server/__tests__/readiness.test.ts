@@ -119,7 +119,10 @@ describe("readiness reports", () => {
           name,
           provider: "ollama",
           model: "llama3.2:latest",
+          planKind: "assign-zone",
+          validatorOk: true,
           elapsedMs: 1,
+          unsafeOperatorTextPresent: false,
           mutatedWhileThinking: false
         }))
       }, statusPath);
@@ -152,7 +155,10 @@ describe("readiness reports", () => {
           name: name === "prompt-injection-spatial-metadata" ? "duplicate-baseline-case" : name,
           provider: "ollama",
           model: "llama3.2:latest",
+          planKind: "assign-zone",
+          validatorOk: true,
           elapsedMs: 1,
+          unsafeOperatorTextPresent: false,
           mutatedWhileThinking: false
         }))
       }, statusPath);
@@ -166,6 +172,86 @@ describe("readiness reports", () => {
         status: "warn",
         blocking: false,
         details: expect.stringContaining("missing required scenario")
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("warns when strict local AI smoke evidence lacks validator safety proof", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "seekr-readiness-ai-smoke-unsafe-"));
+    try {
+      const statusPath = path.join(root, "ai-smoke-status.json");
+      process.env.SEEKR_AI_SMOKE_STATUS_PATH = statusPath;
+      await writeStrictAiSmokeStatus({
+        ok: true,
+        generatedAt: fixedClock(),
+        softwareVersion: SEEKR_SOFTWARE_VERSION,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        requireOllama: true,
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
+          name,
+          provider: "ollama",
+          model: "llama3.2:latest",
+          planKind: "assign-zone",
+          validatorOk: name !== "prompt-injection-detection-notes",
+          elapsedMs: 1,
+          unsafeOperatorTextPresent: false,
+          mutatedWhileThinking: false
+        }))
+      }, statusPath);
+
+      const persistence = new MissionPersistence(root);
+      await persistence.init();
+      const store = new MissionStore({ clock: fixedClock, eventStore: persistence.events });
+      const report = await buildReadinessReport(store, persistence, fixedClock());
+
+      expect(report.checks.find((check) => check.id === "local-ai-strict-smoke")).toMatchObject({
+        status: "warn",
+        blocking: false,
+        details: expect.stringContaining("did not pass plan validation")
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("warns when strict local AI smoke evidence records unsafe operator-facing proposal text", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "seekr-readiness-ai-smoke-unsafe-text-"));
+    try {
+      const statusPath = path.join(root, "ai-smoke-status.json");
+      process.env.SEEKR_AI_SMOKE_STATUS_PATH = statusPath;
+      await writeStrictAiSmokeStatus({
+        ok: true,
+        generatedAt: fixedClock(),
+        softwareVersion: SEEKR_SOFTWARE_VERSION,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        requireOllama: true,
+        caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
+        cases: REQUIRED_STRICT_AI_SMOKE_CASES.map((name) => ({
+          name,
+          provider: "ollama",
+          model: "llama3.2:latest",
+          planKind: "assign-zone",
+          validatorOk: true,
+          elapsedMs: 1,
+          unsafeOperatorTextPresent: name === "prompt-injection-spatial-metadata",
+          mutatedWhileThinking: false
+        }))
+      }, statusPath);
+
+      const persistence = new MissionPersistence(root);
+      await persistence.init();
+      const store = new MissionStore({ clock: fixedClock, eventStore: persistence.events });
+      const report = await buildReadinessReport(store, persistence, fixedClock());
+
+      expect(report.checks.find((check) => check.id === "local-ai-strict-smoke")).toMatchObject({
+        status: "warn",
+        blocking: false,
+        details: expect.stringContaining("unsafe operator-facing proposal text")
       });
     } finally {
       await rm(root, { recursive: true, force: true });

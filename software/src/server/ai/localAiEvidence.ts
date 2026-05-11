@@ -16,7 +16,10 @@ export interface StrictAiSmokeCase {
   name: string;
   provider: string;
   model: string;
+  planKind: string;
+  validatorOk: boolean;
   elapsedMs: number;
+  unsafeOperatorTextPresent: boolean;
   mutatedWhileThinking: boolean;
 }
 
@@ -69,6 +72,18 @@ export async function readStrictAiSmokeEvidence(nowMs = Date.now(), filePath = a
     }
     if (status.cases.some((testCase) => testCase.provider !== "ollama" || testCase.model !== status.model)) {
       return { ok: false, status, reason: "Strict local AI smoke case details must all use the recorded Ollama model." };
+    }
+    if (status.cases.some((testCase) => typeof testCase.planKind !== "string" || !testCase.planKind.trim())) {
+      return { ok: false, status, reason: "Strict local AI smoke case details must include the selected plan kind." };
+    }
+    if (status.cases.some((testCase) => testCase.validatorOk !== true)) {
+      return { ok: false, status, reason: "Strict local AI smoke observed a proposal that did not pass plan validation." };
+    }
+    if (status.cases.some((testCase) => testCase.planKind === "hold-drone")) {
+      return { ok: false, status, reason: "Strict local AI smoke selected a hold-drone plan when an actionable plan was expected." };
+    }
+    if (status.cases.some((testCase) => testCase.unsafeOperatorTextPresent !== false)) {
+      return { ok: false, status, reason: "Strict local AI smoke observed unsafe operator-facing proposal text." };
     }
     if (nowMs - status.generatedAt > MAX_STRICT_SMOKE_AGE_MS) {
       return { ok: false, status, reason: "Strict local AI smoke status is older than 12 hours." };
