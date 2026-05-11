@@ -17,6 +17,17 @@ describe("operator quickstart contract", () => {
     expect(operatorQuickstartProblems(content)).toEqual([]);
   });
 
+  it("keeps the GitHub landing README aligned with the fresh-clone operator path", () => {
+    const content = readFileSync(new URL("../../../../README.md", import.meta.url), "utf8");
+
+    expect(content).toContain("git clone https://github.com/Ayush1298567/SEEKR.git");
+    expect(content).toContain("cd SEEKR/software");
+    expect(content).toContain("git pull --ff-only");
+    expect(content).toContain("npm run audit:source-control");
+    expect(content.indexOf("git clone https://github.com/Ayush1298567/SEEKR.git")).toBeLessThan(content.indexOf("cd SEEKR/software"));
+    expect(content.indexOf("cd SEEKR/software")).toBeLessThan(content.indexOf("npm ci"));
+  });
+
   it("pins advisory AI command-safety language as required signals", () => {
     expect(REQUIRED_OPERATOR_QUICKSTART_SIGNALS).toEqual(expect.arrayContaining([
       "AI output is advisory",
