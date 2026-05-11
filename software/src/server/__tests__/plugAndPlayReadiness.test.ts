@@ -799,7 +799,7 @@ describe("plug-and-play readiness audit", () => {
     });
   });
 
-  it("allows plug-and-play readiness when only soft operator doctor checks are warnings", async () => {
+  it("surfaces soft operator doctor warnings while preserving plug-and-play readiness", async () => {
     const doctor = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"), "utf8"));
     doctor.summary.pass = 7;
     doctor.summary.warn = 3;
@@ -814,8 +814,10 @@ describe("plug-and-play readiness audit", () => {
     });
 
     expect(manifest.localPlugAndPlayOk).toBe(true);
+    expect(manifest.summary.warn).toBe(1);
     expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
-      status: "pass"
+      status: "warn",
+      details: expect.stringContaining("local-ports")
     });
   });
 

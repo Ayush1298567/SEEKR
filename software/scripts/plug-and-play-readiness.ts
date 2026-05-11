@@ -6,6 +6,7 @@ import { OPERATOR_QUICKSTART_PATH, operatorQuickstartProblems } from "./operator
 import {
   REQUIRED_DOCTOR_CHECK_IDS,
   REQUIRED_RUNTIME_DEPENDENCY_EVIDENCE,
+  SOFT_DOCTOR_CHECK_IDS,
   doctorCheckStatusOk,
   doctorRuntimeDependencyEvidenceOk,
   doctorSourceControlEvidenceOk,
@@ -312,13 +313,16 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
   } else if (acceptanceGeneratedAt !== undefined && doctorGeneratedAt !== undefined && doctorGeneratedAt < acceptanceGeneratedAt) {
     problems.push("latest plug-and-play doctor must be newer than or equal to the latest acceptance record");
   }
+  const warningDetails = doctorSoftWarningDetails(checks);
 
   return {
     id: "operator-doctor",
     requirement: "A local operator has a runnable preflight command for laptop startup, local AI, ports, data directory, and safety flags.",
-    status: problems.length ? "fail" : "pass",
+    status: problems.length ? "fail" : warningDetails.length ? "warn" : "pass",
     details: problems.length
       ? problems.join("; ")
+      : warningDetails.length
+        ? `Latest operator-start plug-and-play doctor passed with soft warning(s): ${warningDetails.join("; ")}.`
       : "Latest operator-start plug-and-play doctor artifact proves repository safety, local startup prerequisites, start-wrapper safety, local Ollama, ports, data directory, and disabled command upload.",
     evidence: [
       "scripts/plug-and-play-doctor.ts",
@@ -327,6 +331,16 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
       doctor?.relativePath ?? ".tmp/plug-and-play-doctor"
     ].filter(isString)
   };
+}
+
+function doctorSoftWarningDetails(checks: Record<string, unknown>[]) {
+  return checks
+    .filter((check) => SOFT_DOCTOR_CHECK_IDS.has(String(check.id ?? "")) && check.status === "warn")
+    .map((check) => {
+      const id = String(check.id ?? "unknown");
+      const details = typeof check.details === "string" && check.details.length ? check.details : "warning details unavailable";
+      return `${id}: ${details}`;
+    });
 }
 
 async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck> {
