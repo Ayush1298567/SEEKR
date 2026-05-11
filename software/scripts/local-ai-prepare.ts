@@ -62,8 +62,16 @@ export async function buildLocalAiPrepare(options: {
   const execImpl = options.execFileImpl ?? defaultExecFile;
   const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const checks: LocalAiPrepareCheck[] = [];
+  let pullAttempted = false;
 
-  if (options.checkOnly) {
+  if (!isSafeOllamaModelArgument(model) || !isSafeOllamaModelArgument(pullModel)) {
+    checks.push({
+      id: "ollama-model-prep",
+      status: "fail",
+      details: "Refusing unsafe Ollama model argument; model names must be a single non-option argument without whitespace or control characters.",
+      evidence: ["package.json scripts.ai:prepare", prepareCommand.join(" ")]
+    });
+  } else if (options.checkOnly) {
     checks.push({
       id: "ollama-model-prep",
       status: "pass",
@@ -71,6 +79,7 @@ export async function buildLocalAiPrepare(options: {
       evidence: ["package.json scripts.ai:prepare", prepareCommand.join(" ")]
     });
   } else {
+    pullAttempted = true;
     try {
       const result = await execImpl(ollamaCommand, ["pull", pullModel], {
         cwd: root,
@@ -104,7 +113,7 @@ export async function buildLocalAiPrepare(options: {
     provider: "ollama",
     model,
     pullModel,
-    pullAttempted: options.checkOnly !== true,
+    pullAttempted,
     prepareCommand,
     checks,
     nextCommands: ok
@@ -150,6 +159,8 @@ export function localAiPrepareManifestOk(manifest: unknown) {
     model !== undefined &&
     pullModel !== undefined &&
     manifest.pullAttempted === true &&
+    isSafeOllamaModelArgument(model) &&
+    isSafeOllamaModelArgument(pullModel) &&
     prepareCommand.length === 3 &&
     isOllamaCommand(prepareCommand[0]) &&
     prepareCommand[1] === "pull" &&
@@ -180,6 +191,14 @@ export function localAiPrepareMatchesAcceptanceModel(manifest: unknown, acceptan
 
 function normalizePullModel(model: string) {
   return model === DEFAULT_OLLAMA_MODEL ? "llama3.2" : model;
+}
+
+function isSafeOllamaModelArgument(value: string | undefined) {
+  return typeof value === "string" &&
+    value.length > 0 &&
+    value.trim() === value &&
+    !value.startsWith("-") &&
+    !/[\s\x00-\x1f\x7f]/.test(value);
 }
 
 function isOllamaCommand(command: string | undefined) {

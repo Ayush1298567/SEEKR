@@ -120,6 +120,56 @@ describe("local AI model preparation", () => {
     expect(localAiPrepareManifestOk(manifest)).toBe(false);
   });
 
+  it("fails closed before execution for unsafe model arguments", async () => {
+    const manifest = await buildLocalAiPrepare({
+      root,
+      model: "--help",
+      execFileImpl: async () => {
+        throw new Error("should not execute unsafe model argument");
+      }
+    });
+
+    expect(manifest).toMatchObject({
+      ok: false,
+      status: "blocked-local-ai-model",
+      pullAttempted: false,
+      prepareCommand: ["ollama", "pull", "--help"]
+    });
+    expect(manifest.checks.find((check) => check.id === "ollama-model-prep")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("unsafe Ollama model argument")
+    });
+    expect(localAiPrepareManifestOk(manifest)).toBe(false);
+  });
+
+  it("rejects copied local AI prepare evidence with unsafe model arguments", async () => {
+    const manifest = await buildLocalAiPrepare({
+      root,
+      execFileImpl: async () => ({ stdout: "success", stderr: "" })
+    });
+
+    expect(localAiPrepareManifestOk({
+      ...manifest,
+      model: "--help",
+      pullModel: "--help",
+      prepareCommand: ["ollama", "pull", "--help"],
+      checks: manifest.checks.map((check) => ({
+        ...check,
+        evidence: ["package.json scripts.ai:prepare", "ollama pull --help"]
+      }))
+    })).toBe(false);
+    expect(localAiPrepareManifestOk({
+      ...manifest,
+      model: "llama3.2 latest",
+      pullModel: "llama3.2 latest",
+      prepareCommand: ["ollama", "pull", "llama3.2 latest"],
+      checks: manifest.checks.map((check) => ({
+        ...check,
+        evidence: ["package.json scripts.ai:prepare", "ollama pull llama3.2 latest"]
+      }))
+    })).toBe(false);
+  });
+
   it("rejects local AI prepare evidence with extra pull arguments or missing command evidence", async () => {
     const manifest = await buildLocalAiPrepare({
       root,
