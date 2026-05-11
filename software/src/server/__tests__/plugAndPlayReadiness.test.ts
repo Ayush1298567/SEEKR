@@ -527,7 +527,7 @@ describe("plug-and-play readiness audit", () => {
         { id: "local-git-metadata", status: "blocked", details: "This workspace is not a Git worktree." },
         { id: "configured-github-remote", status: "warn", details: "No local Git metadata exists." },
         { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs." },
-        { id: "fresh-clone-smoke", status: "warn", details: "Fresh clone could not be proven while remote refs are missing." },
+        { id: "fresh-clone-smoke", status: "warn", details: "Fresh clone startup-file and npm ci dry-run coverage could not be proven while remote refs are missing." },
         { id: "local-head-published", status: "warn", details: "No local Git metadata exists, so the published commit cannot be compared to local HEAD." },
         { id: "working-tree-clean", status: "warn", details: "No local Git metadata exists, so the worktree cleanliness cannot be inspected." }
       ],
@@ -922,7 +922,7 @@ describe("plug-and-play readiness audit", () => {
         { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
         { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
         { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
-        { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files." },
+        { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run." },
         { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
         { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
       ],
@@ -1534,7 +1534,7 @@ async function seedDoctorFiles(root: string) {
       { id: "local-git-metadata", status: "pass", details: "Local Git metadata is present." },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote is configured." },
       { id: "github-remote-refs", status: "pass", details: "Remote refs are present." },
-      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files." },
+      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run." },
       { id: "local-head-published", status: "pass", details: "Local HEAD matches GitHub main." },
       { id: "working-tree-clean", status: "pass", details: "Local worktree is clean." }
     ],

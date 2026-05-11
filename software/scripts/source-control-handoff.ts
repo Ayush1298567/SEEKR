@@ -65,6 +65,8 @@ interface FreshCloneResult {
   headSha?: string;
   checkedPaths: string[];
   missingPaths: string[];
+  installDryRunOk?: boolean;
+  installDryRunError?: string;
   error?: string;
 }
 
@@ -341,12 +343,17 @@ async function gitFreshCloneProbe(repositoryUrl: string): Promise<FreshCloneResu
     for (const relativePath of REQUIRED_FRESH_CLONE_PATHS) {
       if (!(await pathExists(path.join(cloneDir, relativePath)))) missingPaths.push(relativePath);
     }
+    const installDryRun = missingPaths.length
+      ? { ok: false, error: "Skipped npm ci --dry-run because required fresh-clone files are missing." }
+      : await npmCiDryRun(path.join(cloneDir, "software"));
     return {
-      ok: missingPaths.length === 0,
+      ok: missingPaths.length === 0 && installDryRun.ok,
       cloneSucceeded: true,
       headSha: head.stdout.trim() || undefined,
       checkedPaths: REQUIRED_FRESH_CLONE_PATHS,
-      missingPaths
+      missingPaths,
+      installDryRunOk: installDryRun.ok,
+      installDryRunError: installDryRun.error
     };
   } catch (error) {
     return {
@@ -377,6 +384,27 @@ async function inspectLocalGit(root: string, git: (args: string[], cwd: string) 
     headError: head.ok ? undefined : head.error,
     statusError: status.ok ? undefined : status.error
   };
+}
+
+async function npmCiDryRun(cwd: string) {
+  try {
+    await execFileAsync("npm", ["ci", "--dry-run", "--ignore-scripts", "--no-audit", "--fund=false", "--prefer-offline"], {
+      cwd,
+      encoding: "utf8",
+      timeout: 60000,
+      maxBuffer: 1024 * 1024
+    });
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: [
+        String((error as { stdout?: unknown }).stdout ?? "").trim(),
+        String((error as { stderr?: unknown }).stderr ?? "").trim(),
+        String((error as { message?: unknown }).message ?? "").trim()
+      ].filter(Boolean).join(" ").slice(0, 500)
+    };
+  }
 }
 
 function renderMarkdown(manifest: SourceControlHandoffManifest) {
@@ -447,15 +475,16 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
     return {
       id: "fresh-clone-smoke",
       status: "pass",
-      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)} and contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart.`,
+      details: `A shallow fresh clone of the GitHub repository succeeded at ${shortSha(result.headSha)}, contains the landing README, software package manifest and lockfile, env template, rehearsal start wrapper, and operator quickstart, and passes npm ci --dry-run.`,
       evidence: [
         EXPECTED_REPOSITORY_URL,
         "git clone --depth 1",
+        "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
         ...result.checkedPaths.map((checkedPath) => `fresh-clone:${checkedPath}`)
       ]
     };
   }
-  if (result.cloneSucceeded) {
+  if (result.cloneSucceeded && result.missingPaths.length) {
     return {
       id: "fresh-clone-smoke",
       status: "blocked",
@@ -464,6 +493,18 @@ function freshCloneSmokeCheck(result: FreshCloneResult): SourceControlHandoffChe
         EXPECTED_REPOSITORY_URL,
         "git clone --depth 1",
         ...result.missingPaths.map((missingPath) => `missing:${missingPath}`)
+      ]
+    };
+  }
+  if (result.cloneSucceeded && result.installDryRunOk === false) {
+    return {
+      id: "fresh-clone-smoke",
+      status: "blocked",
+      details: `A shallow fresh clone succeeded, but published package install consistency failed npm ci --dry-run: ${result.installDryRunError ?? "unknown npm ci dry-run failure"}.`,
+      evidence: [
+        EXPECTED_REPOSITORY_URL,
+        "git clone --depth 1",
+        "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline"
       ]
     };
   }

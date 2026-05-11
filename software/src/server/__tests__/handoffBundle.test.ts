@@ -2561,8 +2561,8 @@ async function seedBundleEvidence(root: string) {
       {
         id: "fresh-clone-smoke",
         status: "warn",
-        details: "Fresh clone could not be proven while remote refs are missing.",
-        evidence: ["https://github.com/Ayush1298567/SEEKR", "git clone --depth 1"]
+        details: "Fresh clone startup-file and npm ci dry-run coverage could not be proven while remote refs are missing.",
+        evidence: ["https://github.com/Ayush1298567/SEEKR", "git clone --depth 1", "npm ci --dry-run"]
       },
       {
         id: "local-head-published",

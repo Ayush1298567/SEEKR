@@ -445,7 +445,7 @@ async function writeReadySourceControlHandoff(root: string, generatedAt = "2026-
       { id: "local-git-metadata", status: "pass", details: "Git metadata present.", evidence: ["../.git"] },
       { id: "configured-github-remote", status: "pass", details: "GitHub remote configured.", evidence: ["origin"] },
       { id: "github-remote-refs", status: "pass", details: "GitHub refs available.", evidence: ["refs/heads/main"] },
-      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files.", evidence: ["git clone --depth 1"] },
+      { id: "fresh-clone-smoke", status: "pass", details: "Fresh clone contains required plug-and-play startup files and passes npm ci dry-run.", evidence: ["git clone --depth 1", "npm ci --dry-run"] },
       { id: "local-head-published", status: "pass", details: "Local HEAD is published.", evidence: ["origin/main"] },
       { id: "working-tree-clean", status: "pass", details: "Working tree is clean.", evidence: ["git status --short"] }
     ],

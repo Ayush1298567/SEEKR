@@ -1369,7 +1369,7 @@ async function seedRoot(root: string) {
       { id: "local-git-metadata", status: "blocked", details: "This workspace is not a Git worktree." },
       { id: "configured-github-remote", status: "warn", details: "No local Git metadata exists." },
       { id: "github-remote-refs", status: "blocked", details: "GitHub remote has no refs/default branch." },
-      { id: "fresh-clone-smoke", status: "warn", details: "Fresh clone startup-file coverage could not be proven while remote refs are missing." },
+      { id: "fresh-clone-smoke", status: "warn", details: "Fresh clone startup-file and npm ci dry-run coverage could not be proven while remote refs are missing." },
       { id: "local-head-published", status: "warn", details: "No local Git metadata exists, so the published commit cannot be compared to local HEAD." },
       { id: "working-tree-clean", status: "warn", details: "No local Git metadata exists, so the worktree cleanliness cannot be inspected." }
     ],

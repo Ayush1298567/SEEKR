@@ -72,6 +72,7 @@ describe("source-control handoff audit", () => {
       ]
     });
     expect(manifest.checks.every((check) => check.status === "pass")).toBe(true);
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")?.details).toContain("npm ci --dry-run");
   });
 
   it("blocks when local HEAD is unpublished or the worktree is dirty", async () => {
@@ -275,7 +276,9 @@ describe("source-control handoff audit", () => {
         cloneSucceeded: true,
         headSha: LOCAL_SHA,
         checkedPaths: FRESH_CLONE_PATHS,
-        missingPaths: ["software/package-lock.json", "software/docs/OPERATOR_QUICKSTART.md"]
+        missingPaths: ["software/package-lock.json", "software/docs/OPERATOR_QUICKSTART.md"],
+        installDryRunOk: false,
+        installDryRunError: "Skipped npm ci --dry-run because required fresh-clone files are missing."
       })
     });
 
@@ -294,6 +297,51 @@ describe("source-control handoff audit", () => {
       expect.objectContaining({
         id: "repair-published-fresh-clone",
         commands: expect.arrayContaining(["git push origin HEAD:main"]),
+        clearsCheckIds: expect.arrayContaining(["fresh-clone-smoke"])
+      })
+    ]));
+  });
+
+  it("blocks when the published fresh clone cannot satisfy npm ci dry-run", async () => {
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: async () => ({
+        ok: false,
+        cloneSucceeded: true,
+        headSha: LOCAL_SHA,
+        checkedPaths: FRESH_CLONE_PATHS,
+        missingPaths: [],
+        installDryRunOk: false,
+        installDryRunError: "package.json and package-lock.json are not in sync"
+      })
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-smoke")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("npm ci --dry-run")
+    });
+    expect(manifest.nextActionChecklist).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "repair-published-fresh-clone",
+        commands: expect.arrayContaining(["npm run audit:source-control"]),
         clearsCheckIds: expect.arrayContaining(["fresh-clone-smoke"])
       })
     ]));
@@ -436,6 +484,7 @@ function freshCloneOk(headSha = LOCAL_SHA) {
     cloneSucceeded: true,
     headSha,
     checkedPaths: FRESH_CLONE_PATHS,
-    missingPaths: []
+    missingPaths: [],
+    installDryRunOk: true
   });
 }
