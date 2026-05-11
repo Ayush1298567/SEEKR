@@ -110,8 +110,9 @@ export function doctorPortWarningEvidenceOk(checks: Record<string, unknown>[]) {
   const hasAutoFallbackDetails = /auto-selects free local API\/client ports/.test(details);
   const hasPlugAndPlayGuidance = /npm run plug-and-play/.test(details);
   const hasAutoFallbackEvidence = evidence.some((item) => item.includes("auto-selected free local API/client ports"));
-  const hasFallbackCandidate = /Current free fallback candidate\(s\): API \d+, client \d+/.test(details) &&
-    occupiedPorts.every(({ role }) => evidence.some((item) => fallbackEvidencePattern(role).test(item)));
+  const fallbackCandidates = fallbackCandidatesFromDetails(details);
+  const hasFallbackCandidate = fallbackCandidates !== undefined &&
+    occupiedPorts.every(({ role }) => evidence.includes(fallbackEvidenceFor(role, fallbackCandidates[role])));
   return hasListenerDetails && hasPortInspectorEvidence && hasAutoFallbackDetails && hasPlugAndPlayGuidance && hasAutoFallbackEvidence && hasFallbackCandidate;
 }
 
@@ -119,13 +120,22 @@ function occupiedPortPairsFromDetails(details: string) {
   const match = details.match(/non-SEEKR or unhealthy listener: ([^.]+)\./);
   const summary = match?.[1] ?? "";
   return Array.from(summary.matchAll(/\b(api|client) (\d{1,5})\b/g)).map((item) => ({
-    role: item[1],
+    role: item[1] as "api" | "client",
     port: item[2]
   }));
 }
 
-function fallbackEvidencePattern(role: string) {
-  return role === "api" ? /^fallback API port candidate \d+$/ : /^fallback client port candidate \d+$/;
+function fallbackCandidatesFromDetails(details: string) {
+  const match = details.match(/Current free fallback candidate\(s\): API (\d{1,5}), client (\d{1,5})/);
+  if (!match) return undefined;
+  return {
+    api: match[1],
+    client: match[2]
+  };
+}
+
+function fallbackEvidenceFor(role: "api" | "client", port: string) {
+  return role === "api" ? `fallback API port candidate ${port}` : `fallback client port candidate ${port}`;
 }
 
 function timeMs(value: unknown) {
