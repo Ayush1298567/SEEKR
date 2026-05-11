@@ -70,6 +70,7 @@ export interface HandoffBundleSecretScan {
 }
 
 const DEFAULT_OUT_DIR = ".tmp/handoff-bundles";
+const REQUIRED_WORKFLOW_IDS = ["health", "review", "planning", "qa"];
 const REQUIRED_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
 const REQUIRED_TODO_CATEGORY_IDS = [
   "fresh-operator-field-laptop",
@@ -658,9 +659,7 @@ async function gstackWorkflowStatusOk(root: string, manifest: unknown) {
   const perspectives = Array.isArray(manifest.perspectives) ? manifest.perspectives.filter(isRecord) : [];
   const healthHistory = isRecord(manifest.healthHistory) ? manifest.healthHistory : undefined;
   const qaReport = isRecord(manifest.qaReport) ? manifest.qaReport : undefined;
-  const workflowIds = new Set(workflows.map((item) => String(item.id ?? "")));
-  const perspectiveIds = new Set(perspectives.map((item) => String(item.id ?? "")));
-  const requiredWorkflowSkillsAvailable = ["health", "review", "planning", "qa"].every((id) =>
+  const requiredWorkflowSkillsAvailable = REQUIRED_WORKFLOW_IDS.every((id) =>
     workflows.some((item) => item.id === id && item.skillAvailable === true)
   );
   const hasGitMetadata = Boolean(await findGitMetadataPath(root));
@@ -674,13 +673,18 @@ async function gstackWorkflowStatusOk(root: string, manifest: unknown) {
     gstackHealthHistoryOk(healthHistory) &&
     qaReport !== undefined &&
     gstackQaReportOk(qaReport) &&
-    ["health", "review", "planning", "qa"].every((id) => workflowIds.has(id)) &&
+    artifactIdsAreExact(workflows, REQUIRED_WORKFLOW_IDS) &&
     requiredWorkflowSkillsAvailable &&
     workflowLimitationsPreserved(workflows) &&
     reviewWorkspaceClaimOk &&
-    REQUIRED_PERSPECTIVE_IDS.every((id) => perspectiveIds.has(id)) &&
+    artifactIdsAreExact(perspectives, REQUIRED_PERSPECTIVE_IDS) &&
     perspectivesSemanticallyPreserved(perspectives) &&
     !workflows.some((item) => item.status === "fail");
+}
+
+function artifactIdsAreExact(items: Record<string, unknown>[], requiredIds: string[]) {
+  return items.length === requiredIds.length &&
+    items.every((item, index) => String(item.id ?? "") === requiredIds[index]);
 }
 
 function gstackTopLevelStatusOk(

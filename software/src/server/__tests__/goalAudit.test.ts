@@ -586,6 +586,26 @@ describe("goal audit", () => {
     });
   });
 
+  it("fails local alpha when gstack workflow rows are reordered", async () => {
+    const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
+    const workflow = JSON.parse(await readFile(workflowPath, "utf8")) as {
+      workflows: Array<{ id: string }>;
+    };
+    [workflow.workflows[0], workflow.workflows[1]] = [workflow.workflows[1], workflow.workflows[0]];
+    await writeFile(workflowPath, JSON.stringify(workflow), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "gstack-workflow-status")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("all workflows")
+    });
+  });
+
   it("fails local alpha when the no-git review workflow is overclaimed as pass", async () => {
     const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
     const workflow = JSON.parse(await readFile(workflowPath, "utf8")) as {
@@ -670,6 +690,26 @@ describe("goal audit", () => {
     };
     workflow.perspectives[0].score = undefined;
     workflow.perspectives[1].nextAction = "";
+    await writeFile(workflowPath, JSON.stringify(workflow), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "gstack-workflow-status")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("perspective status/score/nextAction")
+    });
+  });
+
+  it("fails local alpha when gstack perspective rows are reordered", async () => {
+    const workflowPath = path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json");
+    const workflow = JSON.parse(await readFile(workflowPath, "utf8")) as {
+      perspectives: Array<{ id: string; status?: string; score?: number; nextAction?: string }>;
+    };
+    [workflow.perspectives[0], workflow.perspectives[1]] = [workflow.perspectives[1], workflow.perspectives[0]];
     await writeFile(workflowPath, JSON.stringify(workflow), "utf8");
 
     const manifest = await buildGoalAudit({

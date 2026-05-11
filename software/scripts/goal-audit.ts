@@ -102,6 +102,7 @@ const REQUIRED_COMMANDS = [
   "overnight"
 ];
 
+const REQUIRED_WORKFLOW_IDS = ["health", "review", "planning", "qa"];
 const REQUIRED_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
 
 const REQUIRED_REAL_WORLD_BLOCKERS = [
@@ -678,9 +679,11 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
   const workflowItems = isRecord(workflowManifest) && Array.isArray(workflowManifest.workflows)
     ? workflowManifest.workflows.filter(isRecord)
     : [];
-  const workflowIds = new Set(workflowItems.map((item) => String(item.id ?? "")));
-  const missingWorkflows = ["health", "review", "planning", "qa"].filter((id) => !workflowIds.has(id));
-  const unavailableWorkflowSkills = ["health", "review", "planning", "qa"].filter((id) =>
+  const missingWorkflows = REQUIRED_WORKFLOW_IDS.filter((id) =>
+    !workflowItems.some((item) => item.id === id)
+  );
+  const workflowOrderOk = artifactIdsAreExact(workflowItems, REQUIRED_WORKFLOW_IDS);
+  const unavailableWorkflowSkills = REQUIRED_WORKFLOW_IDS.filter((id) =>
     !workflowItems.some((item) => item.id === id && item.skillAvailable === true)
   );
   const hasGitMetadata = Boolean(await findGitMetadataPath(root));
@@ -688,8 +691,10 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
   const perspectives = isRecord(workflowManifest) && Array.isArray(workflowManifest.perspectives)
     ? workflowManifest.perspectives.filter(isRecord)
     : [];
-  const perspectiveIds = new Set(perspectives.map((item) => String(item.id ?? "")));
-  const missingPerspectives = REQUIRED_PERSPECTIVE_IDS.filter((id) => !perspectiveIds.has(id));
+  const missingPerspectives = REQUIRED_PERSPECTIVE_IDS.filter((id) =>
+    !perspectives.some((item) => item.id === id)
+  );
+  const perspectiveOrderOk = artifactIdsAreExact(perspectives, REQUIRED_PERSPECTIVE_IDS);
   const healthHistory = isRecord(workflowManifest) && isRecord(workflowManifest.healthHistory) ? workflowManifest.healthHistory : undefined;
   const healthHistoryOk = Boolean(healthHistory &&
     gstackHealthHistoryOk(healthHistory));
@@ -704,10 +709,12 @@ async function gstackWorkflowItem(root: string): Promise<GoalAuditItem> {
     healthHistoryOk &&
     qaReportOk &&
     missingWorkflows.length === 0 &&
+    workflowOrderOk &&
     unavailableWorkflowSkills.length === 0 &&
     workflowLimitationsPreserved(workflowItems) &&
     reviewWorkspaceClaimOk &&
     missingPerspectives.length === 0 &&
+    perspectiveOrderOk &&
     perspectivesSemanticallyPreserved(perspectives) &&
     !workflowItems.some((item) => item.status === "fail");
   const problems = [
@@ -911,6 +918,11 @@ async function gstackQaReportOk(root: string, qaReport: Record<string, unknown>)
       ((status === "pass" || status === "stale") && typeof qaReport.path === "string" && qaReport.path.length > 0)) &&
     screenshotsExist &&
     reportScreenshotsMatch;
+}
+
+function artifactIdsAreExact(items: Record<string, unknown>[], requiredIds: string[]) {
+  return items.length === requiredIds.length &&
+    items.every((item, index) => String(item.id ?? "") === requiredIds[index]);
 }
 
 function gstackHealthHistoryOk(healthHistory: Record<string, unknown>) {

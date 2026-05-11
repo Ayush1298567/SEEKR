@@ -365,6 +365,42 @@ describe("handoff bundle", () => {
     ]));
   });
 
+  it("blocks bundling when gstack workflow rows are reordered", async () => {
+    const workflow = JSON.parse(await readFile(path.join(root, workflowPath), "utf8"));
+    [workflow.workflows[0], workflow.workflows[1]] = [workflow.workflows[1], workflow.workflows[0]];
+    await writeFile(path.join(root, workflowPath), JSON.stringify(workflow), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("GStack workflow status artifact must pass")
+    ]));
+  });
+
+  it("blocks bundling when gstack perspective rows are reordered", async () => {
+    const workflow = JSON.parse(await readFile(path.join(root, workflowPath), "utf8"));
+    [workflow.perspectives[0], workflow.perspectives[1]] = [workflow.perspectives[1], workflow.perspectives[0]];
+    await writeFile(path.join(root, workflowPath), JSON.stringify(workflow), "utf8");
+
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+
+    expect(result.manifest.status).toBe("blocked");
+    expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("GStack workflow status artifact must pass")
+    ]));
+  });
+
   it("blocks bundling when the no-git review workflow is overclaimed as pass", async () => {
     const workflow = JSON.parse(await readFile(path.join(root, workflowPath), "utf8"));
     const review = workflow.workflows.find((item: { id: string }) => item.id === "review");
@@ -1564,6 +1600,54 @@ describe("handoff bundle", () => {
     const copiedWorkflowPath = path.join(result.bundleDirectory, "artifacts", workflowPath);
     const copiedWorkflow = JSON.parse(await readFile(copiedWorkflowPath, "utf8"));
     copiedWorkflow.workflows.find((item: { id: string }) => item.id === "planning").skillAvailable = false;
+    await writeFile(copiedWorkflowPath, JSON.stringify(copiedWorkflow), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied gstack workflow status must pass")
+    ]));
+  });
+
+  it("fails bundle verification when copied gstack workflow rows are reordered", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedWorkflowPath = path.join(result.bundleDirectory, "artifacts", workflowPath);
+    const copiedWorkflow = JSON.parse(await readFile(copiedWorkflowPath, "utf8"));
+    [copiedWorkflow.workflows[0], copiedWorkflow.workflows[1]] = [copiedWorkflow.workflows[1], copiedWorkflow.workflows[0]];
+    await writeFile(copiedWorkflowPath, JSON.stringify(copiedWorkflow), "utf8");
+
+    const verification = await writeHandoffBundleVerification({
+      root,
+      bundlePath: path.relative(root, result.jsonPath),
+      generatedAt: "2026-05-09T21:05:00.000Z"
+    });
+
+    expect(verification.manifest.status).toBe("fail");
+    expect(verification.manifest.commandUploadEnabled).toBe(false);
+    expect(verification.manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("Copied gstack workflow status must pass")
+    ]));
+  });
+
+  it("fails bundle verification when copied gstack perspective rows are reordered", async () => {
+    const result = await writeHandoffBundle({
+      root,
+      label: "review",
+      generatedAt: "2026-05-09T21:00:00.000Z"
+    });
+    const copiedWorkflowPath = path.join(result.bundleDirectory, "artifacts", workflowPath);
+    const copiedWorkflow = JSON.parse(await readFile(copiedWorkflowPath, "utf8"));
+    [copiedWorkflow.perspectives[0], copiedWorkflow.perspectives[1]] = [copiedWorkflow.perspectives[1], copiedWorkflow.perspectives[0]];
     await writeFile(copiedWorkflowPath, JSON.stringify(copiedWorkflow), "utf8");
 
     const verification = await writeHandoffBundleVerification({
