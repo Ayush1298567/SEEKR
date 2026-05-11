@@ -294,6 +294,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run doctor",
       "```",
       "",
       "If the repository is already cloned, run git pull --ff-only first.",
@@ -331,6 +332,58 @@ describe("source-control handoff audit", () => {
     expect(manifest.checks.find((check) => check.id === "github-landing-readme")?.details).toContain("npm run audit:plug-and-play");
   });
 
+  it("blocks when the GitHub landing README does not rerun doctor after bounded smoke", async () => {
+    await writeFile(path.join(root, "..", "README.md"), [
+      "# SEEKR",
+      "",
+      "```bash",
+      "git clone https://github.com/Ayush1298567/SEEKR.git",
+      "cd SEEKR/software",
+      "npm ci",
+      "npm run setup:local",
+      "npm run ai:prepare",
+      "npm run audit:source-control",
+      "npm run doctor",
+      "npm run rehearsal:start",
+      "npm run smoke:rehearsal:start",
+      "npm run test:ai:local",
+      "npm run audit:plug-and-play",
+      "```",
+      "",
+      "If the repository is already cloned, run git pull --ff-only first.",
+      "The local plug-and-play path keeps command upload and hardware actuation disabled.",
+      ""
+    ].join("\n"), "utf8");
+
+    const manifest = await buildSourceControlHandoff({
+      root,
+      generatedAt: "2026-05-10T19:00:00.000Z",
+      git: gitMock({
+        branch: "main",
+        headSha: LOCAL_SHA,
+        status: ""
+      }),
+      lsRemote: async () => ({
+        ok: true,
+        output: [
+          "ref: refs/heads/main\tHEAD",
+          `${LOCAL_SHA}\tHEAD`,
+          `${LOCAL_SHA}\trefs/heads/main`,
+          ""
+        ].join("\n")
+      }),
+      freshClone: freshCloneOk(LOCAL_SHA)
+    });
+
+    expect(manifest.ready).toBe(false);
+    expect(manifest.status).toBe("blocked-source-control-handoff");
+    expect(manifest.blockedCheckCount).toBe(1);
+    expect(manifest.checks.find((check) => check.id === "github-landing-readme")).toMatchObject({
+      status: "blocked",
+      details: expect.stringContaining("npm run smoke:rehearsal:start before npm run doctor before npm run test:ai:local")
+    });
+  });
+
   it("blocks when the GitHub landing README does not explicitly keep command authority disabled", async () => {
     await writeFile(path.join(root, "..", "README.md"), [
       "# SEEKR",
@@ -345,6 +398,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run doctor",
       "npm run test:ai:local",
       "npm run audit:plug-and-play",
       "```",
@@ -398,6 +452,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run doctor",
       "npm run test:ai:local",
       "npm run audit:plug-and-play",
       "```",
@@ -451,6 +506,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run doctor",
       "npm run test:ai:local",
       "npm run audit:plug-and-play",
       "```",
@@ -505,6 +561,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run doctor",
       "npm run audit:plug-and-play",
       "npm run test:ai:local",
       "```",
@@ -560,6 +617,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run doctor",
       "npm run audit:plug-and-play",
       "npm run test:ai:local",
       "```",
@@ -614,6 +672,7 @@ describe("source-control handoff audit", () => {
       "npm run doctor",
       "npm run rehearsal:start",
       "npm run smoke:rehearsal:start",
+      "npm run doctor",
       "# npm run test:ai:local",
       "# npm run audit:plug-and-play",
       "```",
@@ -1065,6 +1124,7 @@ async function seedSourceControlProject(root: string) {
     "npm run doctor",
     "npm run rehearsal:start",
     "npm run smoke:rehearsal:start",
+    "npm run doctor",
     "npm run test:ai:local",
     "npm run audit:plug-and-play",
     "```",

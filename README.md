@@ -19,6 +19,7 @@ Before final local plug-and-play review, run the bounded startup, strict local A
 
 ```bash
 npm run smoke:rehearsal:start
+npm run doctor
 npm run test:ai:local
 npm run audit:plug-and-play
 ```

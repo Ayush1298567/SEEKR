@@ -127,6 +127,7 @@ const REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER = [
   "npm run doctor",
   "npm run rehearsal:start",
   "npm run smoke:rehearsal:start",
+  "npm run doctor",
   "npm run test:ai:local",
   "npm run audit:plug-and-play"
 ];
@@ -514,7 +515,7 @@ function githubLandingReadmeCheck(content: string): SourceControlHandoffCheck {
     status: problems.length ? "blocked" : "pass",
     details: problems.length
       ? `The GitHub landing README violates fresh-clone plug-and-play guidance: ${problems.join(", ")}.`
-      : "The GitHub landing README gives ordered fenced shell command lines for a fresh clone path into SEEKR/software, includes source-control audit before startup, runs bounded smoke before strict local AI smoke before plug-and-play audit guidance, and preserves disabled command/hardware authority.",
+      : "The GitHub landing README gives ordered fenced shell command lines for a fresh clone path into SEEKR/software, includes source-control audit before startup, reruns doctor after bounded smoke before strict local AI smoke and plug-and-play audit guidance, and preserves disabled command/hardware authority.",
     evidence: problems.length ? ["../README.md"] : [
       "../README.md",
       GITHUB_LANDING_README_COMMAND_ORDER_EVIDENCE,
@@ -541,7 +542,7 @@ function githubLandingReadmeCommandOrderOk(content: string) {
   const commandLines = githubLandingReadmeCommandLines(content);
   let lastIndex = -1;
   for (const command of REQUIRED_GITHUB_LANDING_README_COMMAND_ORDER) {
-    const index = commandLines.indexOf(command);
+    const index = commandLines.findIndex((candidate, candidateIndex) => candidateIndex > lastIndex && candidate === command);
     if (index <= lastIndex) return false;
     lastIndex = index;
   }
