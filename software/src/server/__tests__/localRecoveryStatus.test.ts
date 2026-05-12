@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildLocalRecoveryStatus, localRecoveryStatusCliSummary, writeLocalRecoveryStatus } from "../../../scripts/local-recovery-status";
 
 const GENERATED_AT = "2026-05-12T00:00:00.000Z";
+const ACCEPTANCE_GENERATED_AT_MS = 1_800_000_000_000;
+const FRESH_ARTIFACT_AT = "2027-01-15T08:00:01.000Z";
+const STALE_ARTIFACT_AT = "2027-01-15T07:59:59.000Z";
 const HEAD_SHA = "1111111111111111111111111111111111111111";
 const STALE_HEAD_SHA = "2222222222222222222222222222222222222222";
 
@@ -231,6 +234,23 @@ describe("local recovery status", () => {
     });
   });
 
+  it("blocks local recovery status when plug-and-play readiness predates current acceptance", async () => {
+    const readiness = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), "utf8"));
+    readiness.generatedAt = STALE_ARTIFACT_AT;
+    await writeJson(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), readiness);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("older than the current acceptance record")
+    });
+  });
+
   it("blocks local recovery status when review bundle verification points at a stale source-control head", async () => {
     const verification = JSON.parse(await readFile(path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json"), "utf8"));
     verification.sourceControlHandoffRemoteDefaultBranchSha = STALE_HEAD_SHA;
@@ -269,7 +289,7 @@ async function seedRecoveryArtifacts(root: string) {
   await writeJson(path.join(root, ".tmp/acceptance-status.json"), {
     ok: true,
     status: "pass",
-    generatedAt: 1800000000000,
+    generatedAt: ACCEPTANCE_GENERATED_AT_MS,
     completedCommands: Array.from({ length: 13 }, (_, index) => `command-${index}`),
     commandUploadEnabled: false,
     releaseChecksum: {
@@ -369,6 +389,7 @@ async function seedRecoveryArtifacts(root: string) {
     }
   });
   await writeJson(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), {
+    generatedAt: FRESH_ARTIFACT_AT,
     status: "ready-source-control-handoff",
     ready: true,
     commandUploadEnabled: false,
@@ -380,6 +401,7 @@ async function seedRecoveryArtifacts(root: string) {
     warningCheckCount: 0
   });
   await writeJson(path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"), {
+    generatedAt: FRESH_ARTIFACT_AT,
     status: "pass",
     commandUploadEnabled: false,
     localHeadSha: HEAD_SHA,
@@ -393,6 +415,7 @@ async function seedRecoveryArtifacts(root: string) {
     strictAiSmokeCaseCount: 4
   });
   await writeJson(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), {
+    generatedAt: FRESH_ARTIFACT_AT,
     status: "ready-local-plug-and-play-real-world-blocked",
     localPlugAndPlayOk: true,
     complete: false,
@@ -434,6 +457,7 @@ async function seedRecoveryArtifacts(root: string) {
     remainingRealWorldBlockers: recoveryBlockers()
   });
   await writeJson(path.join(root, ".tmp/goal-audit/seekr-goal-audit-test.json"), {
+    generatedAt: FRESH_ARTIFACT_AT,
     status: "local-alpha-ready-real-world-blocked",
     complete: false,
     commandUploadEnabled: false,
@@ -447,6 +471,7 @@ async function seedRecoveryArtifacts(root: string) {
     remainingRealWorldBlockers: recoveryBlockers()
   });
   await writeJson(path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json"), {
+    generatedAt: FRESH_ARTIFACT_AT,
     status: "pass",
     commandUploadEnabled: false,
     sourceControlHandoffLocalHeadSha: HEAD_SHA,
@@ -466,6 +491,7 @@ async function seedRecoveryArtifacts(root: string) {
     }
   });
   await writeJson(path.join(root, ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json"), {
+    generatedAt: FRESH_ARTIFACT_AT,
     status: "pass-with-limitations",
     commandUploadEnabled: false,
     healthHistory: {

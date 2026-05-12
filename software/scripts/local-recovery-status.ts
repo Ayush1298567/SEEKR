@@ -78,16 +78,17 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
   const goalManifest = recordOrUndefined(goal?.manifest);
   const bundleVerifyManifest = recordOrUndefined(bundleVerify?.manifest);
   const expectedHeadSha = stringOrUndefined(sourceControlManifest?.localHeadSha);
+  const acceptanceGeneratedAtMs = numberOrUndefined(getPath(acceptance, ["generatedAt"]));
 
   const checks = [
     acceptanceCheck(acceptance, release, safety, root),
     apiProbeCheck(apiProbe, acceptance),
-    sourceControlCheck(sourceControl),
-    freshCloneCheck(freshClone, expectedHeadSha),
-    reviewBundleCheck(bundleVerify, expectedHeadSha),
-    gstackCheck(gstack),
-    plugAndPlayCheck(plugAndPlay, expectedHeadSha),
-    goalCheck(goal),
+    sourceControlCheck(sourceControl, acceptanceGeneratedAtMs),
+    freshCloneCheck(freshClone, expectedHeadSha, acceptanceGeneratedAtMs),
+    reviewBundleCheck(bundleVerify, expectedHeadSha, acceptanceGeneratedAtMs),
+    gstackCheck(gstack, acceptanceGeneratedAtMs),
+    plugAndPlayCheck(plugAndPlay, expectedHeadSha, acceptanceGeneratedAtMs),
+    goalCheck(goal, acceptanceGeneratedAtMs),
     overnightCheck(overnight)
   ];
   const summary = countChecks(checks);
@@ -345,11 +346,12 @@ function apiProbeCheck(artifact: LatestArtifact | undefined, acceptance: unknown
   };
 }
 
-function sourceControlCheck(artifact: LatestArtifact | undefined): LocalRecoveryStatusCheck {
+function sourceControlCheck(artifact: LatestArtifact | undefined, acceptanceGeneratedAtMs: number | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const localHead = stringOrUndefined(manifest?.localHeadSha);
   const remoteHead = stringOrUndefined(manifest?.remoteDefaultBranchSha);
   const cloneHead = stringOrUndefined(manifest?.freshCloneHeadSha);
+  const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
   const ok = isRecord(manifest) &&
     manifest.status === "ready-source-control-handoff" &&
     manifest.ready === true &&
@@ -359,18 +361,19 @@ function sourceControlCheck(artifact: LatestArtifact | undefined): LocalRecovery
     numberOrUndefined(manifest.warningCheckCount) === 0 &&
     !!localHead &&
     localHead === remoteHead &&
-    localHead === cloneHead;
+    localHead === cloneHead &&
+    fresh;
   return {
     id: "source-control-handoff",
     status: ok ? "pass" : "fail",
     details: ok
       ? `GitHub handoff is clean and published at ${localHead}.`
-      : "Latest source-control handoff is missing, dirty, unpublished, warning-bearing, or not aligned with the GitHub default branch.",
+      : "Latest source-control handoff is missing, dirty, unpublished, warning-bearing, older than the current acceptance record, or not aligned with the GitHub default branch.",
     evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
   };
 }
 
-function freshCloneCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined): LocalRecoveryStatusCheck {
+function freshCloneCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined, acceptanceGeneratedAtMs: number | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const localHead = stringOrUndefined(manifest?.localHeadSha);
   const cloneHead = stringOrUndefined(manifest?.cloneHeadSha);
@@ -387,6 +390,7 @@ function freshCloneCheck(artifact: LatestArtifact | undefined, expectedHeadSha: 
   const headOk = expectedHeadSha
     ? headValues.every((value) => value === expectedHeadSha)
     : !!localHead && localHead === cloneHead;
+  const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
   const ok = isRecord(manifest) &&
     manifest.status === "pass" &&
     manifest.commandUploadEnabled === false &&
@@ -394,20 +398,21 @@ function freshCloneCheck(artifact: LatestArtifact | undefined, expectedHeadSha: 
     provider === "ollama" &&
     !!url &&
     isLoopbackUrl(url) &&
-    caseCount === 4;
+    caseCount === 4 &&
+    fresh;
   return {
     id: "fresh-clone-ai-proof",
     status: ok ? "pass" : "fail",
     details: ok
       ? `Fresh clone proof passed at ${cloneHead} with Ollama strict AI smoke (${caseCount} cases).`
       : expectedHeadSha
-        ? `Fresh clone proof is missing, stale against current source-control HEAD ${expectedHeadSha}, not SHA-aligned, or lacks strict loopback Ollama AI smoke evidence.`
-        : "Fresh clone proof is missing, stale, not SHA-aligned, or lacks strict loopback Ollama AI smoke evidence.",
+        ? `Fresh clone proof is missing, older than the current acceptance record, stale against current source-control HEAD ${expectedHeadSha}, not SHA-aligned, or lacks strict loopback Ollama AI smoke evidence.`
+        : "Fresh clone proof is missing, older than the current acceptance record, stale, not SHA-aligned, or lacks strict loopback Ollama AI smoke evidence.",
     evidence: [artifact?.relativePath ?? ".tmp/fresh-clone-smoke"]
   };
 }
 
-function reviewBundleCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined): LocalRecoveryStatusCheck {
+function reviewBundleCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined, acceptanceGeneratedAtMs: number | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const secretScan = isRecord(manifest?.secretScan) ? manifest.secretScan : undefined;
   const checked = numberOrUndefined(manifest?.checkedFileCount);
@@ -423,6 +428,7 @@ function reviewBundleCheck(artifact: LatestArtifact | undefined, expectedHeadSha
     stringOrUndefined(manifest?.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha),
     stringOrUndefined(manifest?.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha)
   ].every((value) => value === expectedHeadSha) : true;
+  const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
   const ok = isRecord(manifest) &&
     manifest.status === "pass" &&
     manifest.commandUploadEnabled === false &&
@@ -431,40 +437,43 @@ function reviewBundleCheck(artifact: LatestArtifact | undefined, expectedHeadSha
     checked !== undefined &&
     checked === scanned &&
     checked === expected &&
-    headOk;
+    headOk &&
+    fresh;
   return {
     id: "review-bundle-verification",
     status: ok ? "pass" : "fail",
     details: ok
       ? `Review bundle verification passed with ${checked} copied files scanned and 0 secret findings.`
       : expectedHeadSha
-        ? `Latest review bundle verification is missing, failing, stale against current source-control HEAD ${expectedHeadSha}, incompletely scanned, or has secret findings.`
-        : "Latest review bundle verification is missing, failing, incompletely scanned, or has secret findings.",
+        ? `Latest review bundle verification is missing, failing, older than the current acceptance record, stale against current source-control HEAD ${expectedHeadSha}, incompletely scanned, or has secret findings.`
+        : "Latest review bundle verification is missing, failing, older than the current acceptance record, incompletely scanned, or has secret findings.",
     evidence: [artifact?.relativePath ?? ".tmp/handoff-bundles"]
   };
 }
 
-function gstackCheck(artifact: LatestArtifact | undefined): LocalRecoveryStatusCheck {
+function gstackCheck(artifact: LatestArtifact | undefined, acceptanceGeneratedAtMs: number | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const status = stringOrUndefined(manifest?.status);
   const healthStatus = stringOrUndefined(getPath(manifest, ["healthHistory", "status"]));
   const qaStatus = stringOrUndefined(getPath(manifest, ["qaReport", "status"]));
+  const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
   const ok = isRecord(manifest) &&
     (status === "pass" || status === "pass-with-limitations") &&
     manifest.commandUploadEnabled === false &&
     healthStatus === "pass" &&
-    qaStatus === "pass";
+    qaStatus === "pass" &&
+    fresh;
   return {
     id: "gstack-health-qa",
     status: ok ? "pass" : "fail",
     details: ok
       ? `GStack workflow status is ${status}; health history and browser QA are pass.`
-      : "Latest gstack workflow status is missing, failing, or lacks current health/browser QA proof.",
+      : "Latest gstack workflow status is missing, failing, older than the current acceptance record, or lacks current health/browser QA proof.",
     evidence: [artifact?.relativePath ?? ".tmp/gstack-workflow-status"]
   };
 }
 
-function plugAndPlayCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined): LocalRecoveryStatusCheck {
+function plugAndPlayCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined, acceptanceGeneratedAtMs: number | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const summary = isRecord(manifest?.summary) ? manifest.summary : undefined;
   const warnCount = numberOrUndefined(summary?.warn) ?? 0;
@@ -485,33 +494,36 @@ function plugAndPlayCheck(artifact: LatestArtifact | undefined, expectedHeadSha:
     stringOrUndefined(reviewBundle?.sourceControlHandoffRemoteDefaultBranchSha),
     stringOrUndefined(reviewBundle?.sourceControlHandoffFreshCloneHeadSha)
   ].every((value) => value === expectedHeadSha) : true;
+  const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
   const ok = isRecord(manifest) &&
     manifest.localPlugAndPlayOk === true &&
     manifest.commandUploadEnabled === false &&
     failCount === 0 &&
-    headOk;
+    headOk &&
+    fresh;
   return {
     id: "plug-and-play-readiness",
     status: !ok ? "fail" : warnCount > 0 ? "warn" : "pass",
     details: ok
       ? `Plug-and-play readiness is ${manifest.status}${warnCount ? ` with ${warnCount} warning(s)` : ""}.`
       : expectedHeadSha
-        ? `Latest plug-and-play readiness artifact is missing, failing, unsafe, stale against current source-control HEAD ${expectedHeadSha}, or not locally ready.`
-        : "Latest plug-and-play readiness artifact is missing, failing, unsafe, or not locally ready.",
+        ? `Latest plug-and-play readiness artifact is missing, failing, unsafe, older than the current acceptance record, stale against current source-control HEAD ${expectedHeadSha}, or not locally ready.`
+        : "Latest plug-and-play readiness artifact is missing, failing, unsafe, older than the current acceptance record, or not locally ready.",
     evidence: [artifact?.relativePath ?? ".tmp/plug-and-play-readiness"]
   };
 }
 
-function goalCheck(artifact: LatestArtifact | undefined): LocalRecoveryStatusCheck {
+function goalCheck(artifact: LatestArtifact | undefined, acceptanceGeneratedAtMs: number | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const blockerCount = numberOrUndefined(manifest?.remainingRealWorldBlockerCount) ?? 0;
-  const ok = isRecord(manifest) && manifest.commandUploadEnabled === false && numberOrUndefined(getPath(manifest, ["summary", "fail"])) === 0;
+  const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
+  const ok = isRecord(manifest) && manifest.commandUploadEnabled === false && numberOrUndefined(getPath(manifest, ["summary", "fail"])) === 0 && fresh;
   return {
     id: "goal-audit",
     status: !ok ? "fail" : blockerCount > 0 ? "blocked" : "pass",
     details: ok
       ? `Goal audit is ${manifest.status} with ${blockerCount} remaining real-world blocker(s).`
-      : "Latest goal audit is missing, failing, or unsafe.",
+      : "Latest goal audit is missing, failing, unsafe, or older than the current acceptance record.",
     evidence: [artifact?.relativePath ?? ".tmp/goal-audit"]
   };
 }
@@ -666,6 +678,14 @@ function booleanOrUndefined(value: unknown) {
 
 function arrayOfStrings(value: unknown) {
   return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined;
+}
+
+function artifactFreshForAcceptance(manifest: unknown, acceptanceGeneratedAtMs: number | undefined) {
+  if (acceptanceGeneratedAtMs === undefined) return true;
+  const generatedAt = stringOrUndefined(getPath(manifest, ["generatedAt"]));
+  if (!generatedAt) return false;
+  const generatedAtMs = Date.parse(generatedAt);
+  return Number.isFinite(generatedAtMs) && generatedAtMs >= acceptanceGeneratedAtMs;
 }
 
 function isLoopbackUrl(value: string) {
