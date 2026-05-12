@@ -93,6 +93,27 @@ describe("local recovery status", () => {
     });
   });
 
+  it("blocks local recovery status when acceptance auxiliary release or safety fields are stale", async () => {
+    const acceptance = JSON.parse(await readFile(path.join(root, ".tmp/acceptance-status.json"), "utf8"));
+    acceptance.releaseChecksum.sha256Path = path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-old.sha256");
+    acceptance.releaseChecksum.markdownPath = path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-old.md");
+    acceptance.commandBoundaryScan.markdownPath = path.join(root, ".tmp/safety-evidence/seekr-command-boundary-scan-old.md");
+    acceptance.commandBoundaryScan.allowedFindingCount = 99;
+    await writeJson(path.join(root, ".tmp/acceptance-status.json"), acceptance);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    const acceptanceStatus = manifest.checks.find((check) => check.id === "acceptance-status");
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(acceptanceStatus).toMatchObject({ status: "fail" });
+    expect(acceptanceStatus?.details).toEqual(expect.stringContaining("SHA-256 path"));
+    expect(acceptanceStatus?.details).toEqual(expect.stringContaining("Markdown path"));
+    expect(acceptanceStatus?.details).toEqual(expect.stringContaining("allowed-finding count"));
+  });
+
   it("blocks local recovery status when acceptance strict AI cases drift", async () => {
     const acceptance = JSON.parse(await readFile(path.join(root, ".tmp/acceptance-status.json"), "utf8"));
     acceptance.strictLocalAi.caseNames = [
@@ -208,15 +229,19 @@ async function seedRecoveryArtifacts(root: string) {
     commandUploadEnabled: false,
     releaseChecksum: {
       jsonPath: path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-test.json"),
+      sha256Path: path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-test.sha256"),
+      markdownPath: path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-test.md"),
       overallSha256: "f".repeat(64),
       fileCount: 42,
       totalBytes: 1024
     },
     commandBoundaryScan: {
       jsonPath: path.join(root, ".tmp/safety-evidence/seekr-command-boundary-scan-test.json"),
+      markdownPath: path.join(root, ".tmp/safety-evidence/seekr-command-boundary-scan-test.md"),
       status: "pass",
       scannedFileCount: 12,
       violationCount: 0,
+      allowedFindingCount: 3,
       commandUploadEnabled: false
     },
     strictLocalAi: {

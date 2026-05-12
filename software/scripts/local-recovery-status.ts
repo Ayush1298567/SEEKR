@@ -186,7 +186,11 @@ function acceptanceCheck(manifest: unknown, release: LatestArtifact | undefined,
 
   if (release && releaseSummary) {
     const acceptedReleasePath = normalizeArtifactPath(root, releaseSummary.jsonPath);
+    const acceptedReleaseShaPath = normalizeArtifactPath(root, releaseSummary.sha256Path);
+    const acceptedReleaseMarkdownPath = normalizeArtifactPath(root, releaseSummary.markdownPath);
     if (acceptedReleasePath !== release.relativePath) problems.push("acceptance release checksum path must point at the latest release evidence");
+    if (acceptedReleaseShaPath !== replaceExtension(release.relativePath, ".sha256")) problems.push("acceptance release checksum SHA-256 path must point at the latest release evidence");
+    if (acceptedReleaseMarkdownPath !== replaceExtension(release.relativePath, ".md")) problems.push("acceptance release checksum Markdown path must point at the latest release evidence");
     if (stringOrUndefined(releaseSummary.overallSha256) !== stringOrUndefined(releaseManifest?.overallSha256)) problems.push("acceptance release checksum SHA must match latest release evidence");
     if (numberOrUndefined(releaseSummary.fileCount) !== numberOrUndefined(releaseManifest?.fileCount)) problems.push("acceptance release file count must match latest release evidence");
     if (numberOrUndefined(releaseSummary.totalBytes) !== numberOrUndefined(releaseManifest?.totalBytes)) problems.push("acceptance release byte count must match latest release evidence");
@@ -195,10 +199,13 @@ function acceptanceCheck(manifest: unknown, release: LatestArtifact | undefined,
 
   if (safety && safetySummary) {
     const acceptedSafetyPath = normalizeArtifactPath(root, safetySummary.jsonPath);
+    const acceptedSafetyMarkdownPath = normalizeArtifactPath(root, safetySummary.markdownPath);
     if (acceptedSafetyPath !== safety.relativePath) problems.push("acceptance command-boundary scan path must point at the latest safety evidence");
+    if (acceptedSafetyMarkdownPath !== replaceExtension(safety.relativePath, ".md")) problems.push("acceptance command-boundary scan Markdown path must point at the latest safety evidence");
     if (safetySummary.status !== "pass" || safetyManifest?.status !== "pass") problems.push("acceptance and latest command-boundary scan must both pass");
     if (numberOrUndefined(safetySummary.scannedFileCount) !== scannedFileCount) problems.push("acceptance command-boundary scanned-file count must match latest safety evidence");
     if (numberOrUndefined(safetySummary.violationCount) !== violationCount) problems.push("acceptance command-boundary violation count must match latest safety evidence");
+    if (numberOrUndefined(safetySummary.allowedFindingCount) !== numberOrUndefined(safetySummaryCounts?.allowedFindingCount)) problems.push("acceptance command-boundary allowed-finding count must match latest safety evidence");
     if (numberOrUndefined(safetySummary.violationCount) !== 0) problems.push("acceptance command-boundary scan must report zero violations");
     if (safetySummary.commandUploadEnabled !== false || safetyManifest?.commandUploadEnabled !== false) problems.push("acceptance command-boundary scan must keep commandUploadEnabled false");
   }
@@ -559,6 +566,10 @@ function normalizeArtifactPath(root: string, value: unknown) {
 
 function arrayEquals(left: string[], right: readonly string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function replaceExtension(filePath: string, extension: string) {
+  return filePath.replace(/\.json$/, extension);
 }
 
 function isString(value: unknown): value is string {
