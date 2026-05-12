@@ -180,6 +180,7 @@ const REQUIRED_COMMANDS = [
   "audit:source-control",
   "audit:todo",
   "audit:plug-and-play",
+  "status:local",
   "handoff:bundle",
   "handoff:bundle:verify",
   "audit:goal"

@@ -6,6 +6,7 @@ import { buildLocalRecoveryStatus, writeLocalRecoveryStatus } from "../../../scr
 
 const GENERATED_AT = "2026-05-12T00:00:00.000Z";
 const HEAD_SHA = "1111111111111111111111111111111111111111";
+const STALE_HEAD_SHA = "2222222222222222222222222222222222222222";
 
 describe("local recovery status", () => {
   let root: string;
@@ -71,6 +72,61 @@ describe("local recovery status", () => {
       details: expect.stringContaining("Fresh clone proof is missing")
     });
   });
+
+  it("blocks local recovery status when the fresh-clone proof is stale against source control", async () => {
+    const freshClone = JSON.parse(await readFile(path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"), "utf8"));
+    freshClone.cloneHeadSha = STALE_HEAD_SHA;
+    freshClone.sourceControlHandoffLocalHeadSha = STALE_HEAD_SHA;
+    await writeJson(path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"), freshClone);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "fresh-clone-ai-proof")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining(`current source-control HEAD ${HEAD_SHA}`)
+    });
+  });
+
+  it("blocks local recovery status when plug-and-play readiness points at a stale source-control head", async () => {
+    const readiness = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), "utf8"));
+    readiness.sourceControl.localHeadSha = STALE_HEAD_SHA;
+    readiness.freshClone.cloneHeadSha = STALE_HEAD_SHA;
+    readiness.reviewBundle.sourceControlHandoffLocalHeadSha = STALE_HEAD_SHA;
+    await writeJson(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), readiness);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("stale against current source-control HEAD")
+    });
+  });
+
+  it("blocks local recovery status when review bundle verification points at a stale source-control head", async () => {
+    const verification = JSON.parse(await readFile(path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json"), "utf8"));
+    verification.sourceControlHandoffRemoteDefaultBranchSha = STALE_HEAD_SHA;
+    verification.freshCloneSmokeCloneHeadSha = STALE_HEAD_SHA;
+    await writeJson(path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json"), verification);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "review-bundle-verification")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("stale against current source-control HEAD")
+    });
+  });
 });
 
 async function seedRecoveryArtifacts(root: string) {
@@ -115,6 +171,9 @@ async function seedRecoveryArtifacts(root: string) {
     commandUploadEnabled: false,
     localHeadSha: HEAD_SHA,
     cloneHeadSha: HEAD_SHA,
+    sourceControlHandoffLocalHeadSha: HEAD_SHA,
+    sourceControlHandoffRemoteDefaultBranchSha: HEAD_SHA,
+    sourceControlHandoffFreshCloneHeadSha: HEAD_SHA,
     strictAiSmokeProvider: "ollama",
     strictAiSmokeModel: "llama3.2:latest",
     strictAiSmokeOllamaUrl: "http://127.0.0.1:11434",
@@ -137,6 +196,23 @@ async function seedRecoveryArtifacts(root: string) {
       defaultPortsOccupied: true,
       autoRecoverable: true
     },
+    sourceControl: {
+      localHeadSha: HEAD_SHA,
+      remoteDefaultBranchSha: HEAD_SHA,
+      freshCloneHeadSha: HEAD_SHA
+    },
+    freshClone: {
+      localHeadSha: HEAD_SHA,
+      cloneHeadSha: HEAD_SHA,
+      sourceControlHandoffLocalHeadSha: HEAD_SHA,
+      sourceControlHandoffRemoteDefaultBranchSha: HEAD_SHA,
+      sourceControlHandoffFreshCloneHeadSha: HEAD_SHA
+    },
+    reviewBundle: {
+      sourceControlHandoffLocalHeadSha: HEAD_SHA,
+      sourceControlHandoffRemoteDefaultBranchSha: HEAD_SHA,
+      sourceControlHandoffFreshCloneHeadSha: HEAD_SHA
+    },
     remainingRealWorldBlockerCount: 8,
     remainingRealWorldBlockers: recoveryBlockers()
   });
@@ -156,6 +232,14 @@ async function seedRecoveryArtifacts(root: string) {
   await writeJson(path.join(root, ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json"), {
     status: "pass",
     commandUploadEnabled: false,
+    sourceControlHandoffLocalHeadSha: HEAD_SHA,
+    sourceControlHandoffRemoteDefaultBranchSha: HEAD_SHA,
+    sourceControlHandoffFreshCloneHeadSha: HEAD_SHA,
+    freshCloneSmokeLocalHeadSha: HEAD_SHA,
+    freshCloneSmokeCloneHeadSha: HEAD_SHA,
+    freshCloneSmokeSourceControlHandoffLocalHeadSha: HEAD_SHA,
+    freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha: HEAD_SHA,
+    freshCloneSmokeSourceControlHandoffFreshCloneHeadSha: HEAD_SHA,
     checkedFileCount: 42,
     secretScan: {
       status: "pass",

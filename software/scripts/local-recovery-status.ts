@@ -71,14 +71,15 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
   const plugAndPlayManifest = recordOrUndefined(plugAndPlay?.manifest);
   const goalManifest = recordOrUndefined(goal?.manifest);
   const bundleVerifyManifest = recordOrUndefined(bundleVerify?.manifest);
+  const expectedHeadSha = stringOrUndefined(sourceControlManifest?.localHeadSha);
 
   const checks = [
     acceptanceCheck(acceptance),
     sourceControlCheck(sourceControl),
-    freshCloneCheck(freshClone),
-    reviewBundleCheck(bundleVerify),
+    freshCloneCheck(freshClone, expectedHeadSha),
+    reviewBundleCheck(bundleVerify, expectedHeadSha),
     gstackCheck(gstack),
-    plugAndPlayCheck(plugAndPlay),
+    plugAndPlayCheck(plugAndPlay, expectedHeadSha),
     goalCheck(goal),
     overnightCheck(overnight)
   ];
@@ -198,18 +199,27 @@ function sourceControlCheck(artifact: LatestArtifact | undefined): LocalRecovery
   };
 }
 
-function freshCloneCheck(artifact: LatestArtifact | undefined): LocalRecoveryStatusCheck {
+function freshCloneCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const localHead = stringOrUndefined(manifest?.localHeadSha);
   const cloneHead = stringOrUndefined(manifest?.cloneHeadSha);
   const provider = stringOrUndefined(manifest?.strictAiSmokeProvider);
   const url = stringOrUndefined(manifest?.strictAiSmokeOllamaUrl);
   const caseCount = numberOrUndefined(manifest?.strictAiSmokeCaseCount);
+  const headValues = [
+    localHead,
+    cloneHead,
+    stringOrUndefined(manifest?.sourceControlHandoffLocalHeadSha),
+    stringOrUndefined(manifest?.sourceControlHandoffRemoteDefaultBranchSha),
+    stringOrUndefined(manifest?.sourceControlHandoffFreshCloneHeadSha)
+  ];
+  const headOk = expectedHeadSha
+    ? headValues.every((value) => value === expectedHeadSha)
+    : !!localHead && localHead === cloneHead;
   const ok = isRecord(manifest) &&
     manifest.status === "pass" &&
     manifest.commandUploadEnabled === false &&
-    !!localHead &&
-    localHead === cloneHead &&
+    headOk &&
     provider === "ollama" &&
     !!url &&
     isLoopbackUrl(url) &&
@@ -219,17 +229,29 @@ function freshCloneCheck(artifact: LatestArtifact | undefined): LocalRecoverySta
     status: ok ? "pass" : "fail",
     details: ok
       ? `Fresh clone proof passed at ${cloneHead} with Ollama strict AI smoke (${caseCount} cases).`
-      : "Fresh clone proof is missing, stale, not SHA-aligned, or lacks strict loopback Ollama AI smoke evidence.",
+      : expectedHeadSha
+        ? `Fresh clone proof is missing, stale against current source-control HEAD ${expectedHeadSha}, not SHA-aligned, or lacks strict loopback Ollama AI smoke evidence.`
+        : "Fresh clone proof is missing, stale, not SHA-aligned, or lacks strict loopback Ollama AI smoke evidence.",
     evidence: [artifact?.relativePath ?? ".tmp/fresh-clone-smoke"]
   };
 }
 
-function reviewBundleCheck(artifact: LatestArtifact | undefined): LocalRecoveryStatusCheck {
+function reviewBundleCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const secretScan = isRecord(manifest?.secretScan) ? manifest.secretScan : undefined;
   const checked = numberOrUndefined(manifest?.checkedFileCount);
   const scanned = numberOrUndefined(secretScan?.scannedFileCount);
   const expected = numberOrUndefined(secretScan?.expectedFileCount);
+  const headOk = expectedHeadSha ? [
+    stringOrUndefined(manifest?.sourceControlHandoffLocalHeadSha),
+    stringOrUndefined(manifest?.sourceControlHandoffRemoteDefaultBranchSha),
+    stringOrUndefined(manifest?.sourceControlHandoffFreshCloneHeadSha),
+    stringOrUndefined(manifest?.freshCloneSmokeLocalHeadSha),
+    stringOrUndefined(manifest?.freshCloneSmokeCloneHeadSha),
+    stringOrUndefined(manifest?.freshCloneSmokeSourceControlHandoffLocalHeadSha),
+    stringOrUndefined(manifest?.freshCloneSmokeSourceControlHandoffRemoteDefaultBranchSha),
+    stringOrUndefined(manifest?.freshCloneSmokeSourceControlHandoffFreshCloneHeadSha)
+  ].every((value) => value === expectedHeadSha) : true;
   const ok = isRecord(manifest) &&
     manifest.status === "pass" &&
     manifest.commandUploadEnabled === false &&
@@ -237,13 +259,16 @@ function reviewBundleCheck(artifact: LatestArtifact | undefined): LocalRecoveryS
     numberOrUndefined(secretScan.findingCount) === 0 &&
     checked !== undefined &&
     checked === scanned &&
-    checked === expected;
+    checked === expected &&
+    headOk;
   return {
     id: "review-bundle-verification",
     status: ok ? "pass" : "fail",
     details: ok
       ? `Review bundle verification passed with ${checked} copied files scanned and 0 secret findings.`
-      : "Latest review bundle verification is missing, failing, incompletely scanned, or has secret findings.",
+      : expectedHeadSha
+        ? `Latest review bundle verification is missing, failing, stale against current source-control HEAD ${expectedHeadSha}, incompletely scanned, or has secret findings.`
+        : "Latest review bundle verification is missing, failing, incompletely scanned, or has secret findings.",
     evidence: [artifact?.relativePath ?? ".tmp/handoff-bundles"]
   };
 }
@@ -268,21 +293,40 @@ function gstackCheck(artifact: LatestArtifact | undefined): LocalRecoveryStatusC
   };
 }
 
-function plugAndPlayCheck(artifact: LatestArtifact | undefined): LocalRecoveryStatusCheck {
+function plugAndPlayCheck(artifact: LatestArtifact | undefined, expectedHeadSha: string | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
   const summary = isRecord(manifest?.summary) ? manifest.summary : undefined;
   const warnCount = numberOrUndefined(summary?.warn) ?? 0;
   const failCount = numberOrUndefined(summary?.fail) ?? 0;
+  const sourceControl = isRecord(manifest?.sourceControl) ? manifest.sourceControl : undefined;
+  const freshClone = isRecord(manifest?.freshClone) ? manifest.freshClone : undefined;
+  const reviewBundle = isRecord(manifest?.reviewBundle) ? manifest.reviewBundle : undefined;
+  const headOk = expectedHeadSha ? [
+    stringOrUndefined(sourceControl?.localHeadSha),
+    stringOrUndefined(sourceControl?.remoteDefaultBranchSha),
+    stringOrUndefined(sourceControl?.freshCloneHeadSha),
+    stringOrUndefined(freshClone?.localHeadSha),
+    stringOrUndefined(freshClone?.cloneHeadSha),
+    stringOrUndefined(freshClone?.sourceControlHandoffLocalHeadSha),
+    stringOrUndefined(freshClone?.sourceControlHandoffRemoteDefaultBranchSha),
+    stringOrUndefined(freshClone?.sourceControlHandoffFreshCloneHeadSha),
+    stringOrUndefined(reviewBundle?.sourceControlHandoffLocalHeadSha),
+    stringOrUndefined(reviewBundle?.sourceControlHandoffRemoteDefaultBranchSha),
+    stringOrUndefined(reviewBundle?.sourceControlHandoffFreshCloneHeadSha)
+  ].every((value) => value === expectedHeadSha) : true;
   const ok = isRecord(manifest) &&
     manifest.localPlugAndPlayOk === true &&
     manifest.commandUploadEnabled === false &&
-    failCount === 0;
+    failCount === 0 &&
+    headOk;
   return {
     id: "plug-and-play-readiness",
     status: !ok ? "fail" : warnCount > 0 ? "warn" : "pass",
     details: ok
       ? `Plug-and-play readiness is ${manifest.status}${warnCount ? ` with ${warnCount} warning(s)` : ""}.`
-      : "Latest plug-and-play readiness artifact is missing, failing, unsafe, or not locally ready.",
+      : expectedHeadSha
+        ? `Latest plug-and-play readiness artifact is missing, failing, unsafe, stale against current source-control HEAD ${expectedHeadSha}, or not locally ready.`
+        : "Latest plug-and-play readiness artifact is missing, failing, unsafe, or not locally ready.",
     evidence: [artifact?.relativePath ?? ".tmp/plug-and-play-readiness"]
   };
 }
