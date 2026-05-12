@@ -563,6 +563,11 @@ export async function writePlugAndPlayReadiness(options: Parameters<typeof build
   const root = path.resolve(options.root ?? process.cwd());
   const outDir = resolveArtifactOutDir(root, options.outDir ?? DEFAULT_OUT_DIR);
   const manifest = await buildPlugAndPlayReadiness(options);
+  const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const validation = validatePlugAndPlayReadinessManifest(manifest, {
+    acceptanceGeneratedAtMs: isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined,
+    expectedHeadSha: manifest.sourceControl.localHeadSha
+  });
   const safeTimestamp = safeIsoTimestampForFileName(manifest.generatedAt);
   const baseName = `seekr-plug-and-play-readiness-${safeTimestamp}`;
   const jsonPath = path.join(outDir, `${baseName}.json`);
@@ -572,7 +577,7 @@ export async function writePlugAndPlayReadiness(options: Parameters<typeof build
   await writeFile(jsonPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   await writeFile(markdownPath, renderMarkdown(manifest), "utf8");
 
-  return { manifest, jsonPath, markdownPath };
+  return { manifest, validation, jsonPath, markdownPath };
 }
 
 async function commandSurfaceCheck(root: string): Promise<PlugAndPlayCheck> {
@@ -1955,10 +1960,14 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     generatedAt: typeof args.generatedAt === "string" ? args.generatedAt : undefined
   });
   console.log(JSON.stringify({
-    ok: result.manifest.localPlugAndPlayOk,
+    ok: result.manifest.localPlugAndPlayOk && result.validation.ok,
     complete: result.manifest.complete,
     status: result.manifest.status,
     commandUploadEnabled: result.manifest.commandUploadEnabled,
+    semanticValidation: {
+      ok: result.validation.ok,
+      problems: result.validation.problems
+    },
     ai: result.manifest.ai,
     sourceControl: result.manifest.sourceControl,
     operatorStartPorts: result.manifest.operatorStartPorts,
@@ -1969,5 +1978,5 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     jsonPath: result.jsonPath,
     markdownPath: result.markdownPath
   }, null, 2));
-  if (!result.manifest.localPlugAndPlayOk) process.exitCode = 1;
+  if (!result.manifest.localPlugAndPlayOk || !result.validation.ok) process.exitCode = 1;
 }

@@ -70,6 +70,7 @@ describe("plug-and-play readiness audit", () => {
         status: "pass",
         api: 8787,
         client: 5173,
+        fallbackApi: 6099,
         fallbackClient: 6100,
         defaultPortsOccupied: true,
         autoRecoverable: true,
@@ -1697,6 +1698,7 @@ describe("plug-and-play readiness audit", () => {
       generatedAt: "2026-05-10T07:00:00.000Z"
     });
 
+    expect(result.validation).toMatchObject({ ok: true, problems: [] });
     expect(result.jsonPath).toContain(`${path.sep}.tmp${path.sep}plug-and-play-readiness${path.sep}`);
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"remainingRealWorldBlockerCount\": 8");
@@ -1707,6 +1709,20 @@ describe("plug-and-play readiness audit", () => {
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control remote default SHA");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Remaining real-world blockers");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Count: 8");
+  });
+
+  it("exposes semantic validation failure when writing stale readiness evidence", async () => {
+    const result = await writePlugAndPlayReadiness({
+      root,
+      outDir: ".tmp/plug-and-play-readiness",
+      generatedAt: "2026-05-10T06:59:59.999Z"
+    });
+
+    expect(result.manifest.localPlugAndPlayOk).toBe(true);
+    expect(result.validation.ok).toBe(false);
+    expect(result.validation.problems).toEqual(expect.arrayContaining([
+      expect.stringContaining("newer than or equal to the current acceptance record")
+    ]));
   });
 });
 
@@ -2232,6 +2248,7 @@ async function seedDoctorFiles(root: string) {
     ports: {
       api: 8787,
       client: 5173,
+      fallbackApi: 6099,
       fallbackClient: 6100
     },
     ai: {
