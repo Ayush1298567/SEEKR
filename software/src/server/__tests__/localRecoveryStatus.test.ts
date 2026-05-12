@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildLocalRecoveryStatus, writeLocalRecoveryStatus } from "../../../scripts/local-recovery-status";
 
 const GENERATED_AT = "2026-05-12T00:00:00.000Z";
-const HEAD_SHA = "7250f00fa6c4419f0bdcc654181470644c1c3559";
+const HEAD_SHA = "1111111111111111111111111111111111111111";
 
 describe("local recovery status", () => {
   let root: string;
