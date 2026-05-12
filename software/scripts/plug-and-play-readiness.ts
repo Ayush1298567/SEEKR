@@ -17,7 +17,7 @@ import {
 import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { freshCloneOperatorSmokeOk } from "./fresh-clone-operator-smoke";
 import { validateRehearsalStartSmokeManifest } from "./rehearsal-start-smoke";
-import { REQUIRED_FRESH_CLONE_PATHS, validateSourceControlHandoffManifest } from "./source-control-handoff";
+import { EXPECTED_REPOSITORY_URL, REQUIRED_FRESH_CLONE_PATHS, validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type PlugAndPlayCheckStatus = "pass" | "warn" | "fail" | "blocked";
@@ -201,6 +201,273 @@ const REQUIRED_ENV_EXAMPLE_SIGNALS = [
 
 const REQUIRED_GSTACK_WORKFLOW_IDS = ["health", "review", "planning", "qa"];
 const REQUIRED_GSTACK_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
+const EXPECTED_PACKAGE_REPOSITORY_URL = "git+https://github.com/Ayush1298567/SEEKR.git";
+const REQUIRED_PLUG_AND_PLAY_CHECK_IDS = [
+  "command-surface",
+  "operator-setup",
+  "local-ai-prepare",
+  "operator-doctor",
+  "source-control-handoff",
+  "fresh-clone-operator-smoke",
+  "operator-start",
+  "operator-start-smoke",
+  "operator-quickstart-doc",
+  "operator-env",
+  "env-loader",
+  "built-app",
+  "acceptance-ai",
+  "api-readback",
+  "workflow-qa",
+  "review-bundle",
+  "real-world-boundary"
+];
+
+export function validatePlugAndPlayReadinessManifest(
+  manifest: unknown,
+  options: { expectedHeadSha?: string; acceptanceGeneratedAtMs?: number } = {}
+) {
+  const problems: string[] = [];
+  if (!isRecord(manifest)) {
+    return {
+      ok: false,
+      problems: ["plug-and-play readiness artifact is not a JSON object"],
+      failCheckIds: [] as string[],
+      warningCheckIds: [] as string[],
+      blockedCheckIds: [] as string[],
+      localPlugAndPlayOk: false
+    };
+  }
+
+  const rawChecks = Array.isArray(manifest.checks) ? manifest.checks : [];
+  const checks = rawChecks.filter(isRecord);
+  const failCheckIds = checks.filter((check) => check.status === "fail").map((check) => String(check.id ?? "unknown"));
+  const warningCheckIds = checks.filter((check) => check.status === "warn").map((check) => String(check.id ?? "unknown"));
+  const blockedCheckIds = checks.filter((check) => check.status === "blocked").map((check) => String(check.id ?? "unknown"));
+  const summary = isRecord(manifest.summary) ? manifest.summary : {};
+  const summaryCounts = {
+    pass: numberOrUndefined(summary.pass),
+    warn: numberOrUndefined(summary.warn),
+    fail: numberOrUndefined(summary.fail),
+    blocked: numberOrUndefined(summary.blocked)
+  };
+  const computedCounts = countPlugAndPlayChecks(checks);
+  const status = String(manifest.status ?? "");
+  const generatedAtMs = timeMs(manifest.generatedAt);
+  const ai = isRecord(manifest.ai) ? manifest.ai : undefined;
+  const sourceControl = isRecord(manifest.sourceControl) ? manifest.sourceControl : undefined;
+  const operatorStartPorts = isRecord(manifest.operatorStartPorts) ? manifest.operatorStartPorts : undefined;
+  const freshClone = isRecord(manifest.freshClone) ? manifest.freshClone : undefined;
+  const reviewBundle = isRecord(manifest.reviewBundle) ? manifest.reviewBundle : undefined;
+  const safetyBoundary = isRecord(manifest.safetyBoundary) ? manifest.safetyBoundary : undefined;
+  const remainingRealWorldBlockers = stringArray(manifest.remainingRealWorldBlockers);
+  const remainingRealWorldBlockerIds = stringArray(manifest.remainingRealWorldBlockerIds);
+  const remainingRealWorldBlockerCount = numberOrUndefined(manifest.remainingRealWorldBlockerCount);
+  const localPlugAndPlayOk = manifest.localPlugAndPlayOk === true;
+  const complete = manifest.complete === true;
+
+  if (manifest.schemaVersion !== 1) problems.push("schemaVersion must be 1");
+  if (!generatedAtMs) problems.push("generatedAt must be a parseable timestamp");
+  if (
+    options.acceptanceGeneratedAtMs !== undefined &&
+    generatedAtMs !== undefined &&
+    generatedAtMs < options.acceptanceGeneratedAtMs
+  ) {
+    problems.push("plug-and-play readiness generatedAt must be newer than or equal to the current acceptance record");
+  }
+  if (!["ready-local-plug-and-play-real-world-blocked", "blocked-local-plug-and-play", "complete"].includes(status)) {
+    problems.push("status must be a known plug-and-play readiness status");
+  }
+  if (manifest.commandUploadEnabled !== false) problems.push("commandUploadEnabled must be false");
+  if (typeof manifest.localPlugAndPlayOk !== "boolean") problems.push("localPlugAndPlayOk must be boolean");
+  if (typeof manifest.complete !== "boolean") problems.push("complete must be boolean");
+  if (!Array.isArray(manifest.checks)) {
+    problems.push("checks must be an array");
+  } else if (rawChecks.length !== checks.length) {
+    problems.push("checks must contain only JSON objects");
+  }
+  if (!artifactIdsAreExact(checks, REQUIRED_PLUG_AND_PLAY_CHECK_IDS)) {
+    problems.push("checks must exactly match the required plug-and-play readiness check IDs in order");
+  }
+  if (!checks.every((check) => ["pass", "warn", "fail", "blocked"].includes(String(check.status)) && typeof check.details === "string" && Array.isArray(check.evidence))) {
+    problems.push("checks must use pass/warn/fail/blocked statuses and include details plus evidence arrays");
+  }
+  for (const [statusName, count] of Object.entries(summaryCounts)) {
+    if (!Number.isInteger(count) || Number(count) < 0) problems.push(`summary.${statusName} must be a non-negative integer`);
+  }
+  if (
+    summaryCounts.pass !== computedCounts.pass ||
+    summaryCounts.warn !== computedCounts.warn ||
+    summaryCounts.fail !== computedCounts.fail ||
+    summaryCounts.blocked !== computedCounts.blocked
+  ) {
+    problems.push("summary counts must match check statuses");
+  }
+  if (localPlugAndPlayOk !== (computedCounts.fail === 0)) {
+    problems.push("localPlugAndPlayOk must be true exactly when there are zero failing readiness checks");
+  }
+  if (localPlugAndPlayOk && status === "blocked-local-plug-and-play") {
+    problems.push("localPlugAndPlayOk readiness cannot use blocked-local-plug-and-play status");
+  }
+  if (!localPlugAndPlayOk && status !== "blocked-local-plug-and-play") {
+    problems.push("failing readiness must use blocked-local-plug-and-play status");
+  }
+  if (complete && status !== "complete") problems.push("complete readiness must use complete status");
+  if (!complete && status === "complete") problems.push("complete status requires complete true");
+  if (remainingRealWorldBlockerCount !== remainingRealWorldBlockers.length) {
+    problems.push("remainingRealWorldBlockerCount must match remainingRealWorldBlockers length");
+  }
+  if (remainingRealWorldBlockerIds.length !== remainingRealWorldBlockers.length) {
+    problems.push("remainingRealWorldBlockerIds must match remainingRealWorldBlockers length");
+  }
+  if (complete && remainingRealWorldBlockers.length > 0) {
+    problems.push("complete readiness cannot retain remaining real-world blockers");
+  }
+  if (!complete && localPlugAndPlayOk && remainingRealWorldBlockers.length === 0) {
+    problems.push("incomplete local readiness must preserve explicit remaining real-world blockers");
+  }
+
+  if (!ai) {
+    problems.push("ai summary must be present");
+  } else {
+    const caseNames = stringArray(ai.caseNames);
+    if (ai.implemented !== true) problems.push("ai.implemented must be true");
+    if (ai.provider !== "ollama") problems.push("ai.provider must be ollama");
+    if (typeof ai.model !== "string" || !ai.model.trim()) problems.push("ai.model must be recorded");
+    if (!isLocalOllamaUrl(ai.ollamaUrl)) problems.push("ai.ollamaUrl must be loopback Ollama");
+    if (ai.commandUploadEnabled !== false) problems.push("ai.commandUploadEnabled must be false");
+    if (numberOrUndefined(ai.caseCount) !== REQUIRED_STRICT_AI_SMOKE_CASES.length) {
+      problems.push("ai.caseCount must match the required strict local AI smoke case count");
+    }
+    if (!sameStringArray(caseNames, [...REQUIRED_STRICT_AI_SMOKE_CASES])) {
+      problems.push("ai.caseNames must exactly match the required strict local AI smoke cases");
+    }
+  }
+
+  const headValues = plugAndPlayHeadValues(sourceControl, freshClone, reviewBundle);
+  if (options.expectedHeadSha) {
+    for (const [field, value] of headValues) {
+      if (value !== options.expectedHeadSha) problems.push(`${field} must match current source-control HEAD ${options.expectedHeadSha}`);
+    }
+  } else if (headValues.length && !headValues.every(([, value]) => value === headValues[0][1])) {
+    problems.push("source-control, fresh-clone, and review-bundle HEAD summaries must match");
+  }
+
+  if (!sourceControl) {
+    problems.push("sourceControl summary must be present");
+  } else {
+    if (sourceControl.status !== "ready-source-control-handoff") problems.push("sourceControl.status must be ready-source-control-handoff");
+    if (sourceControl.ready !== true) problems.push("sourceControl.ready must be true");
+    if (sourceControl.repositoryUrl !== EXPECTED_REPOSITORY_URL) problems.push(`sourceControl.repositoryUrl must be ${EXPECTED_REPOSITORY_URL}`);
+    if (sourceControl.packageRepositoryUrl !== EXPECTED_PACKAGE_REPOSITORY_URL) problems.push(`sourceControl.packageRepositoryUrl must be ${EXPECTED_PACKAGE_REPOSITORY_URL}`);
+    if (!stringArray(sourceControl.configuredRemoteUrls).some(pointsAtExpectedRepository)) {
+      problems.push("sourceControl.configuredRemoteUrls must include the SEEKR GitHub remote");
+    }
+    if (sourceControl.localBranch !== "main") problems.push("sourceControl.localBranch must be main");
+    if (sourceControl.remoteDefaultBranch !== "main") problems.push("sourceControl.remoteDefaultBranch must be main");
+    if (!Number.isInteger(numberOrUndefined(sourceControl.remoteRefCount)) || Number(sourceControl.remoteRefCount) < 1) {
+      problems.push("sourceControl.remoteRefCount must be a positive integer");
+    }
+    if (numberOrUndefined(sourceControl.blockedCheckCount) !== 0) problems.push("sourceControl.blockedCheckCount must be zero");
+    if (numberOrUndefined(sourceControl.warningCheckCount) !== 0) problems.push("sourceControl.warningCheckCount must be zero");
+    if (sourceControl.freshCloneInstallDryRunOk !== true) problems.push("sourceControl.freshCloneInstallDryRunOk must be true");
+    if (!Number.isInteger(numberOrUndefined(sourceControl.freshCloneCheckedPathCount)) || Number(sourceControl.freshCloneCheckedPathCount) < REQUIRED_FRESH_CLONE_PATHS.length) {
+      problems.push("sourceControl.freshCloneCheckedPathCount must cover every required startup file");
+    }
+    if (sourceControl.workingTreeClean !== true) problems.push("sourceControl.workingTreeClean must be true");
+    if (numberOrUndefined(sourceControl.workingTreeStatusLineCount) !== 0) problems.push("sourceControl.workingTreeStatusLineCount must be zero");
+  }
+
+  if (!operatorStartPorts) {
+    problems.push("operatorStartPorts summary must be present");
+  } else {
+    if (operatorStartPorts.status !== "pass") problems.push("operatorStartPorts.status must be pass");
+    if (operatorStartPorts.defaultPortsOccupied === true) {
+      if (operatorStartPorts.autoRecoverable !== true) problems.push("occupied default ports must be auto-recoverable");
+      if (!Number.isInteger(numberOrUndefined(operatorStartPorts.fallbackApi))) problems.push("occupied default ports must record fallbackApi");
+      if (!Number.isInteger(numberOrUndefined(operatorStartPorts.fallbackClient))) problems.push("occupied default ports must record fallbackClient");
+      if (!stringArray(operatorStartPorts.listenerDiagnostics).length) problems.push("occupied default ports must record listener diagnostics");
+    }
+  }
+
+  if (!freshClone) {
+    problems.push("freshClone summary must be present");
+  } else {
+    if (freshClone.status !== "pass") problems.push("freshClone.status must be pass");
+    if (freshClone.repositoryUrl !== EXPECTED_REPOSITORY_URL) problems.push(`freshClone.repositoryUrl must be ${EXPECTED_REPOSITORY_URL}`);
+    if (freshClone.sourceControlHandoffFreshCloneInstallDryRunOk !== true) problems.push("freshClone must record source-control npm ci dry-run success");
+    if (!Number.isInteger(numberOrUndefined(freshClone.sourceControlHandoffFreshCloneCheckedPathCount)) || Number(freshClone.sourceControlHandoffFreshCloneCheckedPathCount) < REQUIRED_FRESH_CLONE_PATHS.length) {
+      problems.push("freshClone must record source-control checked-path count for every required startup file");
+    }
+    if (freshClone.strictAiSmokeStatusPath !== STRICT_AI_SMOKE_STATUS_PATH) problems.push("freshClone strict AI smoke status path must be recorded");
+    if (freshClone.strictAiSmokeProvider !== "ollama") problems.push("freshClone strict AI provider must be ollama");
+    if (!isLocalOllamaUrl(freshClone.strictAiSmokeOllamaUrl)) problems.push("freshClone strict AI Ollama URL must be loopback");
+    if (numberOrUndefined(freshClone.strictAiSmokeCaseCount) !== REQUIRED_STRICT_AI_SMOKE_CASES.length) {
+      problems.push("freshClone strict AI smoke case count must match required cases");
+    }
+    if (freshClone.sourceControlHandoffStatus !== "ready-source-control-handoff") problems.push("freshClone source-control handoff status must be ready");
+    if (freshClone.sourceControlHandoffReady !== true) problems.push("freshClone source-control handoff ready flag must be true");
+    if (freshClone.plugAndPlayDoctorStatus !== "ready-local-start") problems.push("freshClone plug-and-play doctor status must be ready-local-start");
+    if (freshClone.rehearsalStartSmokeStatus !== "pass") problems.push("freshClone rehearsal-start smoke status must be pass");
+  }
+
+  if (!reviewBundle) {
+    problems.push("reviewBundle summary must be present");
+  } else {
+    if (reviewBundle.status !== "pass") problems.push("reviewBundle.status must be pass");
+    if (!Number.isInteger(numberOrUndefined(reviewBundle.checkedFileCount)) || Number(reviewBundle.checkedFileCount) <= 0) {
+      problems.push("reviewBundle.checkedFileCount must be a positive integer");
+    }
+    if (reviewBundle.secretScanStatus !== "pass") problems.push("reviewBundle.secretScanStatus must be pass");
+    if (reviewBundle.sourceControlHandoffRepositoryUrl !== EXPECTED_REPOSITORY_URL) problems.push(`reviewBundle source-control repository must be ${EXPECTED_REPOSITORY_URL}`);
+    if (reviewBundle.sourceControlHandoffPackageRepositoryUrl !== EXPECTED_PACKAGE_REPOSITORY_URL) problems.push(`reviewBundle source-control package repository must be ${EXPECTED_PACKAGE_REPOSITORY_URL}`);
+    if (!stringArray(reviewBundle.sourceControlHandoffConfiguredRemoteUrls).some(pointsAtExpectedRepository)) {
+      problems.push("reviewBundle source-control configured remotes must include the SEEKR GitHub remote");
+    }
+    if (reviewBundle.sourceControlHandoffLocalBranch !== "main") problems.push("reviewBundle source-control local branch must be main");
+    if (reviewBundle.sourceControlHandoffRemoteDefaultBranch !== "main") problems.push("reviewBundle source-control remote default branch must be main");
+    if (numberOrUndefined(reviewBundle.sourceControlHandoffBlockedCheckCount) !== 0) problems.push("reviewBundle source-control blocked-check count must be zero");
+    if (numberOrUndefined(reviewBundle.sourceControlHandoffWarningCheckCount) !== 0) problems.push("reviewBundle source-control warning-check count must be zero");
+    if (reviewBundle.sourceControlHandoffFreshCloneInstallDryRunOk !== true) problems.push("reviewBundle source-control npm ci dry-run must be true");
+    if (!Number.isInteger(numberOrUndefined(reviewBundle.sourceControlHandoffFreshCloneCheckedPathCount)) || Number(reviewBundle.sourceControlHandoffFreshCloneCheckedPathCount) < REQUIRED_FRESH_CLONE_PATHS.length) {
+      problems.push("reviewBundle source-control checked-path count must cover every required startup file");
+    }
+    if (reviewBundle.sourceControlHandoffWorkingTreeClean !== true) problems.push("reviewBundle source-control working tree must be clean");
+    if (numberOrUndefined(reviewBundle.sourceControlHandoffWorkingTreeStatusLineCount) !== 0) problems.push("reviewBundle source-control working-tree status line count must be zero");
+    for (const field of ["plugAndPlaySetupPath", "localAiPreparePath", "plugAndPlayDoctorPath", "rehearsalStartSmokePath", "freshCloneSmokePath", "operatorQuickstartPath"]) {
+      if (typeof reviewBundle[field] !== "string" || !String(reviewBundle[field]).trim()) {
+        problems.push(`reviewBundle.${field} must be recorded`);
+      }
+    }
+    if (reviewBundle.plugAndPlaySetupStatus !== "ready-local-setup") problems.push("reviewBundle plug-and-play setup status must be ready-local-setup");
+    if (reviewBundle.strictAiSmokeStatusPath !== STRICT_AI_SMOKE_STATUS_PATH) problems.push("reviewBundle strict local AI smoke status path must be recorded");
+  }
+
+  if (!safetyBoundary) {
+    problems.push("safetyBoundary must be present");
+  } else if (
+    safetyBoundary.realAircraftCommandUpload !== false ||
+    safetyBoundary.hardwareActuationEnabled !== false ||
+    safetyBoundary.runtimePolicyInstalled !== false
+  ) {
+    problems.push("safetyBoundary must keep realAircraftCommandUpload, hardwareActuationEnabled, and runtimePolicyInstalled false");
+  }
+  const limitations = stringArray(manifest.limitations).join(" ");
+  if (!/does not prove actual Jetson\/Pi hardware|does not prove actual Jetson/i.test(limitations)) {
+    problems.push("limitations must state that plug-and-play readiness does not prove actual hardware");
+  }
+  if (!/Real command upload and hardware actuation remain disabled/i.test(limitations)) {
+    problems.push("limitations must preserve disabled command upload and hardware actuation");
+  }
+
+  return {
+    ok: problems.length === 0,
+    problems,
+    failCheckIds,
+    warningCheckIds,
+    blockedCheckIds,
+    localPlugAndPlayOk
+  };
+}
 
 export async function buildPlugAndPlayReadiness(options: {
   root?: string;
@@ -1608,6 +1875,39 @@ function gstackHelperToolEvidenceOk(manifest: Record<string, unknown>) {
     toolNames.length === toolCount &&
     /helper tool/i.test(evidenceText) &&
     evidenceText.includes(String(toolCount));
+}
+
+function countPlugAndPlayChecks(checks: Record<string, unknown>[]) {
+  return {
+    pass: checks.filter((check) => check.status === "pass").length,
+    warn: checks.filter((check) => check.status === "warn").length,
+    fail: checks.filter((check) => check.status === "fail").length,
+    blocked: checks.filter((check) => check.status === "blocked").length
+  };
+}
+
+function plugAndPlayHeadValues(
+  sourceControl: Record<string, unknown> | undefined,
+  freshClone: Record<string, unknown> | undefined,
+  reviewBundle: Record<string, unknown> | undefined
+) {
+  return [
+    ["sourceControl.localHeadSha", stringOrUndefined(sourceControl?.localHeadSha)],
+    ["sourceControl.remoteDefaultBranchSha", stringOrUndefined(sourceControl?.remoteDefaultBranchSha)],
+    ["sourceControl.freshCloneHeadSha", stringOrUndefined(sourceControl?.freshCloneHeadSha)],
+    ["freshClone.localHeadSha", stringOrUndefined(freshClone?.localHeadSha)],
+    ["freshClone.cloneHeadSha", stringOrUndefined(freshClone?.cloneHeadSha)],
+    ["freshClone.sourceControlHandoffLocalHeadSha", stringOrUndefined(freshClone?.sourceControlHandoffLocalHeadSha)],
+    ["freshClone.sourceControlHandoffRemoteDefaultBranchSha", stringOrUndefined(freshClone?.sourceControlHandoffRemoteDefaultBranchSha)],
+    ["freshClone.sourceControlHandoffFreshCloneHeadSha", stringOrUndefined(freshClone?.sourceControlHandoffFreshCloneHeadSha)],
+    ["reviewBundle.sourceControlHandoffLocalHeadSha", stringOrUndefined(reviewBundle?.sourceControlHandoffLocalHeadSha)],
+    ["reviewBundle.sourceControlHandoffRemoteDefaultBranchSha", stringOrUndefined(reviewBundle?.sourceControlHandoffRemoteDefaultBranchSha)],
+    ["reviewBundle.sourceControlHandoffFreshCloneHeadSha", stringOrUndefined(reviewBundle?.sourceControlHandoffFreshCloneHeadSha)]
+  ].filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0);
+}
+
+function pointsAtExpectedRepository(value: string) {
+  return /github\.com[:/]Ayush1298567\/SEEKR(?:\.git)?$/i.test(value);
 }
 
 function stringArray(value: unknown) {

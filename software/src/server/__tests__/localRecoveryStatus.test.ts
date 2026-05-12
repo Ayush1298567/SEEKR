@@ -334,6 +334,41 @@ describe("local recovery status", () => {
     });
   });
 
+  it("blocks local recovery status when plug-and-play readiness loses strict AI case evidence", async () => {
+    const readiness = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), "utf8"));
+    readiness.ai.caseNames = readiness.ai.caseNames.slice(0, 3);
+    await writeJson(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), readiness);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("ai.caseNames must exactly match the required strict local AI smoke cases")
+    });
+  });
+
+  it("blocks local recovery status when plug-and-play readiness points at the wrong repository", async () => {
+    const readiness = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), "utf8"));
+    readiness.sourceControl.repositoryUrl = "https://github.com/example/not-seekr";
+    readiness.reviewBundle.sourceControlHandoffRepositoryUrl = "https://github.com/example/not-seekr";
+    await writeJson(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), readiness);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("sourceControl.repositoryUrl must be https://github.com/Ayush1298567/SEEKR")
+    });
+  });
+
   it("blocks local recovery status when plug-and-play readiness points at a stale source-control head", async () => {
     const readiness = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), "utf8"));
     readiness.sourceControl.localHeadSha = STALE_HEAD_SHA;
@@ -568,11 +603,26 @@ async function seedRecoveryArtifacts(root: string) {
     strictAiSmokeCaseCount: 4
   });
   await writeJson(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), {
+    schemaVersion: 1,
     generatedAt: FRESH_ARTIFACT_AT,
     status: "ready-local-plug-and-play-real-world-blocked",
     localPlugAndPlayOk: true,
     complete: false,
     commandUploadEnabled: false,
+    ai: {
+      implemented: true,
+      provider: "ollama",
+      model: "llama3.2:latest",
+      ollamaUrl: "http://127.0.0.1:11434",
+      commandUploadEnabled: false,
+      caseCount: 4,
+      caseNames: [
+        "baseline-zone-assignment",
+        "prompt-injection-detection-notes",
+        "map-conflict-no-fly-draft",
+        "prompt-injection-spatial-metadata"
+      ]
+    },
     summary: {
       pass: 15,
       warn: 1,
@@ -580,6 +630,10 @@ async function seedRecoveryArtifacts(root: string) {
       blocked: 1
     },
     operatorStartPorts: {
+      path: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
+      status: "pass",
+      api: 8787,
+      client: 5173,
       fallbackApi: 59374,
       fallbackClient: 59375,
       defaultPortsOccupied: true,
@@ -590,24 +644,103 @@ async function seedRecoveryArtifacts(root: string) {
       details: "Default ports are occupied by a non-SEEKR listener; npm run plug-and-play auto-selects free local API/client ports."
     },
     sourceControl: {
+      path: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+      generatedAt: FRESH_ARTIFACT_AT,
+      status: "ready-source-control-handoff",
+      ready: true,
+      repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+      configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      localBranch: "main",
+      remoteDefaultBranch: "main",
+      remoteRefCount: 1,
+      blockedCheckCount: 0,
+      warningCheckCount: 0,
       localHeadSha: HEAD_SHA,
       remoteDefaultBranchSha: HEAD_SHA,
-      freshCloneHeadSha: HEAD_SHA
+      freshCloneHeadSha: HEAD_SHA,
+      freshCloneInstallDryRunOk: true,
+      freshCloneCheckedPathCount: 7,
+      workingTreeClean: true,
+      workingTreeStatusLineCount: 0
     },
     freshClone: {
+      path: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+      status: "pass",
+      repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
       localHeadSha: HEAD_SHA,
       cloneHeadSha: HEAD_SHA,
       sourceControlHandoffLocalHeadSha: HEAD_SHA,
       sourceControlHandoffRemoteDefaultBranchSha: HEAD_SHA,
-      sourceControlHandoffFreshCloneHeadSha: HEAD_SHA
+      sourceControlHandoffFreshCloneHeadSha: HEAD_SHA,
+      sourceControlHandoffFreshCloneInstallDryRunOk: true,
+      sourceControlHandoffFreshCloneCheckedPathCount: 7,
+      localAiPrepareModel: "llama3.2:latest",
+      strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
+      strictAiSmokeProvider: "ollama",
+      strictAiSmokeModel: "llama3.2:latest",
+      strictAiSmokeOllamaUrl: "http://127.0.0.1:11434",
+      strictAiSmokeCaseCount: 4,
+      sourceControlHandoffStatus: "ready-source-control-handoff",
+      sourceControlHandoffReady: true,
+      plugAndPlayDoctorStatus: "ready-local-start",
+      rehearsalStartSmokeStatus: "pass"
     },
     reviewBundle: {
+      path: ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json",
+      verificationPath: ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
+      status: "pass",
+      checkedFileCount: 42,
+      secretScanStatus: "pass",
+      sourceControlHandoffPath: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+      sourceControlHandoffRepositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      sourceControlHandoffPackageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+      sourceControlHandoffConfiguredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      sourceControlHandoffLocalBranch: "main",
+      sourceControlHandoffRemoteDefaultBranch: "main",
+      sourceControlHandoffRemoteRefCount: 1,
+      sourceControlHandoffBlockedCheckCount: 0,
+      sourceControlHandoffWarningCheckCount: 0,
       sourceControlHandoffLocalHeadSha: HEAD_SHA,
       sourceControlHandoffRemoteDefaultBranchSha: HEAD_SHA,
-      sourceControlHandoffFreshCloneHeadSha: HEAD_SHA
+      sourceControlHandoffFreshCloneHeadSha: HEAD_SHA,
+      sourceControlHandoffFreshCloneInstallDryRunOk: true,
+      sourceControlHandoffFreshCloneCheckedPathCount: 7,
+      sourceControlHandoffWorkingTreeClean: true,
+      sourceControlHandoffWorkingTreeStatusLineCount: 0,
+      plugAndPlaySetupPath: ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+      plugAndPlaySetupGeneratedAt: FRESH_ARTIFACT_AT,
+      plugAndPlaySetupStatus: "ready-local-setup",
+      localAiPreparePath: ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+      plugAndPlayDoctorPath: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
+      rehearsalStartSmokePath: ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+      freshCloneSmokePath: ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+      strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
+      operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md"
     },
+    checks: plugAndPlayChecks(),
+    remainingRealWorldBlockerIds: [
+      "fresh-operator-field-laptop",
+      "actual-jetson-orin-nano-hardware-evidence",
+      "actual-raspberry-pi-5-hardware-evidence",
+      "real-mavlink-telemetry",
+      "real-ros2-topics",
+      "hil-failsafe-manual-override",
+      "isaac-sim-jetson-capture",
+      "hardware-actuation-policy-review"
+    ],
     remainingRealWorldBlockerCount: 8,
-    remainingRealWorldBlockers: recoveryBlockers()
+    remainingRealWorldBlockers: recoveryBlockers(),
+    safetyBoundary: {
+      realAircraftCommandUpload: false,
+      hardwareActuationEnabled: false,
+      runtimePolicyInstalled: false
+    },
+    limitations: [
+      "This audit proves local plug-and-play readiness for the checked software, AI, QA, and handoff evidence surface.",
+      "It does not prove actual Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim to Jetson capture, or hardware-actuation policy approval.",
+      "Real command upload and hardware actuation remain disabled."
+    ]
   });
   await writeJson(path.join(root, ".tmp/goal-audit/seekr-goal-audit-test.json"), {
     generatedAt: FRESH_ARTIFACT_AT,
@@ -732,6 +865,33 @@ function sourceControlChecks() {
       evidence: ["git status --porcelain --untracked-files=normal"]
     }
   ];
+}
+
+function plugAndPlayChecks() {
+  return [
+    { id: "command-surface", status: "pass" },
+    { id: "operator-setup", status: "pass" },
+    { id: "local-ai-prepare", status: "pass" },
+    { id: "operator-doctor", status: "warn" },
+    { id: "source-control-handoff", status: "pass" },
+    { id: "fresh-clone-operator-smoke", status: "pass" },
+    { id: "operator-start", status: "pass" },
+    { id: "operator-start-smoke", status: "pass" },
+    { id: "operator-quickstart-doc", status: "pass" },
+    { id: "operator-env", status: "pass" },
+    { id: "env-loader", status: "pass" },
+    { id: "built-app", status: "pass" },
+    { id: "acceptance-ai", status: "pass" },
+    { id: "api-readback", status: "pass" },
+    { id: "workflow-qa", status: "pass" },
+    { id: "review-bundle", status: "pass" },
+    { id: "real-world-boundary", status: "blocked" }
+  ].map((check) => ({
+    ...check,
+    requirement: `Requirement for ${check.id}`,
+    details: `Details for ${check.id}`,
+    evidence: [`evidence:${check.id}`]
+  }));
 }
 
 async function writeJson(filePath: string, value: unknown) {

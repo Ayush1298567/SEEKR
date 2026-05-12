@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { validatePlugAndPlayReadinessManifest } from "./plug-and-play-readiness";
 import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
@@ -512,35 +513,24 @@ function plugAndPlayCheck(artifact: LatestArtifact | undefined, expectedHeadSha:
   const manifest = recordOrUndefined(artifact?.manifest);
   const summary = isRecord(manifest?.summary) ? manifest.summary : undefined;
   const warnCount = numberOrUndefined(summary?.warn) ?? 0;
-  const failCount = numberOrUndefined(summary?.fail) ?? 0;
-  const sourceControl = isRecord(manifest?.sourceControl) ? manifest.sourceControl : undefined;
-  const freshClone = isRecord(manifest?.freshClone) ? manifest.freshClone : undefined;
-  const reviewBundle = isRecord(manifest?.reviewBundle) ? manifest.reviewBundle : undefined;
-  const headOk = expectedHeadSha ? [
-    stringOrUndefined(sourceControl?.localHeadSha),
-    stringOrUndefined(sourceControl?.remoteDefaultBranchSha),
-    stringOrUndefined(sourceControl?.freshCloneHeadSha),
-    stringOrUndefined(freshClone?.localHeadSha),
-    stringOrUndefined(freshClone?.cloneHeadSha),
-    stringOrUndefined(freshClone?.sourceControlHandoffLocalHeadSha),
-    stringOrUndefined(freshClone?.sourceControlHandoffRemoteDefaultBranchSha),
-    stringOrUndefined(freshClone?.sourceControlHandoffFreshCloneHeadSha),
-    stringOrUndefined(reviewBundle?.sourceControlHandoffLocalHeadSha),
-    stringOrUndefined(reviewBundle?.sourceControlHandoffRemoteDefaultBranchSha),
-    stringOrUndefined(reviewBundle?.sourceControlHandoffFreshCloneHeadSha)
-  ].every((value) => value === expectedHeadSha) : true;
-  const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
-  const ok = isRecord(manifest) &&
-    manifest.localPlugAndPlayOk === true &&
-    manifest.commandUploadEnabled === false &&
-    failCount === 0 &&
-    headOk &&
-    fresh;
+  const validation = validatePlugAndPlayReadinessManifest(manifest, {
+    expectedHeadSha,
+    acceptanceGeneratedAtMs
+  });
+  const staleHead = expectedHeadSha && validation.problems.some((problem) => problem.includes(expectedHeadSha));
+  const staleAcceptance = validation.problems.some((problem) => /newer than or equal to the current acceptance record/i.test(problem));
+  const ok = validation.ok && validation.localPlugAndPlayOk;
   return {
     id: "plug-and-play-readiness",
     status: !ok ? "fail" : warnCount > 0 ? "warn" : "pass",
     details: ok
-      ? `Plug-and-play readiness is ${manifest.status}${warnCount ? ` with ${warnCount} warning(s)` : ""}.`
+      ? `Plug-and-play readiness is ${stringOrUndefined(manifest?.status) ?? "ready"}${warnCount ? ` with ${warnCount} warning(s)` : ""}.`
+      : staleHead && expectedHeadSha
+        ? `Latest plug-and-play readiness artifact is missing, failing, unsafe, older than the current acceptance record, stale against current source-control HEAD ${expectedHeadSha}, or not locally ready.`
+      : staleAcceptance
+        ? "Latest plug-and-play readiness artifact is missing, failing, unsafe, older than the current acceptance record, or not locally ready."
+      : validation.problems.length
+        ? `Latest plug-and-play readiness artifact failed semantic validation: ${validation.problems.slice(0, 5).join("; ")}.`
       : expectedHeadSha
         ? `Latest plug-and-play readiness artifact is missing, failing, unsafe, older than the current acceptance record, stale against current source-control HEAD ${expectedHeadSha}, or not locally ready.`
         : "Latest plug-and-play readiness artifact is missing, failing, unsafe, older than the current acceptance record, or not locally ready.",
