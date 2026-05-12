@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildCompletionAudit } from "../../../scripts/completion-audit";
 import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
 import { buildGoalAudit, writeGoalAudit } from "../../../scripts/goal-audit";
+import { REQUIRED_PLUG_AND_PLAY_CHECK_IDS } from "../../../scripts/plug-and-play-readiness";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
 import { writeTodoAudit } from "../../../scripts/todo-audit";
@@ -272,6 +273,7 @@ describe("goal audit", () => {
     const doctorCheck = readiness.checks.find((check: { id: string }) => check.id === "operator-doctor");
     doctorCheck.status = "warn";
     doctorCheck.details = "Latest operator-start doctor passed with soft warning(s): local-ports occupied.";
+    readiness.summary = plugAndPlayReadinessSummary(readiness.checks);
     await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
 
     const manifest = await buildGoalAudit({
@@ -413,6 +415,44 @@ describe("goal audit", () => {
     expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("source-control local branch summary must match")
+    });
+  });
+
+  it("fails local alpha when plug-and-play readiness omits strict AI case evidence", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.ai.caseNames = readiness.ai.caseNames.slice(0, -1);
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("semantic validation failed")
+    });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).toContain("ai.caseNames must exactly match");
+  });
+
+  it("fails local alpha when plug-and-play readiness check IDs are truncated", async () => {
+    const readinessPath = path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json");
+    const readiness = JSON.parse(await readFile(readinessPath, "utf8"));
+    readiness.checks = readiness.checks.filter((check: { id: string }) => check.id !== "command-surface");
+    readiness.summary = plugAndPlayReadinessSummary(readiness.checks);
+    await writeFile(readinessPath, JSON.stringify(readiness), "utf8");
+
+    const manifest = await buildGoalAudit({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("checks must exactly match")
     });
   });
 
@@ -1954,7 +1994,7 @@ async function seedRoot(root: string) {
     status: "ready-local-start",
     commandUploadEnabled: false,
     ai: { provider: "ollama", model: "llama3.2:latest", status: "pass" },
-    ports: { api: 8787, client: 5173, fallbackClient: 6100 },
+    ports: { api: 8787, client: 5173, fallbackApi: 8787, fallbackClient: 6100 },
     summary: { pass: 10, warn: 0, fail: 0 },
     checks: [
       { id: "package-scripts", status: "pass" },
@@ -2186,6 +2226,8 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
   });
   const remainingRealWorldBlockerIds = complete ? [] : completionAudit.realWorldBlockerIds;
   const remainingRealWorldBlockers = complete ? [] : completionAudit.realWorldBlockers;
+  const checks = plugAndPlayReadinessChecks(complete);
+  const summary = plugAndPlayReadinessSummary(checks);
   await writeFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), JSON.stringify({
     schemaVersion: 1,
     generatedAt: GENERATED_AT,
@@ -2228,6 +2270,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       status: "pass",
       api: 8787,
       client: 5173,
+      fallbackApi: 8787,
       fallbackClient: 6100,
       defaultPortsOccupied: true,
       autoRecoverable: true,
@@ -2289,6 +2332,7 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       strictAiSmokeStatusPath: ".tmp/ai-smoke-status.json",
       operatorQuickstartPath: "docs/OPERATOR_QUICKSTART.md"
     },
+    summary,
     remainingRealWorldBlockerIds,
     remainingRealWorldBlockers,
     remainingRealWorldBlockerCount: remainingRealWorldBlockers.length,
@@ -2297,65 +2341,91 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       hardwareActuationEnabled: false,
       runtimePolicyInstalled: false
     },
-    checks: [
-      {
-        id: "api-readback",
-        status: "pass",
-        details: "api ready",
-        evidence: [".tmp/api-probe/seekr-api-probe-test.json"]
-      },
-      {
-        id: "operator-setup",
-        status: "pass",
-        details: "setup ready",
-        evidence: [".tmp/plug-and-play-setup/seekr-local-setup-test.json"]
-      },
-      {
-        id: "operator-doctor",
-        status: "pass",
-        details: "doctor ready",
-        evidence: [".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"]
-      },
-      {
-        id: "operator-start-smoke",
-        status: "pass",
-        details: "rehearsal start smoke ready",
-        evidence: [".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json"]
-      },
-      {
-        id: "fresh-clone-operator-smoke",
-        status: "pass",
-        details: "fresh clone ready",
-        evidence: [".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"]
-      },
-      {
-        id: "workflow-qa",
-        status: "pass",
-        details: "workflow and QA ready",
-        evidence: [
-          ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json",
-          ".gstack/qa-reports/seekr-qa-2026-05-09T20-55-00Z.md"
-        ]
-      },
-      {
-        id: "review-bundle",
-        status: "pass",
-        details: "review bundle ready",
-        evidence: [
-          ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
-          ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json",
-          ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json",
-          ".tmp/todo-audit/seekr-todo-audit-2026-05-09T21-00-00-000Z.json",
-          ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
-          ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
-          ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
-          ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
-          ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
-          "docs/OPERATOR_QUICKSTART.md"
-        ]
-      }
+    checks,
+    limitations: [
+      "This audit proves local plug-and-play readiness for the checked software, AI, QA, and handoff evidence surface.",
+      "It does not prove actual Jetson/Pi hardware, real MAVLink telemetry, real ROS 2 topics, HIL behavior, Isaac Sim to Jetson capture, or hardware-actuation policy approval.",
+      "Real command upload and hardware actuation remain disabled."
     ]
   }), "utf8");
+}
+
+function plugAndPlayReadinessChecks(complete: boolean) {
+  return REQUIRED_PLUG_AND_PLAY_CHECK_IDS.map((id) => {
+    const status = id === "real-world-boundary" && !complete ? "blocked" : "pass";
+    return {
+      id,
+      status,
+      details: id === "real-world-boundary" && !complete
+        ? "Local plug-and-play readiness is preserved, but real-world blocker evidence remains."
+        : `${id} ready`,
+      evidence: plugAndPlayReadinessEvidenceFor(id)
+    };
+  });
+}
+
+function plugAndPlayReadinessEvidenceFor(id: string) {
+  switch (id) {
+    case "command-surface":
+      return ["package.json"];
+    case "operator-setup":
+      return [".tmp/plug-and-play-setup/seekr-local-setup-test.json"];
+    case "local-ai-prepare":
+      return [".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json"];
+    case "operator-doctor":
+    case "operator-start":
+      return [".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"];
+    case "source-control-handoff":
+      return [".tmp/source-control-handoff/seekr-source-control-handoff-test.json"];
+    case "fresh-clone-operator-smoke":
+      return [".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"];
+    case "operator-start-smoke":
+      return [".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json"];
+    case "operator-quickstart-doc":
+      return ["docs/OPERATOR_QUICKSTART.md"];
+    case "operator-env":
+      return [".env.example"];
+    case "env-loader":
+      return ["src/server/config.ts"];
+    case "built-app":
+      return ["dist"];
+    case "acceptance-ai":
+      return [".tmp/acceptance-status.json", ".tmp/ai-smoke-status.json"];
+    case "api-readback":
+      return [".tmp/api-probe/seekr-api-probe-test.json"];
+    case "workflow-qa":
+      return [
+        ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json",
+        ".gstack/qa-reports/seekr-qa-2026-05-09T20-55-00Z.md"
+      ];
+    case "review-bundle":
+      return [
+        ".tmp/handoff-bundles/seekr-review-bundle-verification-test.json",
+        ".tmp/handoff-bundles/seekr-handoff-bundle-internal-alpha-test.json",
+        ".tmp/gstack-workflow-status/seekr-gstack-workflow-status-test.json",
+        ".tmp/todo-audit/seekr-todo-audit-2026-05-09T21-00-00-000Z.json",
+        ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
+        ".tmp/plug-and-play-setup/seekr-local-setup-test.json",
+        ".tmp/local-ai-prepare/seekr-local-ai-prepare-test.json",
+        ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
+        ".tmp/rehearsal-start-smoke/seekr-rehearsal-start-smoke-test.json",
+        ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json",
+        "docs/OPERATOR_QUICKSTART.md"
+      ];
+    case "real-world-boundary":
+      return [".tmp/completion-audit/seekr-completion-audit-test.json"];
+    default:
+      return [];
+  }
+}
+
+function plugAndPlayReadinessSummary(checks: Array<{ status: string }>) {
+  return {
+    pass: checks.filter((check) => check.status === "pass").length,
+    warn: checks.filter((check) => check.status === "warn").length,
+    fail: checks.filter((check) => check.status === "fail").length,
+    blocked: checks.filter((check) => check.status === "blocked").length
+  };
 }
 
 async function seedCompletedRealWorldEvidence(root: string) {

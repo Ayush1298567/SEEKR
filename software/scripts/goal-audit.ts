@@ -7,6 +7,7 @@ import { EXPECTED_REPOSITORY_URL, validateSourceControlHandoffManifest } from ".
 import { buildTodoAudit, type TodoAuditManifest } from "./todo-audit";
 import { localAiPrepareFreshForAcceptance, localAiPrepareManifestOk, localAiPrepareMatchesAcceptanceModel } from "./local-ai-prepare";
 import { plugAndPlaySetupFreshForAcceptance, plugAndPlaySetupOk } from "./plug-and-play-artifact-contract";
+import { validatePlugAndPlayReadinessManifest } from "./plug-and-play-readiness";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type GoalAuditStatus = "pass" | "warn" | "fail" | "blocked";
@@ -882,10 +883,17 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     : [];
   const readinessEvidence = plugAndPlayReadinessEvidencePaths(root, manifest);
   const readinessWarnings = plugAndPlayReadinessWarningDetails(manifest);
+  const semanticValidation = validatePlugAndPlayReadinessManifest(manifest, {
+    acceptanceGeneratedAtMs: isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined,
+    expectedHeadSha: isRecord(sourceControlManifest) ? stringOrUndefined(sourceControlManifest.localHeadSha) : undefined
+  });
   const problems: string[] = [];
 
   if (!readiness) problems.push("plug-and-play readiness artifact is missing");
   if (!isRecord(manifest)) problems.push("plug-and-play readiness artifact is malformed");
+  if (isRecord(manifest) && !semanticValidation.ok) {
+    problems.push(`plug-and-play readiness semantic validation failed: ${sentenceList(semanticValidation.problems)}`);
+  }
   if (isRecord(manifest) && !Array.isArray(manifest.checks)) problems.push("plug-and-play readiness must include check evidence paths");
   if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("plug-and-play readiness must keep commandUploadEnabled false");
   if (isRecord(manifest) && manifest.localPlugAndPlayOk !== true) problems.push("plug-and-play readiness must report localPlugAndPlayOk true");

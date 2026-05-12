@@ -202,7 +202,7 @@ const REQUIRED_ENV_EXAMPLE_SIGNALS = [
 const REQUIRED_GSTACK_WORKFLOW_IDS = ["health", "review", "planning", "qa"];
 const REQUIRED_GSTACK_PERSPECTIVE_IDS = ["operator", "safety", "dx", "replay", "demo-readiness"];
 const EXPECTED_PACKAGE_REPOSITORY_URL = "git+https://github.com/Ayush1298567/SEEKR.git";
-const REQUIRED_PLUG_AND_PLAY_CHECK_IDS = [
+export const REQUIRED_PLUG_AND_PLAY_CHECK_IDS = [
   "command-surface",
   "operator-setup",
   "local-ai-prepare",
