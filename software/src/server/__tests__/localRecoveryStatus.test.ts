@@ -317,6 +317,23 @@ describe("local recovery status", () => {
     });
   });
 
+  it("blocks local recovery status when source-control handoff points at the wrong repository", async () => {
+    const handoff = JSON.parse(await readFile(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), "utf8"));
+    handoff.repositoryUrl = "https://github.com/example/not-seekr";
+    await writeJson(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), handoff);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "source-control-handoff")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("repositoryUrl must be https://github.com/Ayush1298567/SEEKR")
+    });
+  });
+
   it("blocks local recovery status when plug-and-play readiness points at a stale source-control head", async () => {
     const readiness = JSON.parse(await readFile(path.join(root, ".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"), "utf8"));
     readiness.sourceControl.localHeadSha = STALE_HEAD_SHA;
@@ -491,6 +508,7 @@ async function seedRecoveryArtifacts(root: string) {
     }
   });
   await writeJson(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), {
+    schemaVersion: 1,
     generatedAt: FRESH_ARTIFACT_AT,
     status: "ready-source-control-handoff",
     ready: true,
@@ -504,10 +522,36 @@ async function seedRecoveryArtifacts(root: string) {
     localHeadSha: HEAD_SHA,
     remoteDefaultBranchSha: HEAD_SHA,
     freshCloneHeadSha: HEAD_SHA,
+    freshCloneInstallDryRunOk: true,
+    freshCloneCheckedPathCount: 7,
     workingTreeClean: true,
     workingTreeStatusLineCount: 0,
     blockedCheckCount: 0,
-    warningCheckCount: 0
+    warningCheckCount: 0,
+    checks: sourceControlChecks(),
+    nextActionChecklist: [
+      {
+        id: "verify-source-control-before-bundle",
+        status: "verification",
+        details: "Rerun the read-only audit before final bundling to keep source-control evidence current.",
+        commands: ["npm run audit:source-control"],
+        clearsCheckIds: [
+          "repository-reference",
+          "github-landing-readme",
+          "local-git-metadata",
+          "configured-github-remote",
+          "github-remote-refs",
+          "fresh-clone-smoke",
+          "local-head-published",
+          "working-tree-clean"
+        ]
+      }
+    ],
+    limitations: [
+      "This audit is read-only and does not initialize Git, commit files, push branches, or change GitHub settings.",
+      "Source-control handoff status is separate from aircraft hardware readiness.",
+      "Real command upload and hardware actuation remain disabled."
+    ]
   });
   await writeJson(path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"), {
     generatedAt: FRESH_ARTIFACT_AT,
@@ -617,6 +661,77 @@ async function seedRecoveryArtifacts(root: string) {
     "- Verdict: pass",
     ""
   ].join("\n"), "utf8");
+}
+
+function sourceControlChecks() {
+  return [
+    {
+      id: "repository-reference",
+      status: "pass",
+      details: "Package metadata or README documentation names the SEEKR GitHub repository.",
+      evidence: ["package.json repository", "README.md", "../README.md"]
+    },
+    {
+      id: "github-landing-readme",
+      status: "pass",
+      details: "GitHub landing README documents the fresh-clone operator path.",
+      evidence: [
+        "../README.md",
+        "github-landing-readme-command-order",
+        "github-landing-readme-ai-readiness-proof"
+      ]
+    },
+    {
+      id: "local-git-metadata",
+      status: "pass",
+      details: "Local Git metadata is present for diff review and handoff history.",
+      evidence: ["../.git"]
+    },
+    {
+      id: "configured-github-remote",
+      status: "pass",
+      details: "Local Git metadata has a remote pointing at Ayush1298567/SEEKR.",
+      evidence: ["https://github.com/Ayush1298567/SEEKR.git"]
+    },
+    {
+      id: "github-remote-refs",
+      status: "pass",
+      details: "GitHub remote has 1 ref(s) and default branch main.",
+      evidence: ["https://github.com/Ayush1298567/SEEKR", "git ls-remote --symref"]
+    },
+    {
+      id: "fresh-clone-smoke",
+      status: "pass",
+      details: "Fresh clone contains required startup files and passes npm ci dry-run.",
+      evidence: [
+        "https://github.com/Ayush1298567/SEEKR",
+        "git clone --depth 1",
+        "npm ci --dry-run --ignore-scripts --no-audit --fund=false --prefer-offline",
+        "fresh-clone-github-landing-readme-contract",
+        "fresh-clone-operator-quickstart-contract",
+        `fresh-clone-head:${HEAD_SHA}`,
+        "fresh-clone:README.md",
+        "fresh-clone:software/package.json",
+        "fresh-clone:software/package-lock.json",
+        "fresh-clone:software/.env.example",
+        "fresh-clone:software/scripts/local-ai-prepare.ts",
+        "fresh-clone:software/scripts/rehearsal-start.sh",
+        "fresh-clone:software/docs/OPERATOR_QUICKSTART.md"
+      ]
+    },
+    {
+      id: "local-head-published",
+      status: "pass",
+      details: "Local HEAD on main matches GitHub default branch main.",
+      evidence: ["branch:main", `HEAD:${HEAD_SHA}`, `origin/main:${HEAD_SHA}`]
+    },
+    {
+      id: "working-tree-clean",
+      status: "pass",
+      details: "Local Git worktree has no uncommitted tracked or untracked source changes.",
+      evidence: ["git status --porcelain --untracked-files=normal"]
+    }
+  ];
 }
 
 async function writeJson(filePath: string, value: unknown) {

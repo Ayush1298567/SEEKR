@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { validateSourceControlHandoffManifest } from "./source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type RecoveryStatus = "pass" | "warn" | "fail" | "blocked";
@@ -380,11 +381,13 @@ function apiProbeCheck(artifact: LatestArtifact | undefined, acceptance: unknown
 
 function sourceControlCheck(artifact: LatestArtifact | undefined, acceptanceGeneratedAtMs: number | undefined): LocalRecoveryStatusCheck {
   const manifest = recordOrUndefined(artifact?.manifest);
+  const validation = validateSourceControlHandoffManifest(manifest);
   const localHead = stringOrUndefined(manifest?.localHeadSha);
   const remoteHead = stringOrUndefined(manifest?.remoteDefaultBranchSha);
   const cloneHead = stringOrUndefined(manifest?.freshCloneHeadSha);
   const fresh = artifactFreshForAcceptance(manifest, acceptanceGeneratedAtMs);
   const ok = isRecord(manifest) &&
+    validation.ok &&
     manifest.status === "ready-source-control-handoff" &&
     manifest.ready === true &&
     manifest.workingTreeClean === true &&
@@ -400,7 +403,7 @@ function sourceControlCheck(artifact: LatestArtifact | undefined, acceptanceGene
     status: ok ? "pass" : "fail",
     details: ok
       ? `GitHub handoff is clean and published at ${localHead}.`
-      : "Latest source-control handoff is missing, dirty, unpublished, warning-bearing, older than the current acceptance record, or not aligned with the GitHub default branch.",
+      : `Latest source-control handoff is missing, malformed, for the wrong repository, dirty, unpublished, warning-bearing, older than the current acceptance record, or not aligned with the GitHub default branch${validation.problems.length ? `: ${validation.problems.slice(0, 5).join("; ")}` : ""}.`,
     evidence: [artifact?.relativePath ?? ".tmp/source-control-handoff"]
   };
 }
