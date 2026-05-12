@@ -120,6 +120,7 @@ const REQUIRED_COMMANDS = [
   "audit:todo",
   "audit:plug-and-play",
   "audit:goal",
+  "status:local",
   "overnight"
 ];
 
