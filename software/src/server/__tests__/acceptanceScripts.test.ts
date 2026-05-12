@@ -63,6 +63,7 @@ describe("acceptance script contract", () => {
     expect(scripts["handoff:bundle:verify"]).toBe("tsx scripts/handoff-bundle-verify.ts");
     expect(scripts["qa:gstack"]).toBe("tsx scripts/gstack-browser-qa.ts");
     expect(scripts["health:gstack"]).toBe("tsx scripts/gstack-health-history.ts");
+    expect(scripts["status:local"]).toBe("tsx scripts/local-recovery-status.ts");
     expect(scripts["audit:gstack"]).toBe("tsx scripts/gstack-workflow-status.ts");
     expect(scripts["audit:source-control"]).toBe("tsx scripts/source-control-handoff.ts");
     expect(scripts["audit:completion"]).toBe("tsx scripts/completion-audit.ts");
@@ -124,6 +125,7 @@ describe("acceptance script contract", () => {
       "npm run handoff:bundle:verify",
       "npm run qa:gstack",
       "npm run health:gstack",
+      "npm run status:local",
       "npm run audit:gstack",
       "npm run audit:source-control",
       "npm run audit:todo",
@@ -173,6 +175,7 @@ describe("acceptance script contract", () => {
       "npm run handoff:bundle:verify",
       "npm run qa:gstack",
       "npm run health:gstack",
+      "npm run status:local",
       "npm run audit:gstack",
       "npm run audit:source-control",
       "npm run audit:todo",
@@ -233,7 +236,8 @@ describe("acceptance script contract", () => {
       "npm run handoff:bundle",
       "npm run handoff:bundle:verify",
       "npm run audit:plug-and-play",
-      "npm run audit:goal"
+      "npm run audit:goal",
+      "npm run status:local"
     ]);
     expect(gcsTodo).toContain("real `/map`, pose, detection, LiDAR, and costmap topics");
   });

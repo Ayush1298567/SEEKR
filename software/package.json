@@ -63,6 +63,7 @@
     "handoff:bundle:verify": "tsx scripts/handoff-bundle-verify.ts",
     "qa:gstack": "tsx scripts/gstack-browser-qa.ts",
     "health:gstack": "tsx scripts/gstack-health-history.ts",
+    "status:local": "tsx scripts/local-recovery-status.ts",
     "audit:gstack": "tsx scripts/gstack-workflow-status.ts",
     "audit:source-control": "tsx scripts/source-control-handoff.ts",
     "audit:completion": "tsx scripts/completion-audit.ts",
