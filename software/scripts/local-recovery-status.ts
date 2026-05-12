@@ -62,6 +62,7 @@ export interface LocalRecoveryStatusManifest {
   remainingRealWorldBlockerCount: number;
   remainingRealWorldBlockers: string[];
   checks: LocalRecoveryStatusCheck[];
+  attentionChecks: LocalRecoveryStatusCheck[];
   summary: Record<RecoveryStatus, number>;
   nextCommands: string[];
   limitations: string[];
@@ -167,6 +168,7 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
     remainingRealWorldBlockerCount,
     remainingRealWorldBlockers,
     checks,
+    attentionChecks: recoveryAttentionChecks(checks),
     summary,
     nextCommands: nextCommands(status),
     limitations: [
@@ -210,14 +212,7 @@ export function localRecoveryStatusCliSummary(result: { manifest: LocalRecoveryS
     reviewBundle: result.manifest.reviewBundle,
     remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,
     summary: result.manifest.summary,
-    attentionChecks: result.manifest.checks
-      .filter((check) => check.status !== "pass")
-      .map((check) => ({
-        id: check.id,
-        status: check.status,
-        details: check.details,
-        evidence: check.evidence
-      })),
+    attentionChecks: result.manifest.attentionChecks,
     nextCommands: result.manifest.nextCommands,
     jsonPath: result.jsonPath,
     markdownPath: result.markdownPath
@@ -603,6 +598,17 @@ function countChecks(checks: LocalRecoveryStatusCheck[]) {
   };
 }
 
+function recoveryAttentionChecks(checks: LocalRecoveryStatusCheck[]) {
+  return checks
+    .filter((check) => check.status !== "pass")
+    .map((check) => ({
+      id: check.id,
+      status: check.status,
+      details: check.details,
+      evidence: check.evidence
+    }));
+}
+
 function renderMarkdown(manifest: LocalRecoveryStatusManifest) {
   return [
     "# SEEKR Local Recovery Status",
@@ -648,6 +654,20 @@ function renderMarkdown(manifest: LocalRecoveryStatusManifest) {
     "| Check | Status | Details |",
     "| --- | --- | --- |",
     ...manifest.checks.map((check) => `| ${check.id} | ${check.status} | ${escapeTable(check.details)} |`),
+    "",
+    "## Attention Checks",
+    "",
+    ...(manifest.attentionChecks.length
+      ? manifest.attentionChecks.flatMap((check) => [
+        `### ${check.id}`,
+        "",
+        `Status: ${check.status}`,
+        `Details: ${check.details}`,
+        "Evidence:",
+        ...check.evidence.map((item) => `- ${item}`),
+        ""
+      ])
+      : ["No warning, failing, or blocked recovery checks."]),
     "",
     "## Remaining Real-World Blockers",
     "",

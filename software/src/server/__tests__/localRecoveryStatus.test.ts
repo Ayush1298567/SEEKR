@@ -71,6 +71,18 @@ describe("local recovery status", () => {
       warn: 1,
       blocked: 1
     });
+    expect(result.manifest.attentionChecks).toEqual([
+      expect.objectContaining({
+        id: "plug-and-play-readiness",
+        status: "warn",
+        evidence: expect.arrayContaining([".tmp/plug-and-play-readiness/seekr-plug-and-play-readiness-test.json"])
+      }),
+      expect.objectContaining({
+        id: "goal-audit",
+        status: "blocked",
+        evidence: expect.arrayContaining([".tmp/goal-audit/seekr-goal-audit-test.json"])
+      })
+    ]);
     expect(result.manifest.nextCommands).toContain("npm run plug-and-play");
     expect(localRecoveryStatusCliSummary(result)).toMatchObject({
       sourceControl: {
@@ -124,12 +136,16 @@ describe("local recovery status", () => {
       ]
     });
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"attentionChecks\"");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Local Recovery Status");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Repository URL: https://github.com/Ayush1298567/SEEKR");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Working tree clean: true");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("listener 123 cwd ~/Ayush/Prophet/prophet-console");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Strict AI provider: ollama");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Review bundle checked files: 42");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("## Attention Checks");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("### plug-and-play-readiness");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("### goal-audit");
   });
 
   it("blocks local recovery status when the fresh-clone strict AI proof is missing", async () => {
@@ -158,6 +174,14 @@ describe("local recovery status", () => {
     });
 
     expect(result.manifest.status).toBe("blocked-local-recovery");
+    expect(result.manifest.attentionChecks).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "fresh-clone-ai-proof",
+        status: "fail",
+        details: expect.stringContaining("Fresh clone proof is missing"),
+        evidence: [".tmp/fresh-clone-smoke"]
+      })
+    ]));
     expect(localRecoveryStatusCliSummary(result)).toMatchObject({
       ok: false,
       attentionChecks: expect.arrayContaining([
