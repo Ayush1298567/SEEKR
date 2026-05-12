@@ -2244,6 +2244,10 @@ async function writePlugAndPlayReadinessArtifact(root: string, complete: boolean
       caseCount: REQUIRED_STRICT_AI_SMOKE_CASES.length,
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
+    semanticValidation: {
+      ok: true,
+      problems: []
+    },
     sourceControl: {
       path: ".tmp/source-control-handoff/seekr-source-control-handoff-test.json",
       generatedAt: GENERATED_AT,

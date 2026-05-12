@@ -228,7 +228,7 @@ export const REQUIRED_PLUG_AND_PLAY_CHECK_IDS = [
 
 export function validatePlugAndPlayReadinessManifest(
   manifest: unknown,
-  options: { expectedHeadSha?: string; acceptanceGeneratedAtMs?: number } = {}
+  options: { expectedHeadSha?: string; acceptanceGeneratedAtMs?: number; skipSemanticValidationSelfReport?: boolean } = {}
 ) {
   const problems: string[] = [];
   if (!isRecord(manifest)) {
@@ -463,6 +463,30 @@ export function validatePlugAndPlayReadinessManifest(
     problems.push("limitations must preserve disabled command upload and hardware actuation");
   }
 
+  if (!options.skipSemanticValidationSelfReport) {
+    const recomputedProblems = [...problems];
+    const semanticValidation = isRecord(manifest.semanticValidation) ? manifest.semanticValidation : undefined;
+    if (!semanticValidation) {
+      problems.push("semanticValidation self-report must be present");
+    } else {
+      const reportedProblems = Array.isArray(semanticValidation.problems)
+        ? semanticValidation.problems.filter((problem): problem is string => typeof problem === "string")
+        : [];
+      if (typeof semanticValidation.ok !== "boolean") {
+        problems.push("semanticValidation.ok must be boolean");
+      } else if (semanticValidation.ok !== (recomputedProblems.length === 0)) {
+        problems.push("semanticValidation.ok must match recomputed plug-and-play readiness validation");
+      }
+      if (!Array.isArray(semanticValidation.problems)) {
+        problems.push("semanticValidation.problems must be an array");
+      } else if (reportedProblems.length !== semanticValidation.problems.length) {
+        problems.push("semanticValidation.problems must contain only strings");
+      } else if (!sameStringArray(reportedProblems, recomputedProblems)) {
+        problems.push("semanticValidation.problems must match recomputed plug-and-play readiness validation problems");
+      }
+    }
+  }
+
   return {
     ok: problems.length === 0,
     problems,
@@ -570,7 +594,8 @@ export async function writePlugAndPlayReadiness(options: Parameters<typeof build
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const validation = validatePlugAndPlayReadinessManifest(manifest, {
     acceptanceGeneratedAtMs: isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined,
-    expectedHeadSha: manifest.sourceControl.localHeadSha
+    expectedHeadSha: manifest.sourceControl.localHeadSha,
+    skipSemanticValidationSelfReport: true
   });
   const persistedManifest: PlugAndPlayReadinessManifest = {
     ...manifest,

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, afterEach, describe, expect, it } from "vitest";
 import { REQUIRED_FRESH_CLONE_OPERATOR_SMOKE_CHECK_IDS } from "../../../scripts/fresh-clone-operator-smoke";
-import { buildPlugAndPlayReadiness, writePlugAndPlayReadiness } from "../../../scripts/plug-and-play-readiness";
+import { buildPlugAndPlayReadiness, validatePlugAndPlayReadinessManifest, writePlugAndPlayReadiness } from "../../../scripts/plug-and-play-readiness";
 import { REQUIRED_REHEARSAL_START_SMOKE_CHECK_IDS } from "../../../scripts/rehearsal-start-smoke";
 import { REQUIRED_FRESH_CLONE_PATHS } from "../../../scripts/source-control-handoff";
 import { REQUIRED_STRICT_AI_SMOKE_CASES } from "../ai/localAiEvidence";
@@ -1731,6 +1731,29 @@ describe("plug-and-play readiness audit", () => {
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"semanticValidation\"");
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("newer than or equal to the current acceptance record");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Semantic validation: false");
+  });
+
+  it("rejects saved readiness artifacts when semanticValidation disagrees with recomputed validation", async () => {
+    const result = await writePlugAndPlayReadiness({
+      root,
+      outDir: ".tmp/plug-and-play-readiness",
+      generatedAt: "2026-05-10T07:00:00.000Z"
+    });
+
+    result.manifest.semanticValidation = {
+      ok: true,
+      problems: ["stale forged validation result"]
+    };
+
+    const validation = validatePlugAndPlayReadinessManifest(result.manifest, {
+      acceptanceGeneratedAtMs: Date.parse("2026-05-10T07:00:00.000Z"),
+      expectedHeadSha: result.manifest.sourceControl.localHeadSha
+    });
+
+    expect(validation.ok).toBe(false);
+    expect(validation.problems).toEqual(expect.arrayContaining([
+      "semanticValidation.problems must match recomputed plug-and-play readiness validation problems"
+    ]));
   });
 });
 

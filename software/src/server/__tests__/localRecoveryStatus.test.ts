@@ -629,6 +629,10 @@ async function seedRecoveryArtifacts(root: string) {
       fail: 0,
       blocked: 1
     },
+    semanticValidation: {
+      ok: true,
+      problems: []
+    },
     operatorStartPorts: {
       path: ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json",
       status: "pass",
