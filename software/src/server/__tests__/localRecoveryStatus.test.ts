@@ -73,6 +73,65 @@ describe("local recovery status", () => {
     });
   });
 
+  it("blocks local recovery status when acceptance points at stale release evidence", async () => {
+    await writeJson(path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-zz-newer.json"), {
+      commandUploadEnabled: false,
+      overallSha256: "a".repeat(64),
+      fileCount: 99,
+      totalBytes: 2048
+    });
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "acceptance-status")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("latest release evidence")
+    });
+  });
+
+  it("blocks local recovery status when acceptance strict AI cases drift", async () => {
+    const acceptance = JSON.parse(await readFile(path.join(root, ".tmp/acceptance-status.json"), "utf8"));
+    acceptance.strictLocalAi.caseNames = [
+      "baseline-zone-assignment",
+      "prompt-injection-detection-notes",
+      "map-conflict-no-fly-draft",
+      "unexpected-extra-case"
+    ];
+    await writeJson(path.join(root, ".tmp/acceptance-status.json"), acceptance);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "acceptance-status")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("strict local AI case names")
+    });
+  });
+
+  it("blocks local recovery status when acceptance command-boundary evidence is stale", async () => {
+    const acceptance = JSON.parse(await readFile(path.join(root, ".tmp/acceptance-status.json"), "utf8"));
+    acceptance.commandBoundaryScan.scannedFileCount = 41;
+    await writeJson(path.join(root, ".tmp/acceptance-status.json"), acceptance);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "acceptance-status")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("scanned-file count")
+    });
+  });
+
   it("blocks local recovery status when the fresh-clone proof is stale against source control", async () => {
     const freshClone = JSON.parse(await readFile(path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"), "utf8"));
     freshClone.cloneHeadSha = STALE_HEAD_SHA;
@@ -132,6 +191,8 @@ describe("local recovery status", () => {
 async function seedRecoveryArtifacts(root: string) {
   for (const directory of [
     ".tmp/source-control-handoff",
+    ".tmp/release-evidence",
+    ".tmp/safety-evidence",
     ".tmp/fresh-clone-smoke",
     ".tmp/plug-and-play-readiness",
     ".tmp/goal-audit",
@@ -146,14 +207,49 @@ async function seedRecoveryArtifacts(root: string) {
     ok: true,
     commandUploadEnabled: false,
     releaseChecksum: {
-      overallSha256: "f".repeat(64)
+      jsonPath: path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-test.json"),
+      overallSha256: "f".repeat(64),
+      fileCount: 42,
+      totalBytes: 1024
+    },
+    commandBoundaryScan: {
+      jsonPath: path.join(root, ".tmp/safety-evidence/seekr-command-boundary-scan-test.json"),
+      status: "pass",
+      scannedFileCount: 12,
+      violationCount: 0,
+      commandUploadEnabled: false
     },
     strictLocalAi: {
+      ok: true,
       provider: "ollama",
       model: "llama3.2:latest",
       ollamaUrl: "http://127.0.0.1:11434",
-      caseCount: 4
+      commandUploadEnabled: false,
+      caseCount: 4,
+      caseNames: [
+        "baseline-zone-assignment",
+        "prompt-injection-detection-notes",
+        "map-conflict-no-fly-draft",
+        "prompt-injection-spatial-metadata"
+      ]
     }
+  });
+  await writeJson(path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-test.json"), {
+    commandUploadEnabled: false,
+    overallSha256: "f".repeat(64),
+    fileCount: 42,
+    totalBytes: 1024
+  });
+  await writeJson(path.join(root, ".tmp/safety-evidence/seekr-command-boundary-scan-test.json"), {
+    status: "pass",
+    commandUploadEnabled: false,
+    summary: {
+      scannedFileCount: 12,
+      violationCount: 0,
+      allowedFindingCount: 3
+    },
+    scannedFiles: Array.from({ length: 12 }, (_, index) => `src/file-${index}.ts`),
+    violations: []
   });
   await writeJson(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), {
     status: "ready-source-control-handoff",

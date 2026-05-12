@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveArtifactOutDir, safeIsoTimestampForFileName } from "./artifact-paths";
+import { REQUIRED_STRICT_AI_SMOKE_CASES, isLocalOllamaUrl } from "../src/server/ai/localAiEvidence";
 
 type RecoveryStatus = "pass" | "warn" | "fail" | "blocked";
 
@@ -59,6 +60,8 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
   const generatedAt = options.generatedAt ?? new Date().toISOString();
 
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
+  const release = await latestJson(root, ".tmp/release-evidence", "seekr-release-0.2.0-");
+  const safety = await latestJson(root, ".tmp/safety-evidence", "seekr-command-boundary-scan-");
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", "seekr-source-control-handoff-");
   const freshClone = await latestJson(root, ".tmp/fresh-clone-smoke", "seekr-fresh-clone-smoke-");
   const plugAndPlay = await latestJson(root, ".tmp/plug-and-play-readiness", "seekr-plug-and-play-readiness-");
@@ -74,7 +77,7 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
   const expectedHeadSha = stringOrUndefined(sourceControlManifest?.localHeadSha);
 
   const checks = [
-    acceptanceCheck(acceptance),
+    acceptanceCheck(acceptance, release, safety, root),
     sourceControlCheck(sourceControl),
     freshCloneCheck(freshClone, expectedHeadSha),
     reviewBundleCheck(bundleVerify, expectedHeadSha),
@@ -160,8 +163,56 @@ export async function writeLocalRecoveryStatus(options: { root?: string; generat
   };
 }
 
-function acceptanceCheck(manifest: unknown): LocalRecoveryStatusCheck {
-  const ok = isRecord(manifest) && manifest.ok === true && manifest.commandUploadEnabled === false;
+function acceptanceCheck(manifest: unknown, release: LatestArtifact | undefined, safety: LatestArtifact | undefined, root: string): LocalRecoveryStatusCheck {
+  const releaseManifest = recordOrUndefined(release?.manifest);
+  const safetyManifest = recordOrUndefined(safety?.manifest);
+  const releaseSummary = recordOrUndefined(getPath(manifest, ["releaseChecksum"]));
+  const safetySummary = recordOrUndefined(getPath(manifest, ["commandBoundaryScan"]));
+  const strictAi = recordOrUndefined(getPath(manifest, ["strictLocalAi"]));
+  const expectedCaseNames = [...REQUIRED_STRICT_AI_SMOKE_CASES];
+  const caseNames = arrayOfStrings(strictAi?.caseNames);
+  const safetySummaryCounts = recordOrUndefined(safetyManifest?.summary);
+  const scannedFileCount = numberOrUndefined(safetySummaryCounts?.scannedFileCount) ?? (Array.isArray(safetyManifest?.scannedFiles) ? safetyManifest.scannedFiles.length : undefined);
+  const violationCount = numberOrUndefined(safetySummaryCounts?.violationCount) ?? (Array.isArray(safetyManifest?.violations) ? safetyManifest.violations.length : undefined);
+  const problems: string[] = [];
+
+  if (!isRecord(manifest) || manifest.ok !== true) problems.push("acceptance status must be present and ok");
+  if (isRecord(manifest) && manifest.commandUploadEnabled !== false) problems.push("acceptance commandUploadEnabled must be false");
+  if (!release) problems.push("latest release checksum evidence is missing");
+  if (!safety) problems.push("latest command-boundary scan evidence is missing");
+  if (!releaseSummary) problems.push("acceptance release checksum summary is missing");
+  if (!safetySummary) problems.push("acceptance command-boundary scan summary is missing");
+  if (!strictAi) problems.push("acceptance strict local AI summary is missing");
+
+  if (release && releaseSummary) {
+    const acceptedReleasePath = normalizeArtifactPath(root, releaseSummary.jsonPath);
+    if (acceptedReleasePath !== release.relativePath) problems.push("acceptance release checksum path must point at the latest release evidence");
+    if (stringOrUndefined(releaseSummary.overallSha256) !== stringOrUndefined(releaseManifest?.overallSha256)) problems.push("acceptance release checksum SHA must match latest release evidence");
+    if (numberOrUndefined(releaseSummary.fileCount) !== numberOrUndefined(releaseManifest?.fileCount)) problems.push("acceptance release file count must match latest release evidence");
+    if (numberOrUndefined(releaseSummary.totalBytes) !== numberOrUndefined(releaseManifest?.totalBytes)) problems.push("acceptance release byte count must match latest release evidence");
+    if (releaseManifest?.commandUploadEnabled !== false) problems.push("latest release evidence must keep commandUploadEnabled false");
+  }
+
+  if (safety && safetySummary) {
+    const acceptedSafetyPath = normalizeArtifactPath(root, safetySummary.jsonPath);
+    if (acceptedSafetyPath !== safety.relativePath) problems.push("acceptance command-boundary scan path must point at the latest safety evidence");
+    if (safetySummary.status !== "pass" || safetyManifest?.status !== "pass") problems.push("acceptance and latest command-boundary scan must both pass");
+    if (numberOrUndefined(safetySummary.scannedFileCount) !== scannedFileCount) problems.push("acceptance command-boundary scanned-file count must match latest safety evidence");
+    if (numberOrUndefined(safetySummary.violationCount) !== violationCount) problems.push("acceptance command-boundary violation count must match latest safety evidence");
+    if (numberOrUndefined(safetySummary.violationCount) !== 0) problems.push("acceptance command-boundary scan must report zero violations");
+    if (safetySummary.commandUploadEnabled !== false || safetyManifest?.commandUploadEnabled !== false) problems.push("acceptance command-boundary scan must keep commandUploadEnabled false");
+  }
+
+  if (strictAi) {
+    if (strictAi.ok !== true) problems.push("strict local AI summary must be ok");
+    if (strictAi.provider !== "ollama") problems.push("strict local AI provider must be ollama");
+    if (!isLocalOllamaUrl(strictAi.ollamaUrl)) problems.push("strict local AI Ollama URL must be loopback");
+    if (strictAi.commandUploadEnabled !== false) problems.push("strict local AI summary must keep commandUploadEnabled false");
+    if (numberOrUndefined(strictAi.caseCount) !== expectedCaseNames.length) problems.push("strict local AI case count must match the required scenario count");
+    if (!caseNames || !arrayEquals(caseNames, expectedCaseNames)) problems.push("strict local AI case names must exactly match the required scenario order");
+  }
+
+  const ok = problems.length === 0;
   const checksum = stringOrUndefined(getPath(manifest, ["releaseChecksum", "overallSha256"])) ?? "unknown checksum";
   const aiProvider = stringOrUndefined(getPath(manifest, ["strictLocalAi", "provider"])) ?? "unknown AI provider";
   return {
@@ -169,8 +220,8 @@ function acceptanceCheck(manifest: unknown): LocalRecoveryStatusCheck {
     status: ok ? "pass" : "fail",
     details: ok
       ? `Latest acceptance is pass with ${checksum}, strict local AI provider ${aiProvider}, and commandUploadEnabled false.`
-      : "Latest acceptance status is missing, unsafe, or not passing.",
-    evidence: [".tmp/acceptance-status.json"]
+      : `Latest acceptance status is missing, stale, unsafe, or not passing: ${problems.join("; ")}.`,
+    evidence: [".tmp/acceptance-status.json", release?.relativePath, safety?.relativePath].filter(isString)
   };
 }
 
@@ -496,6 +547,22 @@ function isLoopbackUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+function normalizeArtifactPath(root: string, value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const absolutePath = path.isAbsolute(value) ? path.normalize(value) : path.resolve(root, value);
+  const relativePath = path.relative(root, absolutePath);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return undefined;
+  return relativePath.split(path.sep).join(path.posix.sep);
+}
+
+function arrayEquals(left: string[], right: readonly string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
 }
 
 function escapeTable(value: string) {
