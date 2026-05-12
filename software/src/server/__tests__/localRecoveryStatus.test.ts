@@ -34,6 +34,7 @@ describe("local recovery status", () => {
     expect(result.manifest.complete).toBe(false);
     expect(result.manifest.commandUploadEnabled).toBe(false);
     expect(result.manifest.localHeadSha).toBe(HEAD_SHA);
+    expect(result.manifest.remoteDefaultBranchSha).toBe(HEAD_SHA);
     expect(result.manifest.freshCloneHeadSha).toBe(HEAD_SHA);
     expect(result.manifest.strictAi).toMatchObject({
       provider: "ollama",
@@ -60,6 +61,15 @@ describe("local recovery status", () => {
     });
     expect(result.manifest.nextCommands).toContain("npm run plug-and-play");
     expect(localRecoveryStatusCliSummary(result)).toMatchObject({
+      localHeadSha: HEAD_SHA,
+      remoteDefaultBranchSha: HEAD_SHA,
+      freshCloneHeadSha: HEAD_SHA,
+      strictAi: {
+        provider: "ollama",
+        model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
+        caseCount: 4
+      },
       plugAndPlay: {
         fallbackApi: 59374,
         fallbackClient: 59375,
@@ -69,11 +79,19 @@ describe("local recovery status", () => {
           "listener 123 cwd ~/Ayush/Prophet/prophet-console"
         ],
         details: expect.stringContaining("auto-selects free local API/client ports")
+      },
+      reviewBundle: {
+        status: "pass",
+        checkedFileCount: 42,
+        secretScanStatus: "pass",
+        secretFindingCount: 0
       }
     });
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Local Recovery Status");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("listener 123 cwd ~/Ayush/Prophet/prophet-console");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Strict AI provider: ollama");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Review bundle checked files: 42");
   });
 
   it("blocks local recovery status when the fresh-clone strict AI proof is missing", async () => {
