@@ -497,13 +497,30 @@ async function operatorDoctorCheck(root: string): Promise<PlugAndPlayCheck> {
 }
 
 function doctorSoftWarningDetails(checks: Record<string, unknown>[]) {
-  return checks
+  const warnings = checks
     .filter((check) => SOFT_DOCTOR_CHECK_IDS.has(String(check.id ?? "")) && check.status === "warn")
     .map((check) => {
       const id = String(check.id ?? "unknown");
       const details = typeof check.details === "string" && check.details.length ? check.details : "warning details unavailable";
       return `${id}: ${details}`;
     });
+  const autoFallbackNotice = doctorAutoFallbackPortNotice(checks);
+  if (autoFallbackNotice && !warnings.some((warning) => warning.startsWith("local-ports:"))) {
+    warnings.push(autoFallbackNotice);
+  }
+  return warnings;
+}
+
+function doctorAutoFallbackPortNotice(checks: Record<string, unknown>[]) {
+  const check = checks.find((item) => item.id === "local-ports");
+  if (!check || check.status !== "pass") return undefined;
+  const details = typeof check.details === "string" ? check.details : "";
+  const evidence = Array.isArray(check.evidence) ? check.evidence.map(String) : [];
+  const text = [details, ...evidence].join("\n");
+  const defaultPortsOccupied = /non-SEEKR or unhealthy listener|already in use|occupied|busy/i.test(text);
+  const autoRecoverable = /auto-selects free local API\/client ports|auto-selected free local API\/client ports|auto-selected free local/i.test(text);
+  if (!defaultPortsOccupied || !autoRecoverable) return undefined;
+  return "local-ports: default API/client ports are occupied, but the plug-and-play wrapper can auto-select free fallback ports.";
 }
 
 async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck> {

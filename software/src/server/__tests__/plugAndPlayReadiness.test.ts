@@ -135,6 +135,7 @@ describe("plug-and-play readiness audit", () => {
       }
     });
     expect(manifest.summary.fail).toBe(0);
+    expect(manifest.summary.warn).toBe(1);
     expect(manifest.summary.blocked).toBe(1);
     expect(manifest.remainingRealWorldBlockerIds).toHaveLength(8);
     expect(manifest.remainingRealWorldBlockerIds).toEqual(expect.arrayContaining([
@@ -151,6 +152,10 @@ describe("plug-and-play readiness audit", () => {
       details: expect.stringContaining("published local HEAD")
     });
     expect(manifest.checks.find((check) => check.id === "source-control-handoff")?.details).toContain("clean worktree");
+    expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
+      status: "warn",
+      details: expect.stringContaining("auto-select free fallback ports")
+    });
   });
 
   it("fails when review bundle source-control summary drifts from the latest source-control artifact", async () => {
@@ -1599,7 +1604,7 @@ describe("plug-and-play readiness audit", () => {
     });
 
     expect(manifest.checks.find((check) => check.id === "operator-doctor")).toMatchObject({
-      status: "pass",
+      status: "warn",
       evidence: expect.arrayContaining([
         ".tmp/plug-and-play-doctor/seekr-plug-and-play-doctor-test.json"
       ])
