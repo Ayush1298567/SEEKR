@@ -38,6 +38,8 @@ export interface LocalRecoveryStatusManifest {
     fallbackClient?: number;
     defaultPortsOccupied?: boolean;
     autoRecoverable?: boolean;
+    listenerDiagnostics?: string[];
+    details?: string;
   };
   reviewBundle?: {
     status?: string;
@@ -127,7 +129,9 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
       fallbackApi: numberOrUndefined(getPath(plugAndPlayManifest, ["operatorStartPorts", "fallbackApi"])),
       fallbackClient: numberOrUndefined(getPath(plugAndPlayManifest, ["operatorStartPorts", "fallbackClient"])),
       defaultPortsOccupied: booleanOrUndefined(getPath(plugAndPlayManifest, ["operatorStartPorts", "defaultPortsOccupied"])),
-      autoRecoverable: booleanOrUndefined(getPath(plugAndPlayManifest, ["operatorStartPorts", "autoRecoverable"]))
+      autoRecoverable: booleanOrUndefined(getPath(plugAndPlayManifest, ["operatorStartPorts", "autoRecoverable"])),
+      listenerDiagnostics: arrayOfStrings(getPath(plugAndPlayManifest, ["operatorStartPorts", "listenerDiagnostics"])),
+      details: stringOrUndefined(getPath(plugAndPlayManifest, ["operatorStartPorts", "details"]))
     },
     reviewBundle: {
       status: stringOrUndefined(bundleVerifyManifest?.status),
@@ -546,6 +550,14 @@ function renderMarkdown(manifest: LocalRecoveryStatusManifest) {
     manifest.remoteDefaultBranchSha ? `Remote default SHA: ${manifest.remoteDefaultBranchSha}` : undefined,
     manifest.freshCloneHeadSha ? `Fresh clone SHA: ${manifest.freshCloneHeadSha}` : undefined,
     manifest.releaseChecksum ? `Release checksum: ${manifest.releaseChecksum}` : undefined,
+    manifest.plugAndPlay?.defaultPortsOccupied !== undefined ? `Default ports occupied: ${manifest.plugAndPlay.defaultPortsOccupied}` : undefined,
+    manifest.plugAndPlay?.autoRecoverable !== undefined ? `Port fallback auto-recoverable: ${manifest.plugAndPlay.autoRecoverable}` : undefined,
+    manifest.plugAndPlay?.fallbackApi ? `Fallback API port candidate: ${manifest.plugAndPlay.fallbackApi}` : undefined,
+    manifest.plugAndPlay?.fallbackClient ? `Fallback client port candidate: ${manifest.plugAndPlay.fallbackClient}` : undefined,
+    manifest.plugAndPlay?.details ? `Port recovery details: ${manifest.plugAndPlay.details}` : undefined,
+    ...(manifest.plugAndPlay?.listenerDiagnostics?.length
+      ? ["Port listener diagnostics:", ...manifest.plugAndPlay.listenerDiagnostics.map((diagnostic) => `- ${diagnostic}`)]
+      : []),
     "",
     "## Checks",
     "",

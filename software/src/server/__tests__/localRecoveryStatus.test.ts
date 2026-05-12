@@ -43,7 +43,11 @@ describe("local recovery status", () => {
       fallbackApi: 59374,
       fallbackClient: 59375,
       defaultPortsOccupied: true,
-      autoRecoverable: true
+      autoRecoverable: true,
+      listenerDiagnostics: [
+        "listener 123 cwd ~/Ayush/Prophet/prophet-console"
+      ],
+      details: expect.stringContaining("auto-selects free local API/client ports")
     });
     expect(result.manifest.remainingRealWorldBlockerCount).toBe(8);
     expect(result.manifest.summary).toMatchObject({
@@ -54,6 +58,7 @@ describe("local recovery status", () => {
     expect(result.manifest.nextCommands).toContain("npm run plug-and-play");
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Local Recovery Status");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("listener 123 cwd ~/Ayush/Prophet/prophet-console");
   });
 
   it("blocks local recovery status when the fresh-clone strict AI proof is missing", async () => {
@@ -390,7 +395,11 @@ async function seedRecoveryArtifacts(root: string) {
       fallbackApi: 59374,
       fallbackClient: 59375,
       defaultPortsOccupied: true,
-      autoRecoverable: true
+      autoRecoverable: true,
+      listenerDiagnostics: [
+        "listener 123 cwd ~/Ayush/Prophet/prophet-console"
+      ],
+      details: "Default ports are occupied by a non-SEEKR listener; npm run plug-and-play auto-selects free local API/client ports."
     },
     sourceControl: {
       localHeadSha: HEAD_SHA,
