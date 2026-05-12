@@ -520,7 +520,7 @@ function doctorAutoFallbackPortNotice(checks: Record<string, unknown>[]) {
   const defaultPortsOccupied = /non-SEEKR or unhealthy listener|already in use|occupied|busy/i.test(text);
   const autoRecoverable = /auto-selects free local API\/client ports|auto-selected free local API\/client ports|auto-selected free local/i.test(text);
   if (!defaultPortsOccupied || !autoRecoverable) return undefined;
-  return "local-ports: default API/client ports are occupied, but the plug-and-play wrapper can auto-select free fallback ports.";
+  return "local-ports: default API/client ports are occupied, but the plug-and-play wrapper can auto-select free fallback ports";
 }
 
 async function sourceControlHandoffCheck(root: string): Promise<PlugAndPlayCheck> {
