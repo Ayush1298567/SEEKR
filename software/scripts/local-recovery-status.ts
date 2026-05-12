@@ -169,6 +169,23 @@ export async function writeLocalRecoveryStatus(options: { root?: string; generat
   };
 }
 
+export function localRecoveryStatusCliSummary(result: { manifest: LocalRecoveryStatusManifest; jsonPath: string; markdownPath: string }) {
+  return {
+    ok: result.manifest.localRecoveryOk,
+    status: result.manifest.status,
+    complete: result.manifest.complete,
+    commandUploadEnabled: result.manifest.commandUploadEnabled,
+    localHeadSha: result.manifest.localHeadSha,
+    releaseChecksum: result.manifest.releaseChecksum,
+    plugAndPlay: result.manifest.plugAndPlay,
+    remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,
+    summary: result.manifest.summary,
+    nextCommands: result.manifest.nextCommands,
+    jsonPath: result.jsonPath,
+    markdownPath: result.markdownPath
+  };
+}
+
 function acceptanceCheck(manifest: unknown, release: LatestArtifact | undefined, safety: LatestArtifact | undefined, root: string): LocalRecoveryStatusCheck {
   const releaseManifest = recordOrUndefined(release?.manifest);
   const safetyManifest = recordOrUndefined(safety?.manifest);
@@ -686,19 +703,7 @@ function escapeTable(value: string) {
 
 async function main() {
   const result = await writeLocalRecoveryStatus();
-  console.log(JSON.stringify({
-    ok: result.manifest.localRecoveryOk,
-    status: result.manifest.status,
-    complete: result.manifest.complete,
-    commandUploadEnabled: result.manifest.commandUploadEnabled,
-    localHeadSha: result.manifest.localHeadSha,
-    releaseChecksum: result.manifest.releaseChecksum,
-    remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,
-    summary: result.manifest.summary,
-    nextCommands: result.manifest.nextCommands,
-    jsonPath: result.jsonPath,
-    markdownPath: result.markdownPath
-  }, null, 2));
+  console.log(JSON.stringify(localRecoveryStatusCliSummary(result), null, 2));
   if (!result.manifest.localRecoveryOk) process.exitCode = 1;
 }
 

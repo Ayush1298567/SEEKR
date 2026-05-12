@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildLocalRecoveryStatus, writeLocalRecoveryStatus } from "../../../scripts/local-recovery-status";
+import { buildLocalRecoveryStatus, localRecoveryStatusCliSummary, writeLocalRecoveryStatus } from "../../../scripts/local-recovery-status";
 
 const GENERATED_AT = "2026-05-12T00:00:00.000Z";
 const HEAD_SHA = "1111111111111111111111111111111111111111";
@@ -56,6 +56,18 @@ describe("local recovery status", () => {
       blocked: 1
     });
     expect(result.manifest.nextCommands).toContain("npm run plug-and-play");
+    expect(localRecoveryStatusCliSummary(result)).toMatchObject({
+      plugAndPlay: {
+        fallbackApi: 59374,
+        fallbackClient: 59375,
+        defaultPortsOccupied: true,
+        autoRecoverable: true,
+        listenerDiagnostics: [
+          "listener 123 cwd ~/Ayush/Prophet/prophet-console"
+        ],
+        details: expect.stringContaining("auto-selects free local API/client ports")
+      }
+    });
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Local Recovery Status");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("listener 123 cwd ~/Ayush/Prophet/prophet-console");
