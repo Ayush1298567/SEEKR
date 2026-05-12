@@ -62,6 +62,7 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
   const acceptance = await readJson(path.join(root, ".tmp/acceptance-status.json"));
   const release = await latestJson(root, ".tmp/release-evidence", "seekr-release-0.2.0-");
   const safety = await latestJson(root, ".tmp/safety-evidence", "seekr-command-boundary-scan-");
+  const apiProbe = await latestJson(root, ".tmp/api-probe", "seekr-api-probe-");
   const sourceControl = await latestJson(root, ".tmp/source-control-handoff", "seekr-source-control-handoff-");
   const freshClone = await latestJson(root, ".tmp/fresh-clone-smoke", "seekr-fresh-clone-smoke-");
   const plugAndPlay = await latestJson(root, ".tmp/plug-and-play-readiness", "seekr-plug-and-play-readiness-");
@@ -78,6 +79,7 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
 
   const checks = [
     acceptanceCheck(acceptance, release, safety, root),
+    apiProbeCheck(apiProbe, acceptance),
     sourceControlCheck(sourceControl),
     freshCloneCheck(freshClone, expectedHeadSha),
     reviewBundleCheck(bundleVerify, expectedHeadSha),
@@ -229,6 +231,96 @@ function acceptanceCheck(manifest: unknown, release: LatestArtifact | undefined,
       ? `Latest acceptance is pass with ${checksum}, strict local AI provider ${aiProvider}, and commandUploadEnabled false.`
       : `Latest acceptance status is missing, stale, unsafe, or not passing: ${problems.join("; ")}.`,
     evidence: [".tmp/acceptance-status.json", release?.relativePath, safety?.relativePath].filter(isString)
+  };
+}
+
+function apiProbeCheck(artifact: LatestArtifact | undefined, acceptance: unknown): LocalRecoveryStatusCheck {
+  const manifest = recordOrUndefined(artifact?.manifest);
+  const checked = Array.isArray(manifest?.checked) ? manifest.checked.map(String) : [];
+  const sessionAcceptance = recordOrUndefined(manifest?.sessionAcceptance) ?? {};
+  const acceptanceRecord = recordOrUndefined(acceptance);
+  const requiredChecks = [
+    "config",
+    "session-acceptance",
+    "session-acceptance-evidence",
+    "readiness",
+    "hardware-readiness",
+    "source-health",
+    "verify",
+    "replays",
+    "malformed-json"
+  ];
+  const missing = requiredChecks.filter((check) => !checked.includes(check));
+  const problems: string[] = [];
+
+  if (!artifact) problems.push("latest API probe evidence is missing");
+  if (!manifest || manifest.ok !== true) problems.push("API probe ok must be true");
+  if (!manifest || manifest.commandUploadEnabled !== false) problems.push("API probe commandUploadEnabled must be false");
+  if (missing.length) problems.push(`API probe missing check(s): ${missing.join(", ")}`);
+  if (!acceptanceRecord || acceptanceRecord.ok !== true) problems.push("acceptance status must pass before API readback can be trusted");
+  if (acceptanceRecord && acceptanceRecord.commandUploadEnabled !== false) problems.push("acceptance status commandUploadEnabled must be false");
+  if (sessionAcceptance.ok !== true) problems.push("API probe session acceptance ok must be true");
+  if (sessionAcceptance.commandUploadEnabled !== false) problems.push("API probe session acceptance commandUploadEnabled must be false");
+
+  if (acceptanceRecord?.ok === true) {
+    const acceptanceRelease = recordOrUndefined(acceptanceRecord.releaseChecksum) ?? {};
+    const probeRelease = recordOrUndefined(sessionAcceptance.releaseChecksum) ?? {};
+    const acceptanceScan = recordOrUndefined(acceptanceRecord.commandBoundaryScan) ?? {};
+    const probeScan = recordOrUndefined(sessionAcceptance.commandBoundaryScan) ?? {};
+    const acceptanceAi = recordOrUndefined(acceptanceRecord.strictLocalAi) ?? {};
+    const probeAi = recordOrUndefined(sessionAcceptance.strictLocalAi) ?? {};
+    const acceptanceGeneratedAt = numberOrUndefined(acceptanceRecord.generatedAt);
+    const acceptanceCommandCount = Array.isArray(acceptanceRecord.completedCommands) ? acceptanceRecord.completedCommands.length : undefined;
+    const acceptanceAiCaseNames = arrayOfStrings(acceptanceAi.caseNames);
+    const probeAiCaseNames = arrayOfStrings(probeAi.caseNames);
+
+    if (sessionAcceptance.status !== "pass") problems.push("API probe did not read back passing acceptance status");
+    if (acceptanceGeneratedAt !== undefined && numberOrUndefined(sessionAcceptance.generatedAt) !== acceptanceGeneratedAt) {
+      problems.push("API probe acceptance timestamp must match acceptance status");
+    }
+    if (acceptanceCommandCount !== undefined && numberOrUndefined(sessionAcceptance.commandCount) !== acceptanceCommandCount) {
+      problems.push("API probe acceptance command count must match acceptance status");
+    }
+    if (
+      probeAi.ok !== acceptanceAi.ok ||
+      probeAi.provider !== acceptanceAi.provider ||
+      probeAi.model !== acceptanceAi.model ||
+      probeAi.ollamaUrl !== acceptanceAi.ollamaUrl ||
+      probeAi.commandUploadEnabled !== false ||
+      acceptanceAi.commandUploadEnabled !== false ||
+      !isLocalOllamaUrl(acceptanceAi.ollamaUrl) ||
+      numberOrUndefined(probeAi.caseCount) !== numberOrUndefined(acceptanceAi.caseCount) ||
+      !acceptanceAiCaseNames ||
+      !probeAiCaseNames ||
+      !arrayEquals(probeAiCaseNames, acceptanceAiCaseNames)
+    ) {
+      problems.push("API probe strict local AI summary must match acceptance status");
+    }
+    if (
+      probeRelease.overallSha256 !== acceptanceRelease.overallSha256 ||
+      numberOrUndefined(probeRelease.fileCount) !== numberOrUndefined(acceptanceRelease.fileCount) ||
+      numberOrUndefined(probeRelease.totalBytes) !== numberOrUndefined(acceptanceRelease.totalBytes)
+    ) {
+      problems.push("API probe release checksum summary must match acceptance status");
+    }
+    if (
+      probeScan.status !== "pass" ||
+      numberOrUndefined(probeScan.scannedFileCount) !== numberOrUndefined(acceptanceScan.scannedFileCount) ||
+      numberOrUndefined(probeScan.violationCount) !== 0 ||
+      numberOrUndefined(probeScan.allowedFindingCount) !== numberOrUndefined(acceptanceScan.allowedFindingCount)
+    ) {
+      problems.push("API probe command-boundary scan summary must match acceptance status");
+    }
+  }
+
+  const ok = problems.length === 0;
+  return {
+    id: "api-readback",
+    status: ok ? "pass" : "fail",
+    details: ok
+      ? `Latest API probe matches session-visible acceptance evidence and keeps command upload disabled: ${artifact?.relativePath}.`
+      : `Latest API probe evidence is missing, stale, unsafe, or not matching acceptance: ${problems.join("; ")}.`,
+    evidence: [artifact?.relativePath ?? ".tmp/api-probe"]
   };
 }
 

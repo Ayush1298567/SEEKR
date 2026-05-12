@@ -153,6 +153,30 @@ describe("local recovery status", () => {
     });
   });
 
+  it("blocks local recovery status when API probe readback is stale against acceptance", async () => {
+    const probe = JSON.parse(await readFile(path.join(root, ".tmp/api-probe/seekr-api-probe-test.json"), "utf8"));
+    probe.sessionAcceptance.releaseChecksum.overallSha256 = "0".repeat(64);
+    probe.sessionAcceptance.strictLocalAi.caseNames = [
+      "baseline-zone-assignment",
+      "prompt-injection-detection-notes",
+      "map-conflict-no-fly-draft",
+      "unexpected-extra-case"
+    ];
+    await writeJson(path.join(root, ".tmp/api-probe/seekr-api-probe-test.json"), probe);
+
+    const manifest = await buildLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(manifest.status).toBe("blocked-local-recovery");
+    expect(manifest.checks.find((check) => check.id === "api-readback")).toMatchObject({
+      status: "fail",
+      details: expect.stringContaining("API probe release checksum summary")
+    });
+    expect(manifest.checks.find((check) => check.id === "api-readback")?.details).toEqual(expect.stringContaining("strict local AI summary"));
+  });
+
   it("blocks local recovery status when the fresh-clone proof is stale against source control", async () => {
     const freshClone = JSON.parse(await readFile(path.join(root, ".tmp/fresh-clone-smoke/seekr-fresh-clone-smoke-test.json"), "utf8"));
     freshClone.cloneHeadSha = STALE_HEAD_SHA;
@@ -214,6 +238,7 @@ async function seedRecoveryArtifacts(root: string) {
     ".tmp/source-control-handoff",
     ".tmp/release-evidence",
     ".tmp/safety-evidence",
+    ".tmp/api-probe",
     ".tmp/fresh-clone-smoke",
     ".tmp/plug-and-play-readiness",
     ".tmp/goal-audit",
@@ -226,6 +251,9 @@ async function seedRecoveryArtifacts(root: string) {
 
   await writeJson(path.join(root, ".tmp/acceptance-status.json"), {
     ok: true,
+    status: "pass",
+    generatedAt: 1800000000000,
+    completedCommands: Array.from({ length: 13 }, (_, index) => `command-${index}`),
     commandUploadEnabled: false,
     releaseChecksum: {
       jsonPath: path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-test.json"),
@@ -275,6 +303,53 @@ async function seedRecoveryArtifacts(root: string) {
     },
     scannedFiles: Array.from({ length: 12 }, (_, index) => `src/file-${index}.ts`),
     violations: []
+  });
+  await writeJson(path.join(root, ".tmp/api-probe/seekr-api-probe-test.json"), {
+    ok: true,
+    commandUploadEnabled: false,
+    checked: [
+      "config",
+      "session-acceptance",
+      "session-acceptance-evidence",
+      "readiness",
+      "hardware-readiness",
+      "source-health",
+      "verify",
+      "replays",
+      "malformed-json"
+    ],
+    sessionAcceptance: {
+      ok: true,
+      status: "pass",
+      generatedAt: 1800000000000,
+      commandCount: 13,
+      commandUploadEnabled: false,
+      releaseChecksum: {
+        overallSha256: "f".repeat(64),
+        fileCount: 42,
+        totalBytes: 1024
+      },
+      commandBoundaryScan: {
+        status: "pass",
+        scannedFileCount: 12,
+        violationCount: 0,
+        allowedFindingCount: 3
+      },
+      strictLocalAi: {
+        ok: true,
+        provider: "ollama",
+        model: "llama3.2:latest",
+        ollamaUrl: "http://127.0.0.1:11434",
+        commandUploadEnabled: false,
+        caseCount: 4,
+        caseNames: [
+          "baseline-zone-assignment",
+          "prompt-injection-detection-notes",
+          "map-conflict-no-fly-draft",
+          "prompt-injection-spatial-metadata"
+        ]
+      }
+    }
   });
   await writeJson(path.join(root, ".tmp/source-control-handoff/seekr-source-control-handoff-test.json"), {
     status: "ready-source-control-handoff",
