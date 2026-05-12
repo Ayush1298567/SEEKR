@@ -108,7 +108,7 @@ export async function buildHandoffIndex(options: {
 
   const evidenceChain: HandoffIndexChainCheck[] = [
     validateAcceptance(acceptance),
-    validateRelease(release, releaseManifest, acceptance),
+    validateRelease(release, releaseManifest, acceptance, root),
     validateCompletionAudit(audit, auditManifest),
     validateSafetyScan(safety, safetyManifest, acceptance, root),
     validateApiProbe(apiProbe, apiProbeManifest, acceptance),
@@ -242,7 +242,7 @@ function validateAcceptance(acceptance: unknown): HandoffIndexChainCheck {
   };
 }
 
-function validateRelease(release: LatestJson | undefined, releaseManifest: unknown, acceptance: unknown): HandoffIndexChainCheck {
+function validateRelease(release: LatestJson | undefined, releaseManifest: unknown, acceptance: unknown, root: string): HandoffIndexChainCheck {
   if (!release) {
     return {
       id: "release-evidence",
@@ -254,20 +254,42 @@ function validateRelease(release: LatestJson | undefined, releaseManifest: unkno
   }
 
   const acceptanceRelease = isRecord(acceptance) && isRecord(acceptance.releaseChecksum) ? acceptance.releaseChecksum : {};
+  const expectedShaPath = replaceExtension(release.relativePath, ".sha256");
+  const expectedMarkdownPath = replaceExtension(release.relativePath, ".md");
   const manifestOk = isRecord(releaseManifest) &&
     releaseManifest.commandUploadEnabled === false &&
     typeof releaseManifest.overallSha256 === "string";
-  const checksumMatches = !isRecord(acceptanceRelease) ||
-    typeof acceptanceRelease.overallSha256 !== "string" ||
-    (isRecord(releaseManifest) && acceptanceRelease.overallSha256 === releaseManifest.overallSha256);
-  const ok = manifestOk && checksumMatches;
+  const problems: string[] = [];
+  if (!manifestOk) problems.push("latest release evidence must keep commandUploadEnabled false and include an overall SHA-256");
+  if (!isRecord(acceptanceRelease)) {
+    problems.push("acceptance status is missing release checksum evidence");
+  } else {
+    if (normalizeArtifactPath(root, acceptanceRelease.jsonPath) !== release.relativePath) {
+      problems.push("acceptance release checksum path does not point at the latest release evidence");
+    }
+    if (normalizeArtifactPath(root, acceptanceRelease.sha256Path) !== expectedShaPath) {
+      problems.push("acceptance release checksum SHA-256 path does not point at the latest release evidence");
+    }
+    if (normalizeArtifactPath(root, acceptanceRelease.markdownPath) !== expectedMarkdownPath) {
+      problems.push("acceptance release checksum Markdown path does not point at the latest release evidence");
+    }
+    if (acceptanceRelease.overallSha256 !== (isRecord(releaseManifest) ? releaseManifest.overallSha256 : undefined)) {
+      problems.push("acceptance release checksum SHA does not match latest release evidence");
+    }
+    if (Number(acceptanceRelease.fileCount) !== Number(isRecord(releaseManifest) ? releaseManifest.fileCount : undefined)) {
+      problems.push("acceptance release file count does not match latest release evidence");
+    }
+    if (Number(acceptanceRelease.totalBytes) !== Number(isRecord(releaseManifest) ? releaseManifest.totalBytes : undefined)) {
+      problems.push("acceptance release byte count does not match latest release evidence");
+    }
+  }
   return {
     id: "release-evidence",
     label: "Release evidence",
-    status: ok ? "pass" : "fail",
-    details: ok
-      ? `Latest release checksum evidence is ${release.relativePath}.`
-      : "Latest release evidence must keep commandUploadEnabled false, include an overall SHA-256, and match acceptance status when acceptance records a checksum.",
+    status: problems.length ? "fail" : "pass",
+    details: problems.length
+      ? problems.join("; ")
+      : `Latest release checksum evidence is ${release.relativePath} and matches acceptance status paths and metadata.`,
     evidence: [release.relativePath]
   };
 }

@@ -165,6 +165,31 @@ describe("handoff index", () => {
     expect(manifest.commandUploadEnabled).toBe(false);
   });
 
+  it("blocks when acceptance status embeds stale release evidence", async () => {
+    await writeFile(path.join(root, ".tmp/release-evidence/seekr-release-0.2.0-2026-05-09T19-30-00-000Z.json"), JSON.stringify({
+      commandUploadEnabled: false,
+      overallSha256: "b".repeat(64),
+      fileCount: 43,
+      totalBytes: 123999
+    }), "utf8");
+
+    const manifest = await buildHandoffIndex({
+      root,
+      generatedAt: "2026-05-09T20:00:00.000Z"
+    });
+
+    expect(manifest.status).toBe("blocked-local-alpha-handoff");
+    expect(manifest.localAlphaOk).toBe(false);
+    expect(manifest.validation.blockers).toEqual(expect.arrayContaining([
+      expect.stringContaining("acceptance release checksum path does not point at the latest release evidence"),
+      expect.stringContaining("acceptance release checksum SHA does not match latest release evidence"),
+      expect.stringContaining("acceptance release file count does not match latest release evidence"),
+      expect.stringContaining("acceptance release byte count does not match latest release evidence"),
+      expect.stringContaining("release path does not point at the latest release evidence")
+    ]));
+    expect(manifest.commandUploadEnabled).toBe(false);
+  });
+
   it("blocks when the demo package no longer points at the latest API probe evidence", async () => {
     await writeFile(path.join(root, ".tmp/api-probe/seekr-api-probe-2026-05-09T19-30-00-000Z.json"), JSON.stringify({
       ok: true,
@@ -246,6 +271,9 @@ async function seedHandoffEvidence(root: string) {
       caseNames: [...REQUIRED_STRICT_AI_SMOKE_CASES]
     },
     releaseChecksum: {
+      jsonPath: path.join(root, releasePath),
+      sha256Path: path.join(root, releasePath.replace(/\.json$/, ".sha256")),
+      markdownPath: path.join(root, releasePath.replace(/\.json$/, ".md")),
       overallSha256: releaseChecksum,
       fileCount: 42,
       totalBytes: 123456
