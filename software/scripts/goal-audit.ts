@@ -1224,7 +1224,7 @@ async function plugAndPlayReadinessItem(root: string, completionAudit: Completio
     details: problems.length
       ? problems.join("; ")
       : readinessWarnings.length
-        ? `Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, fresh-clone, acceptance, and review-bundle evidence with warning(s): ${readinessWarnings.join("; ")}.`
+        ? `Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, fresh-clone, acceptance, and review-bundle evidence with warning(s): ${sentenceList(readinessWarnings)}.`
       : "Plug-and-play readiness confirms local app, AI, API, QA, setup, local AI prepare, doctor, rehearsal-start smoke, fresh-clone, acceptance, and review-bundle evidence while preserving real-world blockers.",
     evidence: [
       readiness?.relativePath,
@@ -1255,6 +1255,10 @@ function plugAndPlayReadinessWarningDetails(manifest: unknown) {
       const details = typeof check.details === "string" && check.details.length ? check.details : "warning details unavailable";
       return `${id}: ${details}`;
     });
+}
+
+function sentenceList(values: string[]) {
+  return values.map((value) => value.trim().replace(/\.+$/u, "")).join("; ");
 }
 
 function artifactFreshnessProblem(label: string, manifest: unknown, acceptance: unknown) {

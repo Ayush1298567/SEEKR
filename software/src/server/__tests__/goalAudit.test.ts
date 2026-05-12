@@ -285,6 +285,7 @@ describe("goal audit", () => {
       status: "warn",
       details: expect.stringContaining("local-ports occupied")
     });
+    expect(manifest.promptToArtifactChecklist.find((item) => item.id === "plug-and-play-readiness")?.details).not.toContain("..");
   });
 
   it("fails local alpha when plug-and-play readiness hides operator-start port fallback diagnostics", async () => {
