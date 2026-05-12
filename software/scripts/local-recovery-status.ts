@@ -20,6 +20,18 @@ export interface LocalRecoveryStatusManifest {
   localRecoveryOk: boolean;
   complete: boolean;
   commandUploadEnabled: false;
+  sourceControl?: {
+    repositoryUrl?: string;
+    packageRepositoryUrl?: string;
+    configuredRemoteUrls?: string[];
+    localBranch?: string;
+    remoteDefaultBranch?: string;
+    remoteRefCount?: number;
+    blockedCheckCount?: number;
+    warningCheckCount?: number;
+    workingTreeClean?: boolean;
+    workingTreeStatusLineCount?: number;
+  };
   localHeadSha?: string;
   remoteDefaultBranchSha?: string;
   freshCloneHeadSha?: string;
@@ -113,6 +125,18 @@ export async function buildLocalRecoveryStatus(options: { root?: string; generat
     localRecoveryOk,
     complete,
     commandUploadEnabled: false,
+    sourceControl: {
+      repositoryUrl: stringOrUndefined(sourceControlManifest?.repositoryUrl),
+      packageRepositoryUrl: stringOrUndefined(sourceControlManifest?.packageRepositoryUrl),
+      configuredRemoteUrls: arrayOfStrings(sourceControlManifest?.configuredRemoteUrls),
+      localBranch: stringOrUndefined(sourceControlManifest?.localBranch),
+      remoteDefaultBranch: stringOrUndefined(sourceControlManifest?.remoteDefaultBranch),
+      remoteRefCount: numberOrUndefined(sourceControlManifest?.remoteRefCount),
+      blockedCheckCount: numberOrUndefined(sourceControlManifest?.blockedCheckCount),
+      warningCheckCount: numberOrUndefined(sourceControlManifest?.warningCheckCount),
+      workingTreeClean: booleanOrUndefined(sourceControlManifest?.workingTreeClean),
+      workingTreeStatusLineCount: numberOrUndefined(sourceControlManifest?.workingTreeStatusLineCount)
+    },
     localHeadSha: stringOrUndefined(sourceControlManifest?.localHeadSha) ?? stringOrUndefined(freshCloneManifest?.localHeadSha),
     remoteDefaultBranchSha: stringOrUndefined(sourceControlManifest?.remoteDefaultBranchSha),
     freshCloneHeadSha: stringOrUndefined(sourceControlManifest?.freshCloneHeadSha) ?? stringOrUndefined(freshCloneManifest?.cloneHeadSha),
@@ -176,6 +200,7 @@ export function localRecoveryStatusCliSummary(result: { manifest: LocalRecoveryS
     status: result.manifest.status,
     complete: result.manifest.complete,
     commandUploadEnabled: result.manifest.commandUploadEnabled,
+    sourceControl: result.manifest.sourceControl,
     localHeadSha: result.manifest.localHeadSha,
     remoteDefaultBranchSha: result.manifest.remoteDefaultBranchSha,
     freshCloneHeadSha: result.manifest.freshCloneHeadSha,
@@ -579,6 +604,16 @@ function renderMarkdown(manifest: LocalRecoveryStatusManifest) {
     `Local recovery ok: ${manifest.localRecoveryOk}`,
     `Complete: ${manifest.complete}`,
     `Command upload enabled: ${manifest.commandUploadEnabled}`,
+    manifest.sourceControl?.repositoryUrl ? `Repository URL: ${manifest.sourceControl.repositoryUrl}` : undefined,
+    manifest.sourceControl?.packageRepositoryUrl ? `Package repository URL: ${manifest.sourceControl.packageRepositoryUrl}` : undefined,
+    manifest.sourceControl?.configuredRemoteUrls?.length ? `Configured remotes: ${manifest.sourceControl.configuredRemoteUrls.join(", ")}` : undefined,
+    manifest.sourceControl?.localBranch ? `Local branch: ${manifest.sourceControl.localBranch}` : undefined,
+    manifest.sourceControl?.remoteDefaultBranch ? `Remote default branch: ${manifest.sourceControl.remoteDefaultBranch}` : undefined,
+    manifest.sourceControl?.remoteRefCount !== undefined ? `Remote ref count: ${manifest.sourceControl.remoteRefCount}` : undefined,
+    manifest.sourceControl?.blockedCheckCount !== undefined ? `Source-control blocked checks: ${manifest.sourceControl.blockedCheckCount}` : undefined,
+    manifest.sourceControl?.warningCheckCount !== undefined ? `Source-control warning checks: ${manifest.sourceControl.warningCheckCount}` : undefined,
+    manifest.sourceControl?.workingTreeClean !== undefined ? `Working tree clean: ${manifest.sourceControl.workingTreeClean}` : undefined,
+    manifest.sourceControl?.workingTreeStatusLineCount !== undefined ? `Working tree status lines: ${manifest.sourceControl.workingTreeStatusLineCount}` : undefined,
     manifest.localHeadSha ? `Local HEAD: ${manifest.localHeadSha}` : undefined,
     manifest.remoteDefaultBranchSha ? `Remote default SHA: ${manifest.remoteDefaultBranchSha}` : undefined,
     manifest.freshCloneHeadSha ? `Fresh clone SHA: ${manifest.freshCloneHeadSha}` : undefined,

@@ -33,6 +33,18 @@ describe("local recovery status", () => {
     expect(result.manifest.localRecoveryOk).toBe(true);
     expect(result.manifest.complete).toBe(false);
     expect(result.manifest.commandUploadEnabled).toBe(false);
+    expect(result.manifest.sourceControl).toMatchObject({
+      repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+      packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+      configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+      localBranch: "main",
+      remoteDefaultBranch: "main",
+      remoteRefCount: 1,
+      blockedCheckCount: 0,
+      warningCheckCount: 0,
+      workingTreeClean: true,
+      workingTreeStatusLineCount: 0
+    });
     expect(result.manifest.localHeadSha).toBe(HEAD_SHA);
     expect(result.manifest.remoteDefaultBranchSha).toBe(HEAD_SHA);
     expect(result.manifest.freshCloneHeadSha).toBe(HEAD_SHA);
@@ -61,6 +73,18 @@ describe("local recovery status", () => {
     });
     expect(result.manifest.nextCommands).toContain("npm run plug-and-play");
     expect(localRecoveryStatusCliSummary(result)).toMatchObject({
+      sourceControl: {
+        repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+        packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+        configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+        localBranch: "main",
+        remoteDefaultBranch: "main",
+        remoteRefCount: 1,
+        blockedCheckCount: 0,
+        warningCheckCount: 0,
+        workingTreeClean: true,
+        workingTreeStatusLineCount: 0
+      },
       localHeadSha: HEAD_SHA,
       remoteDefaultBranchSha: HEAD_SHA,
       freshCloneHeadSha: HEAD_SHA,
@@ -89,6 +113,8 @@ describe("local recovery status", () => {
     });
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Local Recovery Status");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Repository URL: https://github.com/Ayush1298567/SEEKR");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Working tree clean: true");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("listener 123 cwd ~/Ayush/Prophet/prophet-console");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Strict AI provider: ollama");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Review bundle checked files: 42");
@@ -411,10 +437,17 @@ async function seedRecoveryArtifacts(root: string) {
     status: "ready-source-control-handoff",
     ready: true,
     commandUploadEnabled: false,
+    repositoryUrl: "https://github.com/Ayush1298567/SEEKR",
+    packageRepositoryUrl: "git+https://github.com/Ayush1298567/SEEKR.git",
+    configuredRemoteUrls: ["https://github.com/Ayush1298567/SEEKR.git"],
+    localBranch: "main",
+    remoteDefaultBranch: "main",
+    remoteRefCount: 1,
     localHeadSha: HEAD_SHA,
     remoteDefaultBranchSha: HEAD_SHA,
     freshCloneHeadSha: HEAD_SHA,
     workingTreeClean: true,
+    workingTreeStatusLineCount: 0,
     blockedCheckCount: 0,
     warningCheckCount: 0
   });
