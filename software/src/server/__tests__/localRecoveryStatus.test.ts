@@ -109,7 +109,19 @@ describe("local recovery status", () => {
         checkedFileCount: 42,
         secretScanStatus: "pass",
         secretFindingCount: 0
-      }
+      },
+      attentionChecks: [
+        expect.objectContaining({
+          id: "plug-and-play-readiness",
+          status: "warn",
+          details: expect.stringContaining("Plug-and-play readiness is ready-local-plug-and-play-real-world-blocked")
+        }),
+        expect.objectContaining({
+          id: "goal-audit",
+          status: "blocked",
+          details: expect.stringContaining("8 remaining real-world blocker")
+        })
+      ]
     });
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Local Recovery Status");
@@ -134,6 +146,28 @@ describe("local recovery status", () => {
     expect(manifest.checks.find((check) => check.id === "fresh-clone-ai-proof")).toMatchObject({
       status: "fail",
       details: expect.stringContaining("Fresh clone proof is missing")
+    });
+  });
+
+  it("prints failing recovery checks in the terminal summary", async () => {
+    await rm(path.join(root, ".tmp/fresh-clone-smoke"), { recursive: true, force: true });
+
+    const result = await writeLocalRecoveryStatus({
+      root,
+      generatedAt: GENERATED_AT
+    });
+
+    expect(result.manifest.status).toBe("blocked-local-recovery");
+    expect(localRecoveryStatusCliSummary(result)).toMatchObject({
+      ok: false,
+      attentionChecks: expect.arrayContaining([
+        expect.objectContaining({
+          id: "fresh-clone-ai-proof",
+          status: "fail",
+          details: expect.stringContaining("Fresh clone proof is missing"),
+          evidence: [".tmp/fresh-clone-smoke"]
+        })
+      ])
     });
   });
 

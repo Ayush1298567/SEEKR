@@ -210,6 +210,14 @@ export function localRecoveryStatusCliSummary(result: { manifest: LocalRecoveryS
     reviewBundle: result.manifest.reviewBundle,
     remainingRealWorldBlockerCount: result.manifest.remainingRealWorldBlockerCount,
     summary: result.manifest.summary,
+    attentionChecks: result.manifest.checks
+      .filter((check) => check.status !== "pass")
+      .map((check) => ({
+        id: check.id,
+        status: check.status,
+        details: check.details,
+        evidence: check.evidence
+      })),
     nextCommands: result.manifest.nextCommands,
     jsonPath: result.jsonPath,
     markdownPath: result.markdownPath
