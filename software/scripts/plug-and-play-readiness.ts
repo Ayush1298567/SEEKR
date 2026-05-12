@@ -140,6 +140,10 @@ export interface PlugAndPlayReadinessManifest {
     fail: number;
     blocked: number;
   };
+  semanticValidation?: {
+    ok: boolean;
+    problems: string[];
+  };
   checks: PlugAndPlayCheck[];
   remainingRealWorldBlockerIds: string[];
   remainingRealWorldBlockers: string[];
@@ -568,16 +572,23 @@ export async function writePlugAndPlayReadiness(options: Parameters<typeof build
     acceptanceGeneratedAtMs: isRecord(acceptance) ? timeMs(acceptance.generatedAt) : undefined,
     expectedHeadSha: manifest.sourceControl.localHeadSha
   });
+  const persistedManifest: PlugAndPlayReadinessManifest = {
+    ...manifest,
+    semanticValidation: {
+      ok: validation.ok,
+      problems: validation.problems
+    }
+  };
   const safeTimestamp = safeIsoTimestampForFileName(manifest.generatedAt);
   const baseName = `seekr-plug-and-play-readiness-${safeTimestamp}`;
   const jsonPath = path.join(outDir, `${baseName}.json`);
   const markdownPath = path.join(outDir, `${baseName}.md`);
 
   await mkdir(outDir, { recursive: true });
-  await writeFile(jsonPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  await writeFile(markdownPath, renderMarkdown(manifest), "utf8");
+  await writeFile(jsonPath, `${JSON.stringify(persistedManifest, null, 2)}\n`, "utf8");
+  await writeFile(markdownPath, renderMarkdown(persistedManifest), "utf8");
 
-  return { manifest, validation, jsonPath, markdownPath };
+  return { manifest: persistedManifest, validation, jsonPath, markdownPath };
 }
 
 async function commandSurfaceCheck(root: string): Promise<PlugAndPlayCheck> {
@@ -1514,6 +1525,8 @@ function renderMarkdown(manifest: PlugAndPlayReadinessManifest) {
     `Local plug-and-play OK: ${manifest.localPlugAndPlayOk}`,
     `Complete: ${manifest.complete}`,
     "Command upload enabled: false",
+    manifest.semanticValidation ? `Semantic validation: ${manifest.semanticValidation.ok}` : undefined,
+    manifest.semanticValidation?.problems.length ? `Semantic validation problems: ${manifest.semanticValidation.problems.join("; ")}` : undefined,
     "",
     "AI:",
     "",

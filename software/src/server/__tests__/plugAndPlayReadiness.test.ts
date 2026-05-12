@@ -1699,10 +1699,14 @@ describe("plug-and-play readiness audit", () => {
     });
 
     expect(result.validation).toMatchObject({ ok: true, problems: [] });
+    expect(result.manifest.semanticValidation).toEqual({ ok: true, problems: [] });
     expect(result.jsonPath).toContain(`${path.sep}.tmp${path.sep}plug-and-play-readiness${path.sep}`);
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"commandUploadEnabled\": false");
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"semanticValidation\"");
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"ok\": true");
     await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"remainingRealWorldBlockerCount\": 8");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("SEEKR Plug-And-Play Readiness");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Semantic validation: true");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Operator start ports");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Fresh clone");
     await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Source-control local HEAD");
@@ -1719,10 +1723,14 @@ describe("plug-and-play readiness audit", () => {
     });
 
     expect(result.manifest.localPlugAndPlayOk).toBe(true);
+    expect(result.manifest.semanticValidation?.ok).toBe(false);
     expect(result.validation.ok).toBe(false);
     expect(result.validation.problems).toEqual(expect.arrayContaining([
       expect.stringContaining("newer than or equal to the current acceptance record")
     ]));
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("\"semanticValidation\"");
+    await expect(readFile(result.jsonPath, "utf8")).resolves.toContain("newer than or equal to the current acceptance record");
+    await expect(readFile(result.markdownPath, "utf8")).resolves.toContain("Semantic validation: false");
   });
 });
 
